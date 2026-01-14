@@ -1,0 +1,59 @@
+# Java compiled files
+*.class
+*.jar
+*.war
+*.ear
+target/
+build/
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.eclipse/
+.settings/
+.classpath
+.project
+
+# Logs
+logs/
+*.log
+
+# Environment and secrets
+.env
+*.env
+config/*.json
+config/*.properties
+!config/example.env
+
+# Database
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*~
+
+# Test coverage
+coverage/
+*.coverage
+
+# Build artifacts
+dist/
+bin/
+
+# Package managers
+node_modules/
+package-lock.json

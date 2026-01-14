@@ -1,0 +1,330 @@
+================================================================================
+                         ANNU v04 ARCHITECTURE FLOW
+                    Multi-User, Multi-Broker Trading System
+================================================================================
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              v04 ARCHITECTURE                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+DATA BROKER (Admin)                    EXEC BROKERS (Per User)
+      │                                     │
+      │ ticks/candles                       │ orders/fills
+      ▼                                     ▼
+┌──────────────┐                    ┌──────────────────────────┐
+│ SignalService│                    │ User1 → BrokerA (EXEC)   │
+│  (generates  │                    │ User1 → BrokerB (EXEC)   │
+│   ONCE)      │                    │ User2 → BrokerC (EXEC)   │
+└──────┬───────┘                    │ User2 → BrokerA (EXEC)   │
+       │                            └──────────────────────────┘
+       │ SIGNAL_GENERATED (GLOBAL)            ▲
+       ▼                                      │
+┌──────────────────────────────────────────────────────────────┐
+│                  ExecutionOrchestrator                        │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │  for each active (userId, brokerId) in user_brokers:    │ │
+│  │    └─► ValidationService.validate(signal, user, broker) │ │
+│  │          │                                               │ │
+│  │          ├─► PASS → INTENT_APPROVED (USER_BROKER scope) │ │
+│  │          │          └─► place order via broker adapter  │ │
+│  │          │                                               │ │
+│  │          └─► FAIL → INTENT_REJECTED (USER_BROKER scope) │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     EVENT SCOPING                             │
+│                                                               │
+│  GLOBAL      → All users see (SIGNAL_GENERATED, TICK, etc)   │
+│  USER        → Only target user (PORTFOLIO_UPDATED)           │
+│  USER_BROKER → Only target user+broker (ORDER_FILLED, etc)    │
+│                                                               │
+│  WS:  Filtered by session.userId before delivery              │
+│  API: Filtered by Authorization header / X-User-Id            │
+└──────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                              DETAILED FLOW
+================================================================================
+
+1. MARKET DATA FLOW
+───────────────────
+   DATA Broker (Admin-owned, single source)
+        │
+        ├─► Ticks / LTP
+        ├─► Candles (HTF 125min, ITF 25min, LTF 1min)
+        └─► Market Status
+        │
+        ▼
+   MarketDataStore (in-memory cache)
+
+
+2. SIGNAL GENERATION (Single Source)
+────────────────────────────────────
+   MarketDataStore
+        │
+        ▼
+   ┌─────────────────────────────────────────────────────┐
+   │              SignalService                          │
+   │  • MTF Analysis (HTF/ITF/LTF zones)                │
+   │  • Triple Confluence Detection                      │
+   │  • P(win), P(fill), Kelly calculation              │
+   │  • Entry zone identification                        │
+   └─────────────────────────────────────────────────────┘
+        │
+        ▼
+   SIGNAL_GENERATED event (scope: GLOBAL)
+   {
+     signalId, symbol, direction,
+     htfZone, itfZone, ltfZone,
+     confluenceType: "TRIPLE",
+     pWin, pFill, kelly,
+     refPrice, effectiveFloor, effectiveCeiling
+   }
+
+
+3. SIGNAL FAN-OUT (Per User-Broker)
+───────────────────────────────────
+   SIGNAL_GENERATED
+        │
+        ▼
+   ┌─────────────────────────────────────────────────────┐
+   │           ExecutionOrchestrator                     │
+   │                                                     │
+   │   Query: SELECT * FROM user_brokers                 │
+   │          WHERE role = 'EXEC'                        │
+   │            AND enabled = true                       │
+   │            AND status = 'ACTIVE'                    │
+   │                                                     │
+   │   Result: [(U1, BrokerA), (U1, BrokerB),           │
+   │            (U2, BrokerC), (U2, BrokerA)]           │
+   └─────────────────────────────────────────────────────┘
+        │
+        │ Parallel validation
+        ▼
+   ┌─────────────────────────────────────────────────────┐
+   │  (U1, BrokerA) ─► ValidationService.validate()     │
+   │  (U1, BrokerB) ─► ValidationService.validate()     │
+   │  (U2, BrokerC) ─► ValidationService.validate()     │
+   │  (U2, BrokerA) ─► ValidationService.validate()     │
+   └─────────────────────────────────────────────────────┘
+
+
+4. VALIDATION (Per User-Broker Combo)
+─────────────────────────────────────
+   ┌─────────────────────────────────────────────────────┐
+   │            ValidationService.validate()             │
+   │                                                     │
+   │  Inputs:                                            │
+   │    • Signal (refPrice, pWin, kelly, etc)           │
+   │    • UserBroker (capital, limits, allowed symbols) │
+   │    • UserContext (exposure, open trades, losses)   │
+   │                                                     │
+   │  Checks:                                            │
+   │    □ Broker connected?                             │
+   │    □ Symbol allowed?                               │
+   │    □ Triple confluence present?                    │
+   │    □ P(win) >= 0.35?                              │
+   │    □ Kelly >= 0.02?                               │
+   │    □ Capital available?                           │
+   │    □ Within exposure limits?                      │
+   │    □ Max open trades not reached?                 │
+   │    □ Trade log loss >= -8%?                       │
+   │    □ Portfolio log loss >= -5%?                   │
+   │    □ Daily/weekly loss limits OK?                 │
+   │    □ Not in cooldown?                             │
+   │                                                     │
+   │  If ALL pass:                                       │
+   │    Calculate: qty, value, orderType, productType   │
+   │    Return: ValidationResult(passed=true, ...)      │
+   │                                                     │
+   │  If ANY fail:                                       │
+   │    Return: ValidationResult(passed=false, errors)  │
+   └─────────────────────────────────────────────────────┘
+
+
+5. TRADE INTENT CREATION
+────────────────────────
+   ValidationResult
+        │
+        ├─► PASSED
+        │     │
+        │     ▼
+        │   TradeIntent {
+        │     intentId, signalId, userId, brokerId,
+        │     validationPassed: true,
+        │     calculatedQty, calculatedValue,
+        │     orderType, productType,
+        │     status: APPROVED
+        │   }
+        │     │
+        │     ▼
+        │   INTENT_APPROVED event (scope: USER_BROKER)
+        │
+        └─► FAILED
+              │
+              ▼
+            TradeIntent {
+              intentId, signalId, userId, brokerId,
+              validationPassed: false,
+              validationErrors: [INSUFFICIENT_CAPITAL, ...],
+              status: REJECTED
+            }
+              │
+              ▼
+            INTENT_REJECTED event (scope: USER_BROKER)
+
+
+6. ORDER EXECUTION (Approved Intents Only)
+──────────────────────────────────────────
+   INTENT_APPROVED
+        │
+        ▼
+   ┌─────────────────────────────────────────────────────┐
+   │              Broker Adapter                         │
+   │  (Zerodha / Fyers / Dhan / Angel)                  │
+   │                                                     │
+   │  place_order(symbol, qty, price, product)          │
+   └─────────────────────────────────────────────────────┘
+        │
+        ├─► Success
+        │     │
+        │     ▼
+        │   ORDER_PLACED → ORDER_FILLED → TRADE_CREATED
+        │   (all scope: USER_BROKER)
+        │
+        └─► Failure
+              │
+              ▼
+            ORDER_REJECTED / INTENT_FAILED
+            (scope: USER_BROKER)
+
+
+================================================================================
+                           EVENT SCOPING MATRIX
+================================================================================
+
+┌─────────────────────┬────────┬──────────┬─────────────┬──────────────────────┐
+│ Event Type          │ Scope  │ user_id  │ broker_id   │ Who Sees It          │
+├─────────────────────┼────────┼──────────┼─────────────┼──────────────────────┤
+│ TICK                │ GLOBAL │ null     │ null        │ All users            │
+│ CANDLE              │ GLOBAL │ null     │ null        │ All users            │
+│ SIGNAL_GENERATED    │ GLOBAL │ null     │ null        │ All users            │
+│ SIGNAL_EXPIRED      │ GLOBAL │ null     │ null        │ All users            │
+│ MARKET_STATUS       │ GLOBAL │ null     │ null        │ All users            │
+│ SYSTEM_STATUS       │ GLOBAL │ null     │ null        │ All users            │
+├─────────────────────┼────────┼──────────┼─────────────┼──────────────────────┤
+│ PORTFOLIO_UPDATED   │ USER   │ U1       │ null        │ Only U1              │
+│ CAPITAL_UPDATE      │ USER   │ U1       │ null        │ Only U1              │
+│ ALERT               │ USER   │ U1       │ null        │ Only U1              │
+├─────────────────────┼────────┼──────────┼─────────────┼──────────────────────┤
+│ INTENT_APPROVED     │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+│ INTENT_REJECTED     │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+│ ORDER_CREATED       │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+│ ORDER_FILLED        │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+│ TRADE_CREATED       │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+│ TRADE_CLOSED        │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+│ VALIDATION_FAILED   │ U_B    │ U1       │ BrokerA     │ Only U1 (BrokerA)    │
+└─────────────────────┴────────┴──────────┴─────────────┴──────────────────────┘
+
+U_B = USER_BROKER
+
+
+================================================================================
+                           DATABASE SCHEMA
+================================================================================
+
+┌─────────────┐     ┌─────────────┐     ┌───────────────┐
+│   users     │     │   brokers   │     │  user_brokers │
+├─────────────┤     ├─────────────┤     ├───────────────┤
+│ user_id  PK │◄────│ broker_id PK│◄────│ user_broker_id│
+│ email       │     │ broker_code │     │ user_id    FK │
+│ display_name│     │ broker_name │     │ broker_id  FK │
+│ role        │     │ adapter_cls │     │ role (DATA/   │
+│ status      │     │ config      │     │       EXEC)   │
+└─────────────┘     └─────────────┘     │ credentials   │
+                                        │ capital_alloc │
+                                        │ max_exposure  │
+                                        │ enabled       │
+                                        └───────────────┘
+                                               │
+                    ┌──────────────────────────┼────────────────────┐
+                    ▼                          ▼                    ▼
+            ┌─────────────┐           ┌──────────────┐     ┌─────────────┐
+            │   signals   │           │ trade_intents│     │   trades    │
+            ├─────────────┤           ├──────────────┤     ├─────────────┤
+            │ signal_id PK│◄──────────│ signal_id FK │     │ trade_id PK │
+            │ symbol      │           │ intent_id PK │     │ signal_id FK│
+            │ direction   │           │ user_id   FK │     │ intent_id FK│
+            │ ref_price   │           │ broker_id FK │     │ user_id  FK │
+            │ confluence  │           │ validation_  │     │ broker_id FK│
+            │ pWin, kelly │           │   passed     │     │ entry_price │
+            └─────────────┘           │ calc_qty     │     │ entry_qty   │
+                                      │ status       │     │ status      │
+                                      └──────────────┘     └─────────────┘
+                                               │
+                                               ▼
+                                      ┌──────────────┐
+                                      │ trade_events │
+                                      ├──────────────┤
+                                      │ seq       PK │
+                                      │ event_type   │
+                                      │ scope        │
+                                      │ user_id   FK │
+                                      │ broker_id FK │
+                                      │ payload JSONB│
+                                      │ signal_id    │
+                                      │ intent_id    │
+                                      │ trade_id     │
+                                      └──────────────┘
+
+
+================================================================================
+                           API & WEBSOCKET
+================================================================================
+
+HTTP Endpoints (all require auth except /health):
+─────────────────────────────────────────────────
+  GET  /api/health                    → System health
+  GET  /api/bootstrap                 → User info, portfolio, brokers
+  GET  /api/events?afterSeq=0         → Events (filtered by user scope)
+  GET  /api/events?userBrokerId=UB1   → Events for specific broker
+  GET  /api/brokers                   → User's broker connections
+  GET  /api/signals                   → Recent signals
+  GET  /api/intents                   → User's trade intents
+
+WebSocket (ws://host:port/ws?token=xxx):
+────────────────────────────────────────
+  Client → Server:
+    {"action":"subscribe","topics":["SIGNAL_GENERATED","TRADE_CREATED"]}
+    {"action":"subscribe","brokers":["UB1","UB2"]}
+    {"action":"ping","nonce":"123"}
+
+  Server → Client:
+    {"type":"ACK","payload":{...},"ts":"...","seq":1}
+    {"type":"BATCH","payload":{"events":[...]},"ts":"...","seq":2}
+
+  Filtering:
+    • GLOBAL events → All authenticated users
+    • USER events → Only if event.userId == session.userId
+    • USER_BROKER events → Only if userId matches AND broker subscribed
+
+
+================================================================================
+                           KEY GUARANTEES
+================================================================================
+
+  ✓ No event leaks      Events filtered by scope before delivery
+  ✓ Single signal       One DATA broker → one signal generation
+  ✓ Independent trades  Each user-broker validated/executed independently
+  ✓ Append-only log     PostgreSQL triggers block UPDATE/DELETE
+  ✓ Audit trail         All events logged to trade_events_audit
+  ✓ Resync capability   GET /api/events?afterSeq=<lastSeen>
+
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================
