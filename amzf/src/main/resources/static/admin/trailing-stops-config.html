@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trailing Stops Configuration - AnnuPaper Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .config-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .config-section h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #555;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .grid-2col {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+
+        .preview-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .preview-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #ffeaa7;
+        }
+
+        .preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .preview-label {
+            color: #856404;
+            font-weight: 500;
+        }
+
+        .preview-value {
+            color: #333;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Trailing Stops Configuration</h1>
+        <p class="subtitle">Configure dynamic stop-loss parameters for your trading strategy</p>
+
+        <div id="statusMessage" class="status-message"></div>
+
+        <form id="trailingStopsForm">
+            <!-- Activation Threshold -->
+            <div class="config-section">
+                <h2>🎯 Activation Threshold</h2>
+                <div class="form-group">
+                    <label for="activationPercent">
+                        Activation Threshold (%)
+                    </label>
+                    <input
+                        type="number"
+                        id="activationPercent"
+                        name="activationPercent"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value="1.0"
+                        required
+                    />
+                    <p class="help-text">
+                        Trailing stop activates when price moves this % in favorable direction from entry.
+                        Example: 1.0% means activate after 1% profit.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Trailing Distance -->
+            <div class="config-section">
+                <h2>📏 Trailing Distance</h2>
+                <div class="form-group">
+                    <label for="trailingPercent">
+                        Trailing Distance (%)
+                    </label>
+                    <input
+                        type="number"
+                        id="trailingPercent"
+                        name="trailingPercent"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value="0.5"
+                        required
+                    />
+                    <p class="help-text">
+                        How far behind the highest price should the stop trail.
+                        Example: 0.5% means stop trails 0.5% below highest reached price.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Trailing Strategy -->
+            <div class="config-section">
+                <h2>⚙️ Strategy Settings</h2>
+                <div class="grid-2col">
+                    <div class="form-group">
+                        <label for="updateFrequency">
+                            Update Frequency
+                        </label>
+                        <select id="updateFrequency" name="updateFrequency">
+                            <option value="TICK">Every Tick</option>
+                            <option value="BRICK">On Brick Completion</option>
+                            <option value="CANDLE">On Candle Close</option>
+                        </select>
+                        <p class="help-text">
+                            How often to update the trailing stop price.
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="minMovePercent">
+                            Minimum Move to Update (%)
+                        </label>
+                        <input
+                            type="number"
+                            id="minMovePercent"
+                            name="minMovePercent"
+                            min="0"
+                            max="10"
+                            step="0.01"
+                            value="0.1"
+                        />
+                        <p class="help-text">
+                            Only update stop if price moved at least this %.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Management -->
+            <div class="config-section">
+                <h2>🛡️ Risk Management</h2>
+                <div class="grid-2col">
+                    <div class="form-group">
+                        <label for="maxLossPercent">
+                            Maximum Loss (%)
+                        </label>
+                        <input
+                            type="number"
+                            id="maxLossPercent"
+                            name="maxLossPercent"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value="2.0"
+                        />
+                        <p class="help-text">
+                            Absolute max loss before stop (safety net).
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lockProfitPercent">
+                            Lock Profit At (%)
+                        </label>
+                        <input
+                            type="number"
+                            id="lockProfitPercent"
+                            name="lockProfitPercent"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value="3.0"
+                        />
+                        <p class="help-text">
+                            Once price reaches this profit, lock in minimum profit.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Preview -->
+            <div class="preview-box">
+                <h3>Configuration Preview</h3>
+                <div class="preview-item">
+                    <span class="preview-label">Activation:</span>
+                    <span class="preview-value" id="previewActivation">1.0%</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Trailing Distance:</span>
+                    <span class="preview-value" id="previewDistance">0.5%</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Update Frequency:</span>
+                    <span class="preview-value" id="previewFrequency">Every Tick</span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Max Loss:</span>
+                    <span class="preview-value" id="previewMaxLoss">2.0%</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button type="button" class="btn-secondary" onclick="resetToDefaults()">
+                    Reset to Defaults
+                </button>
+                <button type="submit" class="btn-primary">
+                    Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Update preview on form change
+        document.getElementById('trailingStopsForm').addEventListener('input', updatePreview);
+        document.getElementById('trailingStopsForm').addEventListener('change', updatePreview);
+
+        function updatePreview() {
+            const activationPercent = document.getElementById('activationPercent').value;
+            const trailingPercent = document.getElementById('trailingPercent').value;
+            const updateFrequency = document.getElementById('updateFrequency').value;
+            const maxLossPercent = document.getElementById('maxLossPercent').value;
+
+            document.getElementById('previewActivation').textContent = activationPercent + '%';
+            document.getElementById('previewDistance').textContent = trailingPercent + '%';
+            document.getElementById('previewFrequency').textContent = getFrequencyText(updateFrequency);
+            document.getElementById('previewMaxLoss').textContent = maxLossPercent + '%';
+        }
+
+        function getFrequencyText(value) {
+            const map = {
+                'TICK': 'Every Tick',
+                'BRICK': 'On Brick Completion',
+                'CANDLE': 'On Candle Close'
+            };
+            return map[value] || value;
+        }
+
+        function resetToDefaults() {
+            document.getElementById('activationPercent').value = 1.0;
+            document.getElementById('trailingPercent').value = 0.5;
+            document.getElementById('updateFrequency').value = 'TICK';
+            document.getElementById('minMovePercent').value = 0.1;
+            document.getElementById('maxLossPercent').value = 2.0;
+            document.getElementById('lockProfitPercent').value = 3.0;
+            updatePreview();
+            showMessage('Configuration reset to defaults', 'success');
+        }
+
+        document.getElementById('trailingStopsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const config = {
+                activationPercent: parseFloat(document.getElementById('activationPercent').value),
+                trailingPercent: parseFloat(document.getElementById('trailingPercent').value),
+                updateFrequency: document.getElementById('updateFrequency').value,
+                minMovePercent: parseFloat(document.getElementById('minMovePercent').value),
+                maxLossPercent: parseFloat(document.getElementById('maxLossPercent').value),
+                lockProfitPercent: parseFloat(document.getElementById('lockProfitPercent').value)
+            };
+
+            try {
+                const response = await fetch('/api/admin/trailing-stops/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    showMessage('✅ Configuration saved successfully!', 'success');
+                } else {
+                    const error = await response.text();
+                    showMessage('❌ Error: ' + error, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ Network error: ' + error.message, 'error');
+            }
+        });
+
+        function showMessage(text, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = text;
+            statusDiv.className = 'status-message ' + type;
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Initialize preview on load
+        updatePreview();
+
+        // Load existing configuration on page load
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch('/api/admin/trailing-stops/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    document.getElementById('activationPercent').value = config.activationPercent || 1.0;
+                    document.getElementById('trailingPercent').value = config.trailingPercent || 0.5;
+                    document.getElementById('updateFrequency').value = config.updateFrequency || 'TICK';
+                    document.getElementById('minMovePercent').value = config.minMovePercent || 0.1;
+                    document.getElementById('maxLossPercent').value = config.maxLossPercent || 2.0;
+                    document.getElementById('lockProfitPercent').value = config.lockProfitPercent || 3.0;
+                    updatePreview();
+                }
+            } catch (error) {
+                console.log('No existing configuration found, using defaults');
+            }
+        });
+    </script>
+</body>
+</html>

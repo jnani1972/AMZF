@@ -1,0 +1,68 @@
+# Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Node.js / React / Vite
+node_modules/
+dist/
+.env
+.env.local
+.env.production
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend build output
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/
+
+# Database
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials (IMPORTANT - never commit)
+*credentials*.json
+*secrets*.json
+.env
