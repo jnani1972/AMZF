@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import in.annupaper.auth.AuthService;
 import in.annupaper.auth.JwtService;
 import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.infrastructure.broker.BrokerFactory;
 import in.annupaper.domain.broker.BrokerIds;
 import in.annupaper.domain.common.EventType;
 import in.annupaper.domain.data.TimeframeType;
@@ -105,6 +106,13 @@ public final class App {
         DataSource dataSource = createDataSource();
 
         // ═══════════════════════════════════════════════════════════════
+        // Prometheus Metrics (Production Monitoring)
+        // ═══════════════════════════════════════════════════════════════
+        in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics metrics =
+            new in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics();
+        log.info("✓ Prometheus metrics initialized");
+
+        // ═══════════════════════════════════════════════════════════════
         // MTF Config Migration (runs on startup)
         // ═══════════════════════════════════════════════════════════════
         in.annupaper.migration.MtfConfigMigration mtfMigration =
@@ -177,7 +185,10 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Broker adapters (with session repository for OAuth tokens)
         // ═══════════════════════════════════════════════════════════════
-        BrokerAdapterFactory brokerFactory = new BrokerAdapterFactory(sessionRepo, userBrokerRepo);
+        BrokerAdapterFactory legacyBrokerFactory = new BrokerAdapterFactory(sessionRepo, userBrokerRepo);
+
+        // ✅ Phase 2: New BrokerFactory for dual-broker architecture
+        BrokerFactory brokerFactory = new BrokerFactory(sessionRepo, metrics);
 
         // ═══════════════════════════════════════════════════════════════
         // Token Refresh Watchdog (Auto-reload tokens on refresh)
@@ -197,7 +208,7 @@ public final class App {
                     (userBrokerId, newToken, sessionId) -> {
                         log.info("⚡ Token refresh event: userBrokerId={}, session={}",
                                 userBrokerId, sessionId);
-                        brokerFactory.reloadToken(userBrokerId, newToken, sessionId);
+                        legacyBrokerFactory.reloadToken(userBrokerId, newToken, sessionId);
                     });
             }
 
@@ -213,7 +224,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         EventService eventService = new EventService(eventRepo, wsHub);
         in.annupaper.service.InstrumentService instrumentService =
-            new in.annupaper.service.InstrumentService(instrumentRepo, brokerFactory);
+            new in.annupaper.service.InstrumentService(instrumentRepo, brokerFactory, legacyBrokerFactory);
 
         // ═══════════════════════════════════════════════════════════════
         // Startup: Download instruments from all brokers
@@ -230,14 +241,14 @@ public final class App {
         // Candle Services (with backfill and aggregation)
         // ═══════════════════════════════════════════════════════════════
         CandleStore candleStore = new CandleStore(candleRepo);
-        CandleFetcher candleFetcher = new CandleFetcher(brokerFactory, candleStore);
+        CandleFetcher candleFetcher = new CandleFetcher(brokerFactory, legacyBrokerFactory, candleStore);
         CandleReconciler candleReconciler = new CandleReconciler(candleFetcher, candleStore);
 
         // HistoryBackfiller dynamically fetches data broker adapter
         in.annupaper.service.candle.HistoryBackfiller historyBackfiller =
             new in.annupaper.service.candle.HistoryBackfiller(
                 candleStore,
-                brokerFactory,
+                legacyBrokerFactory,
                 userBrokerRepo,
                 brokerRepo
             );
@@ -350,7 +361,7 @@ public final class App {
             tradeRepo,
             signalRepo,
             userBrokerRepo,
-            brokerFactory,
+            legacyBrokerFactory,
             eventService,
             brickTracker
         );
@@ -383,7 +394,7 @@ public final class App {
         // ✅ P0 fix: Added tradeManagementService for single-writer enforcement
         in.annupaper.service.execution.ExitOrderExecutionService exitOrderExecutionService =
             new in.annupaper.service.execution.ExitOrderExecutionService(
-                exitIntentRepo, tradeRepo, tradeManagementService, userBrokerRepo, brokerFactory, eventService);
+                exitIntentRepo, tradeRepo, tradeManagementService, userBrokerRepo, legacyBrokerFactory, eventService);
 
         // ═══════════════════════════════════════════════════════════════
         // Exit Order Processor (Polls for APPROVED exit intents)
@@ -424,7 +435,7 @@ public final class App {
         // See: COMPREHENSIVE_IMPLEMENTATION_PLAN.md Phase 1, P0-C
         in.annupaper.service.execution.PendingOrderReconciler pendingOrderReconciler =
             new in.annupaper.service.execution.PendingOrderReconciler(
-                tradeRepo, userBrokerRepo, brokerFactory);
+                tradeRepo, userBrokerRepo, legacyBrokerFactory);
 
         // ═══════════════════════════════════════════════════════════════
         // Exit Order Reconciler (tracks exit orders to completion)
@@ -435,7 +446,7 @@ public final class App {
         // ✅ P0 fix: Added tradeManagementService for single-writer enforcement
         in.annupaper.service.execution.ExitOrderReconciler exitOrderReconciler =
             new in.annupaper.service.execution.ExitOrderReconciler(
-                exitIntentRepo, tradeRepo, tradeManagementService, userBrokerRepo, brokerFactory, eventService);
+                exitIntentRepo, tradeRepo, tradeManagementService, userBrokerRepo, legacyBrokerFactory, eventService);
 
         // ═══════════════════════════════════════════════════════════════
         // MTF Config Service
@@ -511,7 +522,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         in.annupaper.service.WatchdogManager watchdogManager = new in.annupaper.service.WatchdogManager(
             dataSource,
-            brokerFactory,
+            legacyBrokerFactory,
             userBrokerRepo,
             brokerRepo,
             watchlistRepo,
@@ -540,7 +551,7 @@ public final class App {
             userBrokerRepo,
             brokerRepo,
             watchlistRepo,
-            brokerFactory,
+            legacyBrokerFactory,
             tickCandleBuilder,
             exitSignalService,
             recoveryManager,
@@ -594,7 +605,7 @@ public final class App {
         if (!collectorMode) {
             // ApiHandlers api = new ApiHandlers(eventRepo, tokenValidator);
             ApiHandlers api = new ApiHandlers(eventRepo, tokenValidator, jwtService, adminService, oauthService,
-                    fyersLoginOrchestrator, brokerFactory, instrumentService,
+                    fyersLoginOrchestrator, legacyBrokerFactory, instrumentService,
                     userBrokerRepo, brokerRepo, watchlistRepo, tickCandleBuilder, exitSignalService, recoveryManager, mtfBackfillService);
         in.annupaper.transport.http.MtfConfigHandler mtfConfigHandler =
             new in.annupaper.transport.http.MtfConfigHandler(mtfConfigService, tokenValidator);
@@ -604,7 +615,13 @@ public final class App {
             new in.annupaper.transport.http.MonitoringHandler(dataSource);
         log.info("✓ Monitoring handler initialized");
 
+        // Prometheus metrics endpoint
+        in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler metricsHandler =
+            new in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler(metrics.getRegistry());
+        log.info("✓ Prometheus /metrics endpoint ready");
+
         RoutingHandler routes = Handlers.routing()
+            .get("/metrics", metricsHandler)
             .get("/api/health", api::health)
             .post("/api/auth/login", exchange -> handleLogin(exchange, authService))
             .post("/api/auth/register", exchange -> handleRegister(exchange, authService))
@@ -722,7 +739,7 @@ public final class App {
         // IMPORTANT: Runs AFTER server started (so callback endpoint works)
         // In collector mode: OAuth still needed for FYERS connection
         if (!collectorMode) {
-            checkTokensAndAutoLogin(userBrokerRepo, sessionRepo, brokerFactory, fyersLoginOrchestrator);
+            checkTokensAndAutoLogin(userBrokerRepo, sessionRepo, legacyBrokerFactory, fyersLoginOrchestrator);
         } else {
             log.info("[RELAY] Skipping auto-login check (not needed in collector mode)");
         }
@@ -980,7 +997,7 @@ public final class App {
             in.annupaper.repository.UserBrokerRepository userBrokerRepo,
             in.annupaper.repository.BrokerRepository brokerRepo,
             in.annupaper.repository.WatchlistRepository watchlistRepo,
-            BrokerAdapterFactory brokerFactory,
+            BrokerAdapterFactory legacyBrokerFactory,
             TickCandleBuilder tickCandleBuilder,
             ExitSignalService exitSignalService,
             in.annupaper.service.candle.RecoveryManager recoveryManager,
@@ -1010,7 +1027,7 @@ public final class App {
             String userBrokerId = dataBroker.userBrokerId();
 
             // Get broker adapter
-            in.annupaper.broker.BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
+            in.annupaper.broker.BrokerAdapter adapter = legacyBrokerFactory.getOrCreate(userBrokerId, brokerCode);
             if (adapter == null || !adapter.isConnected()) {
                 log.warn("[TICK STREAM] Data broker not connected: {}", brokerCode);
                 return;
@@ -1231,7 +1248,7 @@ public final class App {
     private static void checkTokensAndAutoLogin(
         in.annupaper.repository.UserBrokerRepository userBrokerRepo,
         in.annupaper.repository.UserBrokerSessionRepository sessionRepo,
-        in.annupaper.broker.BrokerAdapterFactory brokerFactory,
+        in.annupaper.broker.BrokerAdapterFactory legacyBrokerFactory,
         in.annupaper.service.oauth.FyersLoginOrchestrator fyersLoginOrchestrator
     ) {
         log.info("[STARTUP AUTO-LOGIN] Checking token validity for all FYERS brokers...");

@@ -1,0 +1,294 @@
+{
+  "dashboard": {
+    "title": "Multi-Broker Trading Platform Metrics",
+    "uid": "amzf-broker-metrics",
+    "version": 1,
+    "tags": ["trading", "brokers", "orders"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Broker Health Status",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "broker_health_status",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "DOWN"},
+              {"type": "value", "value": "1", "text": "HEALTHY"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Order Success Rate",
+        "type": "gauge",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(broker_orders_total{status=\"success\"}[5m])) / sum(rate(broker_orders_total[5m]))",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.95, "color": "yellow"},
+                {"value": 0.99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Orders Per Second by Broker",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+        "targets": [
+          {
+            "expr": "rate(broker_orders_total{status=\"success\"}[1m])",
+            "legendFormat": "{{broker}} - Success"
+          },
+          {
+            "expr": "rate(broker_orders_total{status=\"failure\"}[1m])",
+            "legendFormat": "{{broker}} - Failure"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Orders/sec"},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Order Latency p95",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(broker_order_latency_seconds_bucket[5m]))",
+            "legendFormat": "{{broker}} - p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(broker_order_latency_seconds_bucket[5m]))",
+            "legendFormat": "{{broker}} - p99"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency"},
+          {"show": false}
+        ],
+        "alert": {
+          "name": "High Order Latency",
+          "conditions": [
+            {
+              "evaluator": {"params": [0.2], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "message": "Order latency p95 exceeded 200ms threshold",
+          "noDataState": "no_data"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Rate Limit Utilization",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "broker_rate_utilization",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "percentunit", "label": "Utilization", "min": 0, "max": 1},
+          {"show": false}
+        ],
+        "thresholds": [
+          {"value": 0.8, "colorMode": "critical", "fill": true, "line": true, "op": "gt"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Rate Limit Hits",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 10, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(broker_rate_limit_hits_total[5m])",
+            "legendFormat": "{{broker}} - {{limit_type}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Hits/sec"},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Authentication Failures",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 10, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(broker_authentications_total{status=\"failure\"}[5m])",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Failures/sec"},
+          {"show": false}
+        ],
+        "alert": {
+          "name": "Authentication Failures",
+          "conditions": [
+            {
+              "evaluator": {"params": [1], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "frequency": "1m",
+          "message": "Authentication failures detected for broker"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Connection Status",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "broker_connection_status",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Status (1=Connected)", "min": 0, "max": 1},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Retry Rate",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(broker_retries_total[5m])",
+            "legendFormat": "{{broker}} - {{reason}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Retries/sec"},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Instrument Load Duration",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 22, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "instrument_load_duration_seconds",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Instrument Count",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 22, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "instrument_count",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "Broker Uptime",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 28, "w": 24, "h": 4},
+        "targets": [
+          {
+            "expr": "broker_uptime_seconds",
+            "legendFormat": "{{broker}}"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "value",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      }
+    ]
+  }
+}
