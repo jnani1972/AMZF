@@ -68,11 +68,14 @@ class ReconnectionPolicyTest {
             .maxAttempts(10)
             .build();
 
-        // After first failure: 10s
-        policy.recordFailure();
+        // Initial delay: 10s
         assertEquals(Duration.ofSeconds(10), policy.getNextDelay());
 
-        // After second failure: 30s (10 * 3 = 30, hit max)
+        // After first failure: delay becomes 30s (10 * 3 = 30, hit max)
+        policy.recordFailure();
+        assertEquals(Duration.ofSeconds(30), policy.getNextDelay());
+
+        // After second failure: still 30s (capped)
         policy.recordFailure();
         assertEquals(Duration.ofSeconds(30), policy.getNextDelay());
 
