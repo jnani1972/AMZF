@@ -169,25 +169,25 @@ export function MarketWatch() {
                         {data.symbol}
                       </Text>
                       <Badge
-                        variant={data.change >= 0 ? 'profit' : 'loss'}
+                        variant={(data.change || 0) >= 0 ? 'profit' : 'loss'}
                         className="text-xs"
                       >
-                        {data.change >= 0 ? '+' : ''}
-                        {data.changePercent.toFixed(2)}%
+                        {(data.change || 0) >= 0 ? '+' : ''}
+                        {(data.changePercent || 0).toFixed(2)}%
                       </Badge>
                     </div>
 
                     <div className="flex items-end justify-between">
                       <div>
                         <Text variant="h4" className="mb-1">
-                          ₹{data.ltp.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          ₹{(data.ltp || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </Text>
                         <Text variant="small" className="text-muted">
-                          Vol: {(data.volume / 1000).toFixed(1)}K
+                          Vol: {((data.volume || 0) / 1000).toFixed(1)}K
                         </Text>
                       </div>
                       <div className="text-right">
-                        {data.change >= 0 ? (
+                        {(data.change || 0) >= 0 ? (
                           <TrendingUp size={24} className="text-profit" />
                         ) : (
                           <TrendingDown size={24} className="text-loss" />
@@ -198,10 +198,10 @@ export function MarketWatch() {
                     <div className="mt-3 pt-3 border-t border-border-light">
                       <div className="flex justify-between text-xs">
                         <Text variant="small" className="text-muted">
-                          High: ₹{data.dayHigh.toFixed(2)}
+                          High: ₹{(data.dayHigh || 0).toFixed(2)}
                         </Text>
                         <Text variant="small" className="text-muted">
-                          Low: ₹{data.dayLow.toFixed(2)}
+                          Low: ₹{(data.dayLow || 0).toFixed(2)}
                         </Text>
                       </div>
                     </div>
