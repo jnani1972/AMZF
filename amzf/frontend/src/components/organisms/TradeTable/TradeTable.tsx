@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Card } from '../atoms/Card/Card';
-import { Text } from '../atoms/Text/Text';
-import { Badge } from '../atoms/Badge/Badge';
-import { Button } from '../atoms/Button/Button';
-import { EmptyState } from '../molecules/EmptyState/EmptyState';
+import { Card } from '../../atoms/Card/Card';
+import { Text } from '../../atoms/Text/Text';
+import { Badge } from '../../atoms/Badge/Badge';
+import { Button } from '../../atoms/Button/Button';
+import { EmptyState } from '../../molecules/EmptyState/EmptyState';
 import { Activity } from 'lucide-react';
 import './TradeTable.css';
 

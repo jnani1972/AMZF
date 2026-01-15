@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Card } from '../atoms/Card/Card';
-import { Text } from '../atoms/Text/Text';
-import { FormField } from '../molecules/FormField/FormField';
-import { OrderButton } from '../molecules/OrderButton/OrderButton';
+import { Card } from '../../atoms/Card/Card';
+import { Text } from '../../atoms/Text/Text';
+import { FormField } from '../../molecules/FormField/FormField';
+import { OrderButton } from '../../molecules/OrderButton/OrderButton';
 import './OrderPanel.css';
 
 /**

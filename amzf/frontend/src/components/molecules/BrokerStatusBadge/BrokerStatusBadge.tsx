@@ -1,7 +1,7 @@
 import React from 'react';
 import { Activity, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
-import { Badge } from '../atoms/Badge/Badge';
-import { Tooltip } from '../atoms/Tooltip/Tooltip';
+import { Badge } from '../../atoms/Badge/Badge';
+import { Tooltip } from '../../atoms/Tooltip/Tooltip';
 import './BrokerStatusBadge.css';
 
 /**

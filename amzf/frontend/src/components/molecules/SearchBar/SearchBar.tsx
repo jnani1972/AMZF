@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
-import { Input } from '../atoms/Input/Input';
+import { Input } from '../../atoms/Input/Input';
 import './SearchBar.css';
 
 /**

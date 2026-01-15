@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { Card } from '../atoms/Card/Card';
-import { Text } from '../atoms/Text/Text';
-import { Button } from '../atoms/Button/Button';
-import { SearchBar, SearchOption } from '../molecules/SearchBar/SearchBar';
-import { PriceCard } from '../molecules/PriceCard/PriceCard';
-import { EmptyState } from '../molecules/EmptyState/EmptyState';
+import { Card } from '../../atoms/Card/Card';
+import { Text } from '../../atoms/Text/Text';
+import { Button } from '../../atoms/Button/Button';
+import { SearchBar, SearchOption } from '../../molecules/SearchBar/SearchBar';
+import { PriceCard } from '../../molecules/PriceCard/PriceCard';
+import { EmptyState } from '../../molecules/EmptyState/EmptyState';
 import './Watchlist.css';
 
 /**

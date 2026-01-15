@@ -1,8 +1,8 @@
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { Card } from '../atoms/Card/Card';
-import { Text } from '../atoms/Text/Text';
-import { Badge } from '../atoms/Badge/Badge';
+import { Card } from '../../atoms/Card/Card';
+import { Text } from '../../atoms/Text/Text';
+import { Badge } from '../../atoms/Badge/Badge';
 import './PriceCard.css';
 
 /**

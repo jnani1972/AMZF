@@ -1,8 +1,8 @@
 import React from 'react';
-import { Card } from '../atoms/Card/Card';
-import { Text } from '../atoms/Text/Text';
-import { Badge } from '../atoms/Badge/Badge';
-import { EmptyState } from '../molecules/EmptyState/EmptyState';
+import { Card } from '../../atoms/Card/Card';
+import { Text } from '../../atoms/Text/Text';
+import { Badge } from '../../atoms/Badge/Badge';
+import { EmptyState } from '../../molecules/EmptyState/EmptyState';
 import { Briefcase } from 'lucide-react';
 import './PortfolioSummary.css';
 
