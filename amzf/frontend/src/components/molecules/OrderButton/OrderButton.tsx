@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { Button, ButtonProps } from '../atoms/Button';
+import { Button, ButtonProps } from '../atoms/Button/Button';
 import './OrderButton.css';
 
 /**

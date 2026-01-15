@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, X, Moon, Sun, User, LogOut } from 'lucide-react';
-import { Button } from '../atoms/Button';
-import { Text } from '../atoms/Text';
+import { Button } from '../atoms/Button/Button';
+import { Text } from '../atoms/Text/Text';
 import { useTheme } from '../../lib/theme';
 import './Header.css';
 
