@@ -1,0 +1,208 @@
+/**
+ * Input Component Styles
+ * Uses design tokens from theme.css
+ */
+
+/* Wrapper */
+.input-wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.input-wrapper--full-width {
+  width: 100%;
+}
+
+.input-wrapper--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Label */
+.input__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.input__required {
+  color: var(--color-error);
+  margin-left: 2px;
+}
+
+/* Container (for input + icons) */
+.input__container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Base Input */
+.input {
+  width: 100%;
+  font-family: var(--font-family-sans);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-primary);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--color-border-dark);
+}
+
+.input:focus {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* Sizes */
+.input--sm {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  height: 32px;
+}
+
+.input--md {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  height: 40px;
+}
+
+.input--lg {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-lg);
+  height: 48px;
+}
+
+/* With Icons */
+.input--has-icon-left.input--sm {
+  padding-left: 32px;
+}
+
+.input--has-icon-left.input--md {
+  padding-left: 40px;
+}
+
+.input--has-icon-left.input--lg {
+  padding-left: 48px;
+}
+
+.input--has-icon-right.input--sm {
+  padding-right: 32px;
+}
+
+.input--has-icon-right.input--md {
+  padding-right: 40px;
+}
+
+.input--has-icon-right.input--lg {
+  padding-right: 48px;
+}
+
+/* Icons */
+.input__icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.input__icon svg {
+  width: 1em;
+  height: 1em;
+}
+
+.input__icon--left {
+  left: var(--spacing-sm);
+}
+
+.input__icon--right {
+  right: var(--spacing-sm);
+}
+
+/* States */
+.input--error {
+  border-color: var(--color-error);
+}
+
+.input--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.input--success {
+  border-color: var(--color-success);
+}
+
+.input--success:focus {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.input--warning {
+  border-color: var(--color-warning);
+}
+
+.input--warning:focus {
+  border-color: var(--color-warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* Disabled */
+.input:disabled,
+.input--disabled {
+  cursor: not-allowed;
+  background-color: var(--color-surface-tertiary);
+}
+
+/* Message */
+.input__message {
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.input__message--default {
+  color: var(--color-text-secondary);
+}
+
+.input__message--error {
+  color: var(--color-error);
+}
+
+.input__message--success {
+  color: var(--color-success);
+}
+
+.input__message--warning {
+  color: var(--color-warning);
+}
+
+/* Number Input - Remove Spinner (Optional) */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Touch Target (Accessibility) */
+@media (pointer: coarse) {
+  .input {
+    min-height: 44px;
+  }
+}

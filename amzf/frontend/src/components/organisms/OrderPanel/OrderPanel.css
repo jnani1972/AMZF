@@ -1,0 +1,55 @@
+/**
+ * OrderPanel Component Styles
+ */
+
+.order-panel__title {
+  margin-bottom: var(--spacing-lg);
+}
+
+.order-panel__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.order-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.order-panel__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.order-panel__radio-group {
+  display: flex;
+  gap: var(--spacing-lg);
+}
+
+.order-panel__radio {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+}
+
+.order-panel__radio input[type='radio'] {
+  cursor: pointer;
+}
+
+.order-panel__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .order-panel__actions {
+    grid-template-columns: 1fr;
+  }
+}

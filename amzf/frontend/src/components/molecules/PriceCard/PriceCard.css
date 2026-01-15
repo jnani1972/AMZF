@@ -1,0 +1,41 @@
+/**
+ * PriceCard Component Styles
+ */
+
+.price-card {
+  min-width: 200px;
+}
+
+.price-card--compact {
+  min-width: 150px;
+}
+
+/* Header */
+.price-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.price-card__symbol-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1;
+}
+
+/* Body */
+.price-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .price-card {
+    min-width: unset;
+  }
+}

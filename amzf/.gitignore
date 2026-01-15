@@ -72,3 +72,6 @@ Thumbs.db
 
 # Temporary demo files
 SimpleMetricsServer.java
+
+*storybook.log
+storybook-static

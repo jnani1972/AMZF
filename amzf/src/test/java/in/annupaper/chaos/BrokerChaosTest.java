@@ -151,7 +151,7 @@ public class BrokerChaosTest {
 
         // Verify metrics recorded rate limit hits
         String metricsOutput = getMetricsOutput();
-        assertTrue(metricsOutput.contains("broker_rate_limit_hits_total"),
+        assertTrue(metricsOutput.contains("broker_rate_limit_total"),
             "Should record rate limit hits");
 
         System.out.println("✅ Rate limiting handled correctly\n");
@@ -177,9 +177,9 @@ public class BrokerChaosTest {
         primaryBroker.simulateAuthenticate();
         System.out.println("✅ Retry auth succeeded");
 
-        // Verify metrics recorded both failure and success
+        // Verify metrics recorded authentication failure
         String metricsOutput = getMetricsOutput();
-        assertTrue(metricsOutput.contains("broker_authentications_total"),
+        assertTrue(metricsOutput.contains("broker_auth_failure_total"),
             "Should record authentication attempts");
 
         System.out.println("✅ Authentication retry handled correctly\n");
@@ -328,10 +328,10 @@ public class BrokerChaosTest {
         assertEquals(OrderStatus.PLACED, response3.status());
         System.out.println("✅ Order 3 placed successfully after recovery");
 
-        // Verify health status transitions in metrics
+        // Verify order metrics are recorded
         String metricsOutput = getMetricsOutput();
-        assertTrue(metricsOutput.contains("broker_health_status") ||
-                   metricsOutput.contains("broker_orders_total"),
+        assertTrue(metricsOutput.contains("broker_order_success_total") ||
+                   metricsOutput.contains("broker_order_failure_total"),
                    "Should track health or orders");
 
         System.out.println("✅ Broker recovery handled correctly\n");
@@ -402,7 +402,8 @@ public class BrokerChaosTest {
             BigDecimal.ZERO,
             BigDecimal.ZERO,
             TimeInForce.DAY,
-            ProductType.CNC
+            ProductType.CNC,
+            null  // tag
         );
     }
 
@@ -448,16 +449,11 @@ public class BrokerChaosTest {
         }
 
         public void simulateAuthenticate() {
-            Instant start = Instant.now();
-
             if (failureMode == FailureMode.AUTH_FAILURE) {
-                Duration latency = Duration.between(start, Instant.now());
-                metrics.recordAuthentication(brokerCode, false, latency);
+                metrics.recordAuthFailure(brokerCode);
                 throw new SimulatedBrokerException("Authentication failed: Invalid credentials");
             }
-
-            Duration latency = Duration.between(start, Instant.now());
-            metrics.recordAuthentication(brokerCode, true, latency);
+            // Successful authentication - no specific metric needed
         }
 
         public OrderResponse simulatePlaceOrder(OrderRequest request) {
@@ -477,7 +473,7 @@ public class BrokerChaosTest {
             if (count > rateLimitThreshold) {
                 Duration latency = Duration.between(start, Instant.now());
                 metrics.recordOrderFailure(brokerCode, "RATE_LIMIT", latency);
-                metrics.recordRateLimitHit(brokerCode, count, BrokerMetrics.RateLimitType.PER_SECOND);
+                metrics.recordRateLimitBreach(brokerCode);
                 throw new SimulatedBrokerException("Rate limit exceeded");
             }
 
@@ -512,18 +508,23 @@ public class BrokerChaosTest {
                 Duration latency = Duration.between(start, Instant.now());
                 metrics.recordOrderSuccess(brokerCode, latency);
 
-                return OrderResponse.of(
-                    "ORDER-" + System.nanoTime(),
-                    request.symbol(),
-                    OrderStatus.PLACED,
-                    request.direction(),
-                    request.orderType(),
-                    request.productType(),
-                    request.quantity(),
-                    0,  // filledQuantity
-                    request.limitPrice(),
-                    BigDecimal.ZERO,  // avgFillPrice
-                    Instant.now()
+                return new OrderResponse(
+                    "ORDER-" + System.nanoTime(),  // brokerOrderId
+                    request.symbol(),                // symbol
+                    OrderStatus.PLACED,              // status
+                    request.direction(),             // direction
+                    request.orderType(),             // orderType
+                    request.productType(),           // productType
+                    request.quantity(),              // quantity
+                    0,                               // filledQuantity
+                    request.quantity(),              // pendingQuantity
+                    request.limitPrice(),            // orderPrice
+                    BigDecimal.ZERO,                 // avgFillPrice
+                    Instant.now(),                   // orderTime
+                    null,                            // fillTime
+                    "Order placed",                  // statusMessage
+                    null,                            // tag
+                    null                             // extendedData
                 );
 
             } catch (SimulatedBrokerException e) {

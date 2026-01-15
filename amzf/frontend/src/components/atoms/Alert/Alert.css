@@ -1,0 +1,107 @@
+/**
+ * Alert Component Styles
+ */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  font-size: var(--font-size-sm);
+}
+
+/* Variants */
+.alert--success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.alert--error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.alert--warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.alert--info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+/* Icon */
+.alert__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+/* Content */
+.alert__content {
+  flex: 1;
+  color: var(--color-text-primary);
+}
+
+.alert__title {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-xs);
+}
+
+.alert__message {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}
+
+/* Dismiss Button */
+.alert__dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast);
+}
+
+.alert__dismiss:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.alert__dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Dark mode adjustments */
+.dark .alert--success {
+  background-color: rgba(16, 185, 129, 0.15);
+}
+
+.dark .alert--error {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+.dark .alert--warning {
+  background-color: rgba(245, 158, 11, 0.15);
+}
+
+.dark .alert--info {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+.dark .alert__dismiss:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}

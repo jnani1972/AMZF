@@ -5,7 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import in.annupaper.auth.AuthService;
 import in.annupaper.auth.JwtService;
 import in.annupaper.broker.BrokerAdapterFactory;
-import in.annupaper.infrastructure.broker.BrokerFactory;
+// import in.annupaper.infrastructure.broker.BrokerFactory;  // TODO: Uncomment when broker implementations complete
 import in.annupaper.domain.broker.BrokerIds;
 import in.annupaper.domain.common.EventType;
 import in.annupaper.domain.data.TimeframeType;
@@ -108,9 +108,10 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Prometheus Metrics (Production Monitoring)
         // ═══════════════════════════════════════════════════════════════
-        in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics metrics =
-            new in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics();
-        log.info("✓ Prometheus metrics initialized");
+        // TODO: Uncomment when broker implementations complete
+        // in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics metrics =
+        //     new in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics();
+        // log.info("✓ Prometheus metrics initialized");
 
         // ═══════════════════════════════════════════════════════════════
         // MTF Config Migration (runs on startup)
@@ -188,7 +189,8 @@ public final class App {
         BrokerAdapterFactory legacyBrokerFactory = new BrokerAdapterFactory(sessionRepo, userBrokerRepo);
 
         // ✅ Phase 2: New BrokerFactory for dual-broker architecture
-        BrokerFactory brokerFactory = new BrokerFactory(sessionRepo, metrics);
+        // TODO: Uncomment when broker implementations are complete
+        // BrokerFactory brokerFactory = new BrokerFactory(sessionRepo, metrics);
 
         // ═══════════════════════════════════════════════════════════════
         // Token Refresh Watchdog (Auto-reload tokens on refresh)
@@ -224,7 +226,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         EventService eventService = new EventService(eventRepo, wsHub);
         in.annupaper.service.InstrumentService instrumentService =
-            new in.annupaper.service.InstrumentService(instrumentRepo, brokerFactory, legacyBrokerFactory);
+            new in.annupaper.service.InstrumentService(instrumentRepo, legacyBrokerFactory);
 
         // ═══════════════════════════════════════════════════════════════
         // Startup: Download instruments from all brokers
@@ -241,7 +243,7 @@ public final class App {
         // Candle Services (with backfill and aggregation)
         // ═══════════════════════════════════════════════════════════════
         CandleStore candleStore = new CandleStore(candleRepo);
-        CandleFetcher candleFetcher = new CandleFetcher(brokerFactory, legacyBrokerFactory, candleStore);
+        CandleFetcher candleFetcher = new CandleFetcher(legacyBrokerFactory, candleStore);
         CandleReconciler candleReconciler = new CandleReconciler(candleFetcher, candleStore);
 
         // HistoryBackfiller dynamically fetches data broker adapter
@@ -616,12 +618,13 @@ public final class App {
         log.info("✓ Monitoring handler initialized");
 
         // Prometheus metrics endpoint
-        in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler metricsHandler =
-            new in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler(metrics.getRegistry());
-        log.info("✓ Prometheus /metrics endpoint ready");
+        // TODO: Uncomment when broker implementations complete
+        // in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler metricsHandler =
+        //     new in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler(metrics.getRegistry());
+        // log.info("✓ Prometheus /metrics endpoint ready");
 
         RoutingHandler routes = Handlers.routing()
-            .get("/metrics", metricsHandler)
+            // .get("/metrics", metricsHandler)  // TODO: Uncomment when broker implementations complete
             .get("/api/health", api::health)
             .post("/api/auth/login", exchange -> handleLogin(exchange, authService))
             .post("/api/auth/register", exchange -> handleRegister(exchange, authService))

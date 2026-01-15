@@ -1,0 +1,131 @@
+/**
+ * Text Component Styles
+ */
+
+.text {
+  margin: 0;
+  font-family: var(--font-family-sans);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+/* Variants */
+.text--h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.text--h2 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.text--h3 {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.text--h4 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.text--body {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+}
+
+.text--small {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+}
+
+.text--caption {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-relaxed);
+}
+
+.text--label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.025em;
+}
+
+/* Weights */
+.text--weight-regular {
+  font-weight: var(--font-weight-regular);
+}
+
+.text--weight-medium {
+  font-weight: var(--font-weight-medium);
+}
+
+.text--weight-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.text--weight-bold {
+  font-weight: var(--font-weight-bold);
+}
+
+/* Colors */
+.text--color-primary {
+  color: var(--color-text-primary);
+}
+
+.text--color-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text--color-tertiary {
+  color: var(--color-text-tertiary);
+}
+
+.text--color-inverse {
+  color: var(--color-text-inverse);
+}
+
+.text--color-profit {
+  color: var(--color-profit);
+}
+
+.text--color-loss {
+  color: var(--color-loss);
+}
+
+.text--color-success {
+  color: var(--color-success);
+}
+
+.text--color-error {
+  color: var(--color-error);
+}
+
+.text--color-warning {
+  color: var(--color-warning);
+}
+
+/* Alignment */
+.text--align-left {
+  text-align: left;
+}
+
+.text--align-center {
+  text-align: center;
+}
+
+.text--align-right {
+  text-align: right;
+}
+
+/* Truncate */
+.text--truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

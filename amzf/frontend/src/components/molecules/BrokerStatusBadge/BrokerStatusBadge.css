@@ -1,0 +1,42 @@
+/**
+ * BrokerStatusBadge Component Styles
+ */
+
+.broker-status {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.broker-status__name {
+  font-weight: var(--font-weight-semibold);
+}
+
+.broker-status__latency {
+  margin-left: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  opacity: 0.9;
+}
+
+.broker-status__latency--good {
+  color: inherit;
+}
+
+.broker-status__latency--fair {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.broker-status__latency--poor {
+  color: inherit;
+  opacity: 0.7;
+}
+
+/* Tooltip Content */
+.broker-status__tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}

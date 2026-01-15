@@ -15,7 +15,9 @@ public record OrderRequest(
     OrderType orderType,
     BigDecimal limitPrice,
     BigDecimal stopPrice,
-    TimeInForce timeInForce
+    TimeInForce timeInForce,
+    ProductType productType,
+    String tag
 ) {
     public OrderRequest {
         if (symbol == null || symbol.isBlank()) {
@@ -33,5 +35,6 @@ public record OrderRequest(
         if (timeInForce == null) {
             throw new IllegalArgumentException("Time in force cannot be null");
         }
+        // productType and tag are optional (can be null)
     }
 }

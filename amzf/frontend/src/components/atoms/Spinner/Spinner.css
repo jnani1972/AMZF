@@ -1,0 +1,94 @@
+/**
+ * Spinner Component Styles
+ */
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sizes */
+.spinner--sm {
+  width: 16px;
+  height: 16px;
+}
+
+.spinner--md {
+  width: 24px;
+  height: 24px;
+}
+
+.spinner--lg {
+  width: 32px;
+  height: 32px;
+}
+
+.spinner--xl {
+  width: 48px;
+  height: 48px;
+}
+
+/* SVG */
+.spinner__svg {
+  width: 100%;
+  height: 100%;
+  animation: spinner-rotate 1.4s linear infinite;
+}
+
+/* Circle */
+.spinner__circle {
+  stroke: var(--color-text-secondary);
+  stroke-linecap: round;
+  stroke-dasharray: 80px, 200px;
+  stroke-dashoffset: 0;
+  animation: spinner-dash 1.4s ease-in-out infinite;
+}
+
+/* Variants */
+.spinner--primary .spinner__circle {
+  stroke: var(--color-brand-primary);
+}
+
+.spinner--profit .spinner__circle {
+  stroke: var(--color-profit);
+}
+
+.spinner--loss .spinner__circle {
+  stroke: var(--color-loss);
+}
+
+/* Screen Reader Only */
+.spinner__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Animations */
+@keyframes spinner-rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinner-dash {
+  0% {
+    stroke-dasharray: 1px, 200px;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 100px, 200px;
+    stroke-dashoffset: -15px;
+  }
+  100% {
+    stroke-dasharray: 100px, 200px;
+    stroke-dashoffset: -125px;
+  }
+}

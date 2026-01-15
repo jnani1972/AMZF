@@ -1,0 +1,92 @@
+/**
+ * Badge Component Styles
+ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-family: var(--font-family-sans);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Sizes */
+.badge--sm {
+  padding: 2px var(--spacing-sm);
+  font-size: var(--font-size-xs);
+}
+
+.badge--md {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.badge--lg {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-base);
+}
+
+/* Variants */
+.badge--default {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
+}
+
+.badge--primary {
+  background-color: var(--color-brand-primary);
+  color: white;
+}
+
+.badge--success {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.badge--error {
+  background-color: var(--color-error);
+  color: white;
+}
+
+.badge--warning {
+  background-color: var(--color-warning);
+  color: white;
+}
+
+.badge--info {
+  background-color: var(--color-info);
+  color: white;
+}
+
+.badge--profit {
+  background-color: var(--color-profit);
+  color: white;
+}
+
+.badge--loss {
+  background-color: var(--color-loss);
+  color: white;
+}
+
+/* Dot Indicator */
+.badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

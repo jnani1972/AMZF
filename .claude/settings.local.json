@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(__NEW_LINE__ find . -name \"*.java\" -type f -exec sed -i '' )",
+      "Bash({} ;)",
+      "Bash(__NEW_LINE__ echo \"✅ domain.broker imports updated\")",
+      "Bash(__NEW_LINE__ echo \"✅ domain.data imports updated\")",
+      "Bash(__NEW_LINE__ echo \"✅ domain.signal imports updated\")",
+      "Bash(__NEW_LINE__ echo \"✅ domain.trade imports updated\")",
+      "Bash(__NEW_LINE__ echo \"✅ domain.common imports updated\")",
+      "Bash(mvn clean compile:*)",
+      "Bash(find:*)",
+      "Bash({} +)",
+      "Bash(mvn test:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git add:*)",
+      "Bash(cat:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge refactor/phase1-domain-layer --no-ff -m \"$\\(cat <<''EOF''\nMerge Phase 1: Domain Layer Migration to Clean Architecture\n\nSuccessfully merged the complete domain layer refactoring from flat\npackage structure to organized subdomains following DDD principles.\n\nKey Changes:\n- Organized 47 domain entities into 7 subdomains\n- Created domain.order with 5 new models for future broker abstraction\n- Updated 201+ import statements across entire codebase\n- Removed old domain.model and domain.enums packages\n- Cleaned up 276MB of old database backups\n- All 17 tests passing with zero failures\n\nDomain Structure:\n✓ domain.user: User, Portfolio, WsSession\n✓ domain.broker: Broker, UserBroker, UserBrokerSession, OAuth, enums\n✓ domain.data: Tick, Candle, Instrument, Watchlist entities\n✓ domain.signal: Signal, ExitSignal, MTF configs, enums\n✓ domain.trade: Trade, TradeIntent, ExitIntent, TradeEvent, enums\n✓ domain.order: OrderRequest, OrderResponse, OrderStatus, OrderType\n✓ domain.common: ValidationResult, EventType, EventScope\n\nThis sets the foundation for Phase 2 \\(Infrastructure layer refactoring\\).\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(mvn compile:*)",
+      "Bash(tee:*)",
+      "Bash(mvn clean package:*)",
+      "Bash(chmod:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(npm install:*)",
+      "Bash(tree:*)",
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)",
+      "Bash(npx storybook@latest init:*)"
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+/**
+ * Skeleton Component Styles
+ */
+
+.skeleton {
+  background-color: var(--color-surface-secondary);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Variants */
+.skeleton--text {
+  border-radius: var(--radius-sm);
+  transform: scale(1, 0.8);
+}
+
+.skeleton--circular {
+  border-radius: 50%;
+}
+
+.skeleton--rectangular {
+  border-radius: var(--radius-md);
+}
+
+/* Animation */
+.skeleton--animate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+/* Dark mode shimmer */
+.dark .skeleton--animate::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

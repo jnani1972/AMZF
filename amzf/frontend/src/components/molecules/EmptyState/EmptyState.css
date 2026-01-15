@@ -1,0 +1,64 @@
+/**
+ * EmptyState Component Styles
+ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-2xl);
+  text-align: center;
+}
+
+.empty-state--sm {
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+.empty-state--lg {
+  gap: var(--spacing-2xl);
+  padding: var(--spacing-3xl);
+}
+
+/* Icon */
+.empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  opacity: 0.6;
+}
+
+/* Content */
+.empty-state__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-width: 500px;
+}
+
+.empty-state__title {
+  margin: 0;
+}
+
+.empty-state__description {
+  margin: 0;
+}
+
+/* CTA */
+.empty-state__cta {
+  margin-top: var(--spacing-sm);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .empty-state {
+    padding: var(--spacing-xl);
+  }
+
+  .empty-state--lg {
+    padding: var(--spacing-2xl);
+  }
+}
