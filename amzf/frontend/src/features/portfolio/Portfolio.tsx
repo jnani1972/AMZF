@@ -5,19 +5,19 @@
 
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { usePortfolios } from '@/hooks/useApi';
-import { Header } from '@/components/organisms/Header/Header';
-import { MetricsGrid } from '@/components/organisms/MetricsGrid/MetricsGrid';
-import { PortfolioSummary } from '@/components/organisms/PortfolioSummary/PortfolioSummary';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { Button } from '@/components/atoms/Button/Button';
-import { Badge } from '@/components/atoms/Badge/Badge';
+import { useAuth } from '../auth/AuthProvider';
+import { usePortfolios } from '../../hooks/useApi';
+import { Header } from '../../components/organisms/Header/Header';
+import { MetricsGrid } from '../../components/organisms/MetricsGrid/MetricsGrid';
+import { PortfolioSummary } from '../../components/organisms/PortfolioSummary/PortfolioSummary';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { Button } from '../../components/atoms/Button/Button';
+import { Badge } from '../../components/atoms/Badge/Badge';
 import { TrendingUp, TrendingDown, Wallet, PieChart, Download } from 'lucide-react';
-import { getNavItems } from '@/lib/navigation';
+import { getNavItems } from '../../lib/navigation';
 
 /**
  * Portfolio component

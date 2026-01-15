@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { wsClient, ConnectionState } from '@/lib/websocket';
-import type { WsMessageType, Tick, Signal, Trade, OrderResponse } from '@/types';
+import { wsClient, ConnectionState } from '../lib/websocket';
+import type { WsMessageType, Tick, Signal, Trade, OrderResponse } from '../types';
 
 /**
  * Hook to connect to WebSocket

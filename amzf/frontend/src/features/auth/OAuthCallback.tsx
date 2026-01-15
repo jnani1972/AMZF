@@ -5,11 +5,11 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { Card } from '@/components/atoms/Card/Card';
-import { Text } from '@/components/atoms/Text/Text';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Button } from '@/components/atoms/Button/Button';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { Card } from '../../components/atoms/Card/Card';
+import { Text } from '../../components/atoms/Text/Text';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Button } from '../../components/atoms/Button/Button';
 
 /**
  * OAuth callback component

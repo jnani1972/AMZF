@@ -6,7 +6,7 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
 
 /**
  * Protected route props

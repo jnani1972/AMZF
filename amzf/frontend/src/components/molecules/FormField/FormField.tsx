@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Input, InputProps } from '@/components/atoms/Input';
+import { Input, InputProps } from '../atoms/Input';
 import './FormField.css';
 
 /**

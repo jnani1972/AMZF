@@ -4,14 +4,14 @@
  */
 
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { Header } from '@/components/organisms/Header/Header';
-import { MetricsGrid } from '@/components/organisms/MetricsGrid/MetricsGrid';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
+import { useAuth } from '../auth/AuthProvider';
+import { Header } from '../../components/organisms/Header/Header';
+import { MetricsGrid } from '../../components/organisms/MetricsGrid/MetricsGrid';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
 import { Users, Activity, DollarSign, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getAdminNavItems } from '@/lib/navigation';
+import { getAdminNavItems } from '../../lib/navigation';
 
 /**
  * Admin dashboard component

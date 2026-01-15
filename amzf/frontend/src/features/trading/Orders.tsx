@@ -5,20 +5,20 @@
 
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { useOrders } from '@/hooks/useApi';
-import { useOrderUpdates } from '@/hooks/useWebSocket';
-import { Header } from '@/components/organisms/Header/Header';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Badge } from '@/components/atoms/Badge/Badge';
-import { Button } from '@/components/atoms/Button/Button';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { EmptyState } from '@/components/molecules/EmptyState/EmptyState';
-import type { OrderResponse, OrderStatus } from '@/types';
+import { useAuth } from '../auth/AuthProvider';
+import { useOrders } from '../../hooks/useApi';
+import { useOrderUpdates } from '../../hooks/useWebSocket';
+import { Header } from '../../components/organisms/Header/Header';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Badge } from '../../components/atoms/Badge/Badge';
+import { Button } from '../../components/atoms/Button/Button';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
+import type { OrderResponse, OrderStatus } from '../../types';
 import { FileText, RefreshCw } from 'lucide-react';
-import { getNavItems } from '@/lib/navigation';
+import { getNavItems } from '../../lib/navigation';
 
 type OrderFilter = 'all' | OrderStatus;
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, AlertProps } from '@/components/atoms/Alert';
+import { Alert, AlertProps } from '../atoms/Alert';
 import './AlertBanner.css';
 
 /**

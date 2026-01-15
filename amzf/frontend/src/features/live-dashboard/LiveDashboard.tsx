@@ -4,14 +4,14 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useTrades } from '@/hooks/useApi';
-import { useTradeUpdates, useWebSocket } from '@/hooks/useWebSocket';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Button } from '@/components/atoms/Button/Button';
-import { Badge } from '@/components/atoms/Badge/Badge';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
+import { useTrades } from '../../hooks/useApi';
+import { useTradeUpdates, useWebSocket } from '../../hooks/useWebSocket';
+import { useAuth } from '../auth/AuthProvider';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Button } from '../../components/atoms/Button/Button';
+import { Badge } from '../../components/atoms/Badge/Badge';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { RefreshCw, TrendingUp, Activity } from 'lucide-react';
 
 /**

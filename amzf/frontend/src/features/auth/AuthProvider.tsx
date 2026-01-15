@@ -12,8 +12,8 @@ import {
   ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '@/lib/api';
-import type { User } from '@/types';
+import { apiClient } from '../../lib/api';
+import type { User } from '../../types';
 
 /**
  * Auth context state

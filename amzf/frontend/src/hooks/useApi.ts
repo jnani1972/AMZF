@@ -4,14 +4,14 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient } from '@/lib/api';
+import { apiClient } from '../lib/api';
 import type {
   ApiResponse,
   OrderRequest,
   OrderResponse,
   TradeIntent,
   Trade,
-} from '@/types';
+} from '../types';
 
 /**
  * Hook state

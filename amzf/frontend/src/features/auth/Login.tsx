@@ -6,11 +6,11 @@
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
-import { Button } from '@/components/atoms/Button/Button';
-import { Input } from '@/components/atoms/Input/Input';
-import { Card } from '@/components/atoms/Card/Card';
-import { Text } from '@/components/atoms/Text/Text';
-import { Alert } from '@/components/atoms/Alert/Alert';
+import { Button } from '../../components/atoms/Button/Button';
+import { Input } from '../../components/atoms/Input/Input';
+import { Card } from '../../components/atoms/Card/Card';
+import { Text } from '../../components/atoms/Text/Text';
+import { Alert } from '../../components/atoms/Alert/Alert';
 import { LogIn } from 'lucide-react';
 
 /**

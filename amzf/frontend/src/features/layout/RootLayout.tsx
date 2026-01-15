@@ -4,7 +4,7 @@
  */
 
 import { Outlet } from 'react-router-dom';
-import { AuthProvider } from '@/features/auth/AuthProvider';
+import { AuthProvider } from '../auth/AuthProvider';
 
 /**
  * Root layout component

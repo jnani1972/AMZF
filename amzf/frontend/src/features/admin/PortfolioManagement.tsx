@@ -5,19 +5,19 @@
 
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { Header } from '@/components/organisms/Header/Header';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Badge } from '@/components/atoms/Badge/Badge';
-import { Button } from '@/components/atoms/Button/Button';
-import { Input } from '@/components/atoms/Input/Input';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { EmptyState } from '@/components/molecules/EmptyState/EmptyState';
+import { useAuth } from '../auth/AuthProvider';
+import { Header } from '../../components/organisms/Header/Header';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Badge } from '../../components/atoms/Badge/Badge';
+import { Button } from '../../components/atoms/Button/Button';
+import { Input } from '../../components/atoms/Input/Input';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import { RefreshCw, PlusCircle, Briefcase, Edit, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getAdminNavItems } from '@/lib/navigation';
+import { getAdminNavItems } from '../../lib/navigation';
 
 /**
  * Mock portfolio data structure

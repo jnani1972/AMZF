@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Menu, X, Moon, Sun, User, LogOut } from 'lucide-react';
-import { Button } from '@/components/atoms/Button';
-import { Text } from '@/components/atoms/Text';
-import { useTheme } from '@/lib/theme';
+import { Button } from '../atoms/Button';
+import { Text } from '../atoms/Text';
+import { useTheme } from '../../lib/theme';
 import './Header.css';
 
 /**

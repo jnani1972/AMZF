@@ -1,5 +1,5 @@
 import React from 'react';
-import { StatCard, StatCardProps } from '@/components/molecules/StatCard';
+import { StatCard, StatCardProps } from '../molecules/StatCard';
 import './MetricsGrid.css';
 
 /**

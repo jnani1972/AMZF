@@ -3,7 +3,7 @@
  * Shared navigation items for the application
  */
 
-import type { NavItem } from '@/components/organisms/Header/Header';
+import type { NavItem } from '../components/organisms/Header/Header';
 
 /**
  * Get navigation items for current path

@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
-import { Text } from '@/components/atoms/Text';
-import { Button } from '@/components/atoms/Button';
+import { Text } from '../atoms/Text';
+import { Button } from '../atoms/Button';
 import './EmptyState.css';
 
 /**

@@ -5,22 +5,22 @@
 
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { usePortfolios, useSignals, useTrades } from '@/hooks/useApi';
-import { useWebSocket, useRealtimeEvents } from '@/hooks/useWebSocket';
-import { Header } from '@/components/organisms/Header/Header';
-import { MetricsGrid } from '@/components/organisms/MetricsGrid/MetricsGrid';
-import { PortfolioSummary } from '@/components/organisms/PortfolioSummary/PortfolioSummary';
-import { TradeTable } from '@/components/organisms/TradeTable/TradeTable';
-import { OrderPanel } from '@/components/organisms/OrderPanel/OrderPanel';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Button } from '@/components/atoms/Button/Button';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import type { OrderFormData } from '@/components/organisms/OrderPanel/OrderPanel';
+import { useAuth } from '../auth/AuthProvider';
+import { usePortfolios, useSignals, useTrades } from '../../hooks/useApi';
+import { useWebSocket, useRealtimeEvents } from '../../hooks/useWebSocket';
+import { Header } from '../../components/organisms/Header/Header';
+import { MetricsGrid } from '../../components/organisms/MetricsGrid/MetricsGrid';
+import { PortfolioSummary } from '../../components/organisms/PortfolioSummary/PortfolioSummary';
+import { TradeTable } from '../../components/organisms/TradeTable/TradeTable';
+import { OrderPanel } from '../../components/organisms/OrderPanel/OrderPanel';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Button } from '../../components/atoms/Button/Button';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import type { OrderFormData } from '../../components/organisms/OrderPanel/OrderPanel';
 import { TrendingUp, Activity, BarChart3, AlertCircle } from 'lucide-react';
-import { getNavItems } from '@/lib/navigation';
+import { getNavItems } from '../../lib/navigation';
 
 /**
  * Dashboard component

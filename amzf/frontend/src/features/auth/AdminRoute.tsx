@@ -6,11 +6,11 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { Card } from '@/components/atoms/Card/Card';
-import { Text } from '@/components/atoms/Text/Text';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Button } from '@/components/atoms/Button/Button';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { Card } from '../../components/atoms/Card/Card';
+import { Text } from '../../components/atoms/Text/Text';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Button } from '../../components/atoms/Button/Button';
 import { ShieldAlert } from 'lucide-react';
 
 /**

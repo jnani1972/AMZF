@@ -5,20 +5,20 @@
 
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { useMarketWatch, useWatchlists } from '@/hooks/useApi';
-import { useRealtimePrices } from '@/hooks/useWebSocket';
-import { Header } from '@/components/organisms/Header/Header';
-import { Watchlist } from '@/components/organisms/Watchlist/Watchlist';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Alert } from '@/components/atoms/Alert/Alert';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
-import { Badge } from '@/components/atoms/Badge/Badge';
-import { Button } from '@/components/atoms/Button/Button';
-import { EmptyState } from '@/components/molecules/EmptyState/EmptyState';
+import { useAuth } from '../auth/AuthProvider';
+import { useMarketWatch, useWatchlists } from '../../hooks/useApi';
+import { useRealtimePrices } from '../../hooks/useWebSocket';
+import { Header } from '../../components/organisms/Header/Header';
+import { Watchlist } from '../../components/organisms/Watchlist/Watchlist';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { Badge } from '../../components/atoms/Badge/Badge';
+import { Button } from '../../components/atoms/Button/Button';
+import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import { RefreshCw, TrendingUp, TrendingDown, Eye } from 'lucide-react';
-import { getNavItems } from '@/lib/navigation';
+import { getNavItems } from '../../lib/navigation';
 
 /**
  * Market watch component

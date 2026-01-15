@@ -5,18 +5,18 @@
 
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { Header } from '@/components/organisms/Header/Header';
-import { Text } from '@/components/atoms/Text/Text';
-import { Card } from '@/components/atoms/Card/Card';
-import { Button } from '@/components/atoms/Button/Button';
-import { Input } from '@/components/atoms/Input/Input';
-import { Badge } from '@/components/atoms/Badge/Badge';
-import { Alert } from '@/components/atoms/Alert/Alert';
+import { useAuth } from '../auth/AuthProvider';
+import { Header } from '../../components/organisms/Header/Header';
+import { Text } from '../../components/atoms/Text/Text';
+import { Card } from '../../components/atoms/Card/Card';
+import { Button } from '../../components/atoms/Button/Button';
+import { Input } from '../../components/atoms/Input/Input';
+import { Badge } from '../../components/atoms/Badge/Badge';
+import { Alert } from '../../components/atoms/Alert/Alert';
 import { Save, Settings as SettingsIcon, TrendingUp, Database, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { Timeframe } from '@/types';
-import { getAdminNavItems } from '@/lib/navigation';
+import type { Timeframe } from '../../types';
+import { getAdminNavItems } from '../../lib/navigation';
 
 /**
  * Settings component

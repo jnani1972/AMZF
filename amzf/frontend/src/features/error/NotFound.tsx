@@ -3,9 +3,9 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Card } from '@/components/atoms/Card/Card';
-import { Text } from '@/components/atoms/Text/Text';
-import { Button } from '@/components/atoms/Button/Button';
+import { Card } from '../../components/atoms/Card/Card';
+import { Text } from '../../components/atoms/Text/Text';
+import { Button } from '../../components/atoms/Button/Button';
 import { FileQuestion, Home, ArrowLeft } from 'lucide-react';
 
 /**

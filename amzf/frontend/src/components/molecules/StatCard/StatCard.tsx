@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { Card } from '@/components/atoms/Card';
-import { Text } from '@/components/atoms/Text';
+import { Card } from '../atoms/Card';
+import { Text } from '../atoms/Text';
 import './StatCard.css';
 
 /**

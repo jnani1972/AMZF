@@ -5,10 +5,10 @@
 
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { RootLayout } from '@/features/layout/RootLayout';
-import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
-import { AdminRoute } from '@/features/auth/AdminRoute';
-import { Spinner } from '@/components/atoms/Spinner/Spinner';
+import { RootLayout } from './features/layout/RootLayout';
+import { ProtectedRoute } from './features/auth/ProtectedRoute';
+import { AdminRoute } from './features/auth/AdminRoute';
+import { Spinner } from './components/atoms/Spinner/Spinner';
 
 /**
  * Loading fallback component
@@ -27,42 +27,42 @@ function LoadingFallback() {
 
 // Auth pages
 const Login = lazy(() =>
-  import('@/features/auth/Login').then((m) => ({ default: m.Login }))
+  import('./features/auth/Login').then((m) => ({ default: m.Login }))
 );
 const Register = lazy(() =>
-  import('@/features/auth/Register').then((m) => ({ default: m.Register }))
+  import('./features/auth/Register').then((m) => ({ default: m.Register }))
 );
 const OAuthCallback = lazy(() =>
-  import('@/features/auth/OAuthCallback').then((m) => ({ default: m.OAuthCallback }))
+  import('./features/auth/OAuthCallback').then((m) => ({ default: m.OAuthCallback }))
 );
 
 // Main pages
 const Dashboard = lazy(() =>
-  import('@/features/dashboard/Dashboard').then((m) => ({ default: m.Dashboard }))
+  import('./features/dashboard/Dashboard').then((m) => ({ default: m.Dashboard }))
 );
 const Portfolio = lazy(() =>
-  import('@/features/portfolio/Portfolio').then((m) => ({ default: m.Portfolio }))
+  import('./features/portfolio/Portfolio').then((m) => ({ default: m.Portfolio }))
 );
 const Orders = lazy(() =>
-  import('@/features/trading/Orders').then((m) => ({ default: m.Orders }))
+  import('./features/trading/Orders').then((m) => ({ default: m.Orders }))
 );
 const MarketWatch = lazy(() =>
-  import('@/features/market-watch/MarketWatch').then((m) => ({ default: m.MarketWatch }))
+  import('./features/market-watch/MarketWatch').then((m) => ({ default: m.MarketWatch }))
 );
 
 // Admin pages
 const Admin = lazy(() =>
-  import('@/features/admin/Admin').then((m) => ({ default: m.Admin }))
+  import('./features/admin/Admin').then((m) => ({ default: m.Admin }))
 );
 
 // Live Dashboard
 const LiveDashboard = lazy(() =>
-  import('@/features/live-dashboard/LiveDashboard').then((m) => ({ default: m.LiveDashboard }))
+  import('./features/live-dashboard/LiveDashboard').then((m) => ({ default: m.LiveDashboard }))
 );
 
 // Error pages
 const NotFound = lazy(() =>
-  import('@/features/error/NotFound').then((m) => ({ default: m.NotFound }))
+  import('./features/error/NotFound').then((m) => ({ default: m.NotFound }))
 );
 
 /**

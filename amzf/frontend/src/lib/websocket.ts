@@ -3,7 +3,7 @@
  * Provides real-time data streaming with auto-reconnect
  */
 
-import type { WsMessage, WsMessageType, WsSubscription } from '@/types';
+import type { WsMessage, WsMessageType, WsSubscription } from '../types';
 
 /**
  * WebSocket Configuration

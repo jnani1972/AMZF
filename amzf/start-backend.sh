@@ -25,7 +25,7 @@ mkdir -p logs
 echo ""
 echo "STEP 2/3: Rebuilding backend application..."
 echo "───────────────────────────────────────────────────────────"
-mvn clean package -Dmaven.test.skip=true 2>&1 | tail -10
+mvn clean package -DskipTests 2>&1 | tail -10
 if [ $? -ne 0 ]; then
     echo "✗ Build failed! Check output above."
     exit 1

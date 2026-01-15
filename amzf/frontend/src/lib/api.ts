@@ -17,7 +17,7 @@ import type {
   ApiResponse,
   TradeIntent,
   MTFConfig,
-} from '@/types';
+} from '../types';
 
 /**
  * API Configuration
