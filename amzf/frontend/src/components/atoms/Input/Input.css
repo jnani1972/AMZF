@@ -206,3 +206,45 @@ input[type='number'] {
     min-height: 44px;
   }
 }
+
+/* Responsive Sizing */
+@media (max-width: 768px) {
+  /* Mobile: Use consistent medium sizing */
+  .input--sm {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    height: 44px;
+  }
+
+  .input--md {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    height: 44px;
+  }
+
+  .input--lg {
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    height: 48px;
+  }
+
+  /* Adjust icon padding for mobile */
+  .input--has-icon-left {
+    padding-left: 40px;
+  }
+
+  .input--has-icon-right {
+    padding-right: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Small mobile: Full width inputs with better touch targets */
+  .input {
+    font-size: 16px; /* Prevents iOS zoom */
+  }
+
+  .input__label {
+    font-size: var(--font-size-base);
+  }
+}

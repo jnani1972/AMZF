@@ -2,8 +2,8 @@ package in.annupaper.service;
 
 import in.annupaper.domain.signal.MtfGlobalConfig;
 import in.annupaper.domain.signal.MtfSymbolConfig;
-import in.annupaper.repository.MtfConfigRepository;
-import in.annupaper.repository.SignalRepository;
+import in.annupaper.domain.repository.MtfConfigRepository;
+import in.annupaper.domain.repository.SignalRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

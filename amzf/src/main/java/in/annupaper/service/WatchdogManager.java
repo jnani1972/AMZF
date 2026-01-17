@@ -1,16 +1,16 @@
 package in.annupaper.service;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.broker.Broker;
 import in.annupaper.domain.broker.UserBroker;
 import in.annupaper.domain.broker.UserBrokerSession;
 import in.annupaper.domain.data.TimeframeType;
 import in.annupaper.domain.data.Candle;
-import in.annupaper.repository.BrokerRepository;
-import in.annupaper.repository.UserBrokerRepository;
-import in.annupaper.repository.UserBrokerSessionRepository;
-import in.annupaper.repository.WatchlistRepository;
+import in.annupaper.domain.repository.BrokerRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.UserBrokerSessionRepository;
+import in.annupaper.domain.repository.WatchlistRepository;
 import in.annupaper.service.candle.*;
 import in.annupaper.service.signal.ExitSignalService;
 import in.annupaper.service.signal.MtfSignalGenerator;
@@ -304,9 +304,9 @@ public final class WatchdogManager {
             }
 
             // Check if adapter is FyersAdapter (has WebSocket support)
-            if (adapter instanceof in.annupaper.broker.adapters.FyersAdapter) {
-                in.annupaper.broker.adapters.FyersAdapter fyersAdapter =
-                    (in.annupaper.broker.adapters.FyersAdapter) adapter;
+            if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersAdapter) {
+                in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter =
+                    (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
 
                 if (!fyersAdapter.isWebSocketConnected()) {
                     log.warn("[WATCHDOG] ✗ WebSocket disconnected");
@@ -343,9 +343,9 @@ public final class WatchdogManager {
             }
 
             // Check if adapter is FyersAdapter (has WebSocket support)
-            if (adapter instanceof in.annupaper.broker.adapters.FyersAdapter) {
-                in.annupaper.broker.adapters.FyersAdapter fyersAdapter =
-                    (in.annupaper.broker.adapters.FyersAdapter) adapter;
+            if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersAdapter) {
+                in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter =
+                    (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
 
                 fyersAdapter.reconnectWebSocket();
 

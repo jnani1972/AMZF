@@ -1,7 +1,7 @@
 package in.annupaper.service.candle;
 
 import in.annupaper.domain.data.TimeframeType;
-import in.annupaper.repository.WatchlistRepository;
+import in.annupaper.domain.repository.WatchlistRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

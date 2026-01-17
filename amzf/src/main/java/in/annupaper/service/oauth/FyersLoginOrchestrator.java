@@ -2,8 +2,8 @@ package in.annupaper.service.oauth;
 
 import in.annupaper.domain.broker.BrokerIds;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.OAuthStateRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.OAuthStateRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

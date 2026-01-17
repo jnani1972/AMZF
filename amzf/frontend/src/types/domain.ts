@@ -21,15 +21,30 @@ export interface ValidationResult {
 // ============================================================================
 
 export interface User {
-  id: string;
+  userId: string;
   email: string;
   displayName: string;
   role: UserRole;
-  createdAt: Date;
-  lastLoginAt?: Date;
+  status: UserStatus;
+  createdAt: string;
+  lastLoginAt?: string;
+  suspendedAt?: string;
+  suspendedBy?: string;
+  activatedAt?: string;
+  activatedBy?: string;
+  statusHistory?: UserStatusChange[];
 }
 
 export type UserRole = 'USER' | 'ADMIN';
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+
+export interface UserStatusChange {
+  changedAt: string;
+  changedBy: string;
+  fromStatus: UserStatus;
+  toStatus: UserStatus;
+  reason?: string;
+}
 
 export interface Portfolio {
   id: string;
@@ -68,17 +83,18 @@ export interface Broker {
 }
 
 export interface UserBroker {
-  id: string;
+  userBrokerId: string;
   userId: string;
+  displayName: string;
   brokerId: string;
   brokerName: string;
   role: BrokerRole;
-  isActive: boolean;
-  lastHealthCheck?: Date;
-  healthStatus: BrokerHealthStatus;
-  latencyMs?: number;
-  createdAt: Date;
-  updatedAt: Date;
+  connected: boolean;
+  enabled: boolean;
+  status: string;
+  lastConnected?: string;
+  connectionError?: string;
+  createdAt: string;
 }
 
 export type BrokerRole = 'DATA' | 'EXEC';
@@ -229,6 +245,96 @@ export interface MTFConfig {
   secondaryTimeframe: Timeframe;
   tertiaryTimeframe: Timeframe;
   indicators: string[];
+}
+
+/**
+ * Global MTF Configuration (matches backend MtfGlobalConfig)
+ * All 54 configuration fields for multi-timeframe analysis
+ */
+export interface MtfGlobalConfig {
+  configId: string;
+
+  // HTF (Higher Timeframe) Config - 125 minutes
+  htfCandleCount: number;
+  htfCandleMinutes: number;
+  htfWeight: number;
+
+  // ITF (Intermediate Timeframe) Config - 25 minutes
+  itfCandleCount: number;
+  itfCandleMinutes: number;
+  itfWeight: number;
+
+  // LTF (Lower Timeframe) Config - 1 minute
+  ltfCandleCount: number;
+  ltfCandleMinutes: number;
+  ltfWeight: number;
+
+  // Zone Detection
+  buyZonePct: number;
+  htfBuyZonePct?: number;
+  itfBuyZonePct?: number;
+  ltfBuyZonePct?: number;
+
+  // Confluence Settings
+  minConfluenceType: string;
+  strengthThresholdVeryStrong: number;
+  strengthThresholdStrong: number;
+  strengthThresholdModerate: number;
+  multiplierVeryStrong: number;
+  multiplierStrong: number;
+  multiplierModerate: number;
+  multiplierWeak: number;
+
+  // Log-Utility Constraints
+  maxPositionLogLoss: number;
+  maxPortfolioLogLoss: number;
+  maxSymbolLogLoss: number;
+
+  // Kelly Sizing
+  kellyFraction: number;
+  maxKellyMultiplier: number;
+
+  // Entry Pricing
+  useLimitOrders: boolean;
+  entryOffsetPct: number;
+
+  // Exit Targets
+  minProfitPct: number;
+  targetRMultiple: number;
+  stretchRMultiple: number;
+  useTrailingStop: boolean;
+  trailingStopActivationPct: number;
+  trailingStopDistancePct: number;
+
+  // Averaging Re-Entry Gates
+  minReentrySpacingAtrMultiplier: number;
+
+  // Velocity Throttling
+  rangeAtrThresholdWide: number;
+  rangeAtrThresholdHealthy: number;
+  rangeAtrThresholdTight: number;
+  velocityMultiplierWide: number;
+  velocityMultiplierHealthy: number;
+  velocityMultiplierTight: number;
+  velocityMultiplierCompressed: number;
+  bodyRatioThresholdLow: number;
+  bodyRatioThresholdCritical: number;
+  bodyRatioPenaltyLow: number;
+  bodyRatioPenaltyCritical: number;
+  rangeLookbackBars: number;
+  stressThrottleEnabled: boolean;
+  maxStressDrawdown: number;
+
+  // Utility Asymmetry Gate
+  utilityAlpha: number;
+  utilityBeta: number;
+  utilityLambda: number;
+  minAdvantageRatio: number;
+  utilityGateEnabled: boolean;
+
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ============================================================================

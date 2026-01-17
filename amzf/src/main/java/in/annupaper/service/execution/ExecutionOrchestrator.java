@@ -6,8 +6,8 @@ import in.annupaper.domain.trade.IntentStatus;
 import in.annupaper.domain.trade.TradeIntent;
 import in.annupaper.domain.signal.Signal;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.TradeIntentRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.TradeIntentRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import in.annupaper.service.core.EventService;
 import in.annupaper.service.validation.ValidationService;
 import org.slf4j.Logger;
@@ -31,8 +31,8 @@ public final class ExecutionOrchestrator {
     private final ValidationService validationService;
     private final EventService eventService;
     private final Function<String, ValidationService.UserContext> userContextProvider;
-    private final in.annupaper.repository.SignalDeliveryRepository signalDeliveryRepo;
-    private final in.annupaper.repository.SignalRepository signalRepo;
+    private final in.annupaper.domain.repository.SignalDeliveryRepository signalDeliveryRepo;
+    private final in.annupaper.domain.repository.SignalRepository signalRepo;
 
     // Executor for parallel validation
     private final ExecutorService executor = Executors.newFixedThreadPool(
@@ -50,8 +50,8 @@ public final class ExecutionOrchestrator {
         ValidationService validationService,
         EventService eventService,
         Function<String, ValidationService.UserContext> userContextProvider,
-        in.annupaper.repository.SignalDeliveryRepository signalDeliveryRepo,
-        in.annupaper.repository.SignalRepository signalRepo
+        in.annupaper.domain.repository.SignalDeliveryRepository signalDeliveryRepo,
+        in.annupaper.domain.repository.SignalRepository signalRepo
     ) {
         this.tradeIntentRepo = tradeIntentRepo;
         this.userBrokerRepo = userBrokerRepo;
@@ -74,7 +74,7 @@ public final class ExecutionOrchestrator {
         log.info("Processing pending signal deliveries");
 
         // Query for pending deliveries (CREATED status)
-        List<in.annupaper.repository.SignalDeliveryRepository.SignalDelivery> pendingDeliveries =
+        List<in.annupaper.domain.repository.SignalDeliveryRepository.SignalDelivery> pendingDeliveries =
             signalDeliveryRepo.findPendingDeliveries();
 
         if (pendingDeliveries.isEmpty()) {
@@ -87,7 +87,7 @@ public final class ExecutionOrchestrator {
         // Validate in parallel
         List<CompletableFuture<TradeIntent>> futures = new ArrayList<>();
 
-        for (in.annupaper.repository.SignalDeliveryRepository.SignalDelivery delivery : pendingDeliveries) {
+        for (in.annupaper.domain.repository.SignalDeliveryRepository.SignalDelivery delivery : pendingDeliveries) {
             CompletableFuture<TradeIntent> future = CompletableFuture.supplyAsync(
                 () -> processDelivery(delivery),
                 executor
@@ -177,7 +177,7 @@ public final class ExecutionOrchestrator {
     /**
      * ✅ P0: Process a single delivery - validate, create intent, consume atomically.
      */
-    private TradeIntent processDelivery(in.annupaper.repository.SignalDeliveryRepository.SignalDelivery delivery) {
+    private TradeIntent processDelivery(in.annupaper.domain.repository.SignalDeliveryRepository.SignalDelivery delivery) {
         String intentId = UUID.randomUUID().toString();
 
         try {

@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import in.annupaper.auth.JwtService;
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.broker.BrokerIds;
 import in.annupaper.domain.broker.Broker;
 import in.annupaper.domain.broker.BrokerRole;
@@ -15,7 +15,7 @@ import in.annupaper.domain.trade.TradeEvent;
 import in.annupaper.domain.broker.UserBroker;
 import in.annupaper.domain.data.Watchlist;
 import in.annupaper.domain.broker.UserBrokerSession;
-import in.annupaper.repository.TradeEventRepository;
+import in.annupaper.domain.repository.TradeEventRepository;
 import in.annupaper.service.admin.AdminService;
 import in.annupaper.service.oauth.BrokerOAuthService;
 import io.undertow.server.HttpServerExchange;
@@ -38,8 +38,8 @@ import java.util.function.Function;
 public final class ApiHandlers {
     private static final Logger log = LoggerFactory.getLogger(ApiHandlers.class);
     private static final ObjectMapper MAPPER = new ObjectMapper()
-        .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
-        .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     // JSON Response Keys
     private static final String JSON_SUCCESS = "success";
@@ -60,7 +60,7 @@ public final class ApiHandlers {
     private static final String SUCCESS_WATCHLIST_UPDATED = "Watchlist item updated successfully";
 
     private final TradeEventRepository eventRepo;
-    private final Function<String, String> tokenValidator;  // Authorization header -> userId
+    private final Function<String, String> tokenValidator; // Authorization header -> userId
     private final JwtService jwtService;
     private final AdminService adminService;
     private final BrokerOAuthService oauthService;
@@ -69,35 +69,36 @@ public final class ApiHandlers {
     private final in.annupaper.service.InstrumentService instrumentService;
 
     // Tick stream dependencies for reconnection
-    private final in.annupaper.repository.UserBrokerRepository userBrokerRepo;
-    private final in.annupaper.repository.BrokerRepository brokerRepo;
-    private final in.annupaper.repository.WatchlistRepository watchlistRepo;
+    private final in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo;
+    private final in.annupaper.domain.repository.BrokerRepository brokerRepo;
+    private final in.annupaper.domain.repository.WatchlistRepository watchlistRepo;
     private final in.annupaper.service.candle.TickCandleBuilder tickCandleBuilder;
     private final in.annupaper.service.signal.ExitSignalService exitSignalService;
     private final in.annupaper.service.candle.RecoveryManager recoveryManager;
     private final in.annupaper.service.candle.MtfBackfillService mtfBackfillService;
-    private final in.annupaper.repository.SignalRepository signalRepo;
-    private final in.annupaper.repository.TradeRepository tradeRepo;
+    private final in.annupaper.domain.repository.SignalRepository signalRepo;
+    private final in.annupaper.domain.repository.TradeRepository tradeRepo;
 
     // Old constructor
-    // public ApiHandlers(TradeEventRepository eventRepo, Function<String, String> tokenValidator) {
-    //     this.eventRepo = eventRepo;
-    //     this.tokenValidator = tokenValidator;
+    // public ApiHandlers(TradeEventRepository eventRepo, Function<String, String>
+    // tokenValidator) {
+    // this.eventRepo = eventRepo;
+    // this.tokenValidator = tokenValidator;
     // }
 
     public ApiHandlers(TradeEventRepository eventRepo, Function<String, String> tokenValidator,
-                       JwtService jwtService, AdminService adminService, BrokerOAuthService oauthService,
-                       in.annupaper.service.oauth.FyersLoginOrchestrator fyersLoginOrchestrator,
-                       BrokerAdapterFactory brokerFactory, in.annupaper.service.InstrumentService instrumentService,
-                       in.annupaper.repository.UserBrokerRepository userBrokerRepo,
-                       in.annupaper.repository.BrokerRepository brokerRepo,
-                       in.annupaper.repository.WatchlistRepository watchlistRepo,
-                       in.annupaper.service.candle.TickCandleBuilder tickCandleBuilder,
-                       in.annupaper.service.signal.ExitSignalService exitSignalService,
-                       in.annupaper.service.candle.RecoveryManager recoveryManager,
-                       in.annupaper.service.candle.MtfBackfillService mtfBackfillService,
-                       in.annupaper.repository.SignalRepository signalRepo,
-                       in.annupaper.repository.TradeRepository tradeRepo) {
+            JwtService jwtService, AdminService adminService, BrokerOAuthService oauthService,
+            in.annupaper.service.oauth.FyersLoginOrchestrator fyersLoginOrchestrator,
+            BrokerAdapterFactory brokerFactory, in.annupaper.service.InstrumentService instrumentService,
+            in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo,
+            in.annupaper.domain.repository.BrokerRepository brokerRepo,
+            in.annupaper.domain.repository.WatchlistRepository watchlistRepo,
+            in.annupaper.service.candle.TickCandleBuilder tickCandleBuilder,
+            in.annupaper.service.signal.ExitSignalService exitSignalService,
+            in.annupaper.service.candle.RecoveryManager recoveryManager,
+            in.annupaper.service.candle.MtfBackfillService mtfBackfillService,
+            in.annupaper.domain.repository.SignalRepository signalRepo,
+            in.annupaper.domain.repository.TradeRepository tradeRepo) {
         this.eventRepo = eventRepo;
         this.tokenValidator = tokenValidator;
         this.jwtService = jwtService;
@@ -130,14 +131,16 @@ public final class ApiHandlers {
             brokerFactory.remove(userBrokerId);
 
             // Get data broker details
-            java.util.Optional<in.annupaper.domain.broker.UserBroker> dataBrokerOpt = userBrokerRepo.findById(userBrokerId);
+            java.util.Optional<in.annupaper.domain.broker.UserBroker> dataBrokerOpt = userBrokerRepo
+                    .findById(userBrokerId);
             if (dataBrokerOpt.isEmpty()) {
                 log.warn("[OAUTH] User broker {} not found, skipping reconnection", userBrokerId);
                 return;
             }
 
             in.annupaper.domain.broker.UserBroker dataBroker = dataBrokerOpt.get();
-            java.util.Optional<in.annupaper.domain.broker.Broker> brokerOpt = brokerRepo.findById(dataBroker.brokerId());
+            java.util.Optional<in.annupaper.domain.broker.Broker> brokerOpt = brokerRepo
+                    .findById(dataBroker.brokerId());
             if (brokerOpt.isEmpty()) {
                 log.warn("[OAUTH] Broker not found: {}, skipping reconnection", dataBroker.brokerId());
                 return;
@@ -146,7 +149,7 @@ public final class ApiHandlers {
             String brokerCode = brokerOpt.get().brokerCode();
 
             // Create new adapter (will auto-connect using new session)
-            in.annupaper.broker.BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
+            in.annupaper.domain.broker.BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
             if (adapter == null || !adapter.isConnected()) {
                 log.warn("[OAUTH] Failed to reconnect data broker: {}", brokerCode);
                 return;
@@ -155,14 +158,13 @@ public final class ApiHandlers {
             log.info("[OAUTH] Data broker {} reconnected successfully", userBrokerId);
 
             // Get all enabled watchlist symbols
-            List<Watchlist> allWatchlists =
-                watchlistRepo.findByUserBrokerId(dataBroker.userBrokerId());
+            List<Watchlist> allWatchlists = watchlistRepo.findByUserBrokerId(dataBroker.userBrokerId());
 
             List<String> symbols = allWatchlists.stream()
-                .filter(w -> w.enabled())
-                .map(w -> w.symbol())
-                .distinct()
-                .toList();
+                    .filter(w -> w.enabled())
+                    .map(w -> w.symbol())
+                    .distinct()
+                    .toList();
 
             if (symbols.isEmpty()) {
                 log.info("[OAUTH] No watchlist symbols found for tick subscription");
@@ -190,12 +192,13 @@ public final class ApiHandlers {
 
             // Backfill MTF candles for all symbols
             log.info("[OAUTH] Starting MTF backfill for all symbols...");
-            List<in.annupaper.service.candle.MtfBackfillService.MtfBackfillResult> backfillResults =
-                mtfBackfillService.backfillAllSymbols(userBrokerId);
+            List<in.annupaper.service.candle.MtfBackfillService.MtfBackfillResult> backfillResults = mtfBackfillService
+                    .backfillAllSymbols(userBrokerId);
 
             for (var result : backfillResults) {
                 if (result.success()) {
-                    log.info("[OAUTH] MTF backfill complete for {}: {} candles", result.symbol(), result.candlesBackfilled());
+                    log.info("[OAUTH] MTF backfill complete for {}: {} candles", result.symbol(),
+                            result.candlesBackfilled());
                 } else {
                     log.warn("[OAUTH] MTF backfill failed for {}: {}", result.symbol(), result.message());
                 }
@@ -222,8 +225,8 @@ public final class ApiHandlers {
             ArrayNode feeds = health.putArray("feeds");
             try {
                 List<UserBroker> brokers = userBrokerRepo.findAll().stream()
-                    .filter(ub -> ub.deletedAt() == null)
-                    .toList();
+                        .filter(ub -> ub.deletedAt() == null)
+                        .toList();
 
                 for (UserBroker ub : brokers) {
                     BrokerAdapter adapter = brokerFactory.get(ub.userBrokerId());
@@ -234,9 +237,8 @@ public final class ApiHandlers {
                         feedStatus.put("connected", adapter.isConnected());
 
                         // Add FYERS-specific status (both SDK and raw adapters)
-                        if (adapter instanceof in.annupaper.broker.adapters.FyersV3SdkAdapter) {
-                            in.annupaper.broker.adapters.FyersV3SdkAdapter fyersAdapter =
-                                (in.annupaper.broker.adapters.FyersV3SdkAdapter) adapter;
+                        if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersV3SdkAdapter) {
+                            in.annupaper.infrastructure.broker.adapters.FyersV3SdkAdapter fyersAdapter = (in.annupaper.infrastructure.broker.adapters.FyersV3SdkAdapter) adapter;
                             feedStatus.put("adapterType", "SDK");
                             feedStatus.put("wsConnected", fyersAdapter.isWebSocketConnected());
                             feedStatus.put("canPlaceOrders", fyersAdapter.canPlaceOrders());
@@ -244,15 +246,13 @@ public final class ApiHandlers {
 
                             // Add detailed connection state
                             feedStatus.put("feedStatus", computeFeedStatus(
-                                adapter.isConnected(),
-                                fyersAdapter.isWebSocketConnected(),
-                                fyersAdapter.getConnectionState(),
-                                fyersAdapter.getRetryCount(),
-                                fyersAdapter.getLastHttpStatus()
-                            ));
-                        } else if (adapter instanceof in.annupaper.broker.adapters.FyersAdapter) {
-                            in.annupaper.broker.adapters.FyersAdapter fyersAdapter =
-                                (in.annupaper.broker.adapters.FyersAdapter) adapter;
+                                    adapter.isConnected(),
+                                    fyersAdapter.isWebSocketConnected(),
+                                    fyersAdapter.getConnectionState(),
+                                    fyersAdapter.getRetryCount(),
+                                    fyersAdapter.getLastHttpStatus()));
+                        } else if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersAdapter) {
+                            in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter = (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
                             feedStatus.put("adapterType", "RAW");
                             feedStatus.put("wsConnected", fyersAdapter.isWebSocketConnected());
                             feedStatus.put("canPlaceOrders", fyersAdapter.canPlaceOrders());
@@ -260,12 +260,11 @@ public final class ApiHandlers {
 
                             // Add detailed connection state
                             String status = computeFeedStatus(
-                                adapter.isConnected(),
-                                fyersAdapter.isWebSocketConnected(),
-                                fyersAdapter.getConnectionState(),
-                                fyersAdapter.getRetryCount(),
-                                fyersAdapter.getLastHttpStatus()
-                            );
+                                    adapter.isConnected(),
+                                    fyersAdapter.isWebSocketConnected(),
+                                    fyersAdapter.getConnectionState(),
+                                    fyersAdapter.getRetryCount(),
+                                    fyersAdapter.getLastHttpStatus());
                             feedStatus.put("feedStatus", status);
 
                             // Add retry info if connecting
@@ -289,9 +288,8 @@ public final class ApiHandlers {
         } catch (Exception e) {
             log.error("Health check error", e);
             exchange.getResponseSender().send(
-                "{\"status\":\"error\",\"ts\":\"" + Instant.now() + "\"}",
-                StandardCharsets.UTF_8
-            );
+                    "{\"status\":\"error\",\"ts\":\"" + Instant.now() + "\"}",
+                    StandardCharsets.UTF_8);
         }
     }
 
@@ -300,12 +298,11 @@ public final class ApiHandlers {
      * Returns: LOGIN_REQUIRED, CONNECTING, CONNECTED, DOWN_503, DOWN_AUTH, etc.
      */
     private String computeFeedStatus(
-        boolean connected,
-        boolean wsConnected,
-        String connectionState,
-        int retryCount,
-        Integer lastHttpStatus
-    ) {
+            boolean connected,
+            boolean wsConnected,
+            String connectionState,
+            int retryCount,
+            Integer lastHttpStatus) {
         // If not connected at all (no session/credentials)
         if (!connected) {
             return "LOGIN_REQUIRED";
@@ -366,13 +363,14 @@ public final class ApiHandlers {
         }
 
         // Decode token to get role
-        String role = "USER";  // default
+        String role = "USER"; // default
         if (token != null) {
             try {
                 var claims = jwtService.getClaims(token);
                 if (claims != null) {
                     role = claims.role();
-                    if (role == null) role = "USER";
+                    if (role == null)
+                        role = "USER";
                 }
             } catch (Exception e) {
                 log.warn("Failed to decode token for role: {}", e.getMessage());
@@ -387,30 +385,30 @@ public final class ApiHandlers {
         ObjectNode user = MAPPER.createObjectNode();
         user.put("id", userId);
         user.put("name", "User " + userId);
-        user.put("role", role);  // ✅ Add role to user object
+        user.put("role", role); // ✅ Add role to user object
         response.set("user", user);
-        
+
         ObjectNode portfolio = MAPPER.createObjectNode();
         portfolio.put("id", "P-" + userId);
         portfolio.put("available", 100000);
         portfolio.put("deployed", 0);
         response.set("portfolio", portfolio);
-        
+
         ArrayNode brokers = MAPPER.createArrayNode();
         // TODO: Fetch user's brokers
         response.set("brokers", brokers);
-        
+
         ArrayNode tradeBooks = MAPPER.createArrayNode();
         // TODO: Fetch user's trade books
         response.set("tradeBooks", tradeBooks);
-        
+
         try {
             exchange.getResponseSender().send(MAPPER.writeValueAsString(response), StandardCharsets.UTF_8);
         } catch (Exception e) {
             serverError(exchange, e.getMessage());
         }
     }
-    
+
     /**
      * GET /api/events?afterSeq=0&limit=200
      * Returns events visible to the authenticated user.
@@ -422,17 +420,17 @@ public final class ApiHandlers {
             unauthorized(exchange);
             return;
         }
-        
+
         // Parse query params
         Deque<String> afterSeqQ = exchange.getQueryParameters().get("afterSeq");
         Deque<String> limitQ = exchange.getQueryParameters().get("limit");
         Deque<String> userBrokerIdQ = exchange.getQueryParameters().get("userBrokerId");
-        
+
         long afterSeq = afterSeqQ == null ? 0L : Long.parseLong(afterSeqQ.peekFirst());
         int limit = limitQ == null ? 200 : Integer.parseInt(limitQ.peekFirst());
         limit = Math.max(1, Math.min(limit, 2000));
         String userBrokerId = userBrokerIdQ == null ? null : userBrokerIdQ.peekFirst();
-        
+
         // Fetch events (filtered by user)
         List<TradeEvent> events;
         if (userBrokerId != null) {
@@ -440,9 +438,9 @@ public final class ApiHandlers {
         } else {
             events = eventRepo.listAfterSeqForUser(afterSeq, limit, userId);
         }
-        
+
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-        
+
         try {
             ObjectNode response = MAPPER.createObjectNode();
             response.put("afterSeq", afterSeq);
@@ -451,7 +449,7 @@ public final class ApiHandlers {
             if (userBrokerId != null) {
                 response.put("userBrokerId", userBrokerId);
             }
-            
+
             ArrayNode eventsArray = MAPPER.createArrayNode();
             for (TradeEvent e : events) {
                 ObjectNode eventNode = MAPPER.createObjectNode();
@@ -460,20 +458,24 @@ public final class ApiHandlers {
                 eventNode.put("scope", e.scope().name());
                 eventNode.set("payload", e.payload());
                 eventNode.put("ts", e.ts().toString());
-                if (e.signalId() != null) eventNode.put("signalId", e.signalId());
-                if (e.intentId() != null) eventNode.put("intentId", e.intentId());
-                if (e.tradeId() != null) eventNode.put("tradeId", e.tradeId());
-                if (e.orderId() != null) eventNode.put("orderId", e.orderId());
+                if (e.signalId() != null)
+                    eventNode.put("signalId", e.signalId());
+                if (e.intentId() != null)
+                    eventNode.put("intentId", e.intentId());
+                if (e.tradeId() != null)
+                    eventNode.put("tradeId", e.tradeId());
+                if (e.orderId() != null)
+                    eventNode.put("orderId", e.orderId());
                 eventsArray.add(eventNode);
             }
             response.set("events", eventsArray);
-            
+
             exchange.getResponseSender().send(MAPPER.writeValueAsString(response), StandardCharsets.UTF_8);
         } catch (Exception e) {
             serverError(exchange, e.getMessage());
         }
     }
-    
+
     /**
      * GET /api/brokers
      * Returns user's broker connections.
@@ -484,9 +486,9 @@ public final class ApiHandlers {
             unauthorized(exchange);
             return;
         }
-        
+
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-        
+
         // TODO: Fetch user's brokers from repository
         try {
             ObjectNode response = MAPPER.createObjectNode();
@@ -497,7 +499,7 @@ public final class ApiHandlers {
             serverError(exchange, e.getMessage());
         }
     }
-    
+
     /**
      * GET /api/signals?status=PUBLISHED
      * Returns signals, optionally filtered by status.
@@ -563,7 +565,7 @@ public final class ApiHandlers {
             serverError(exchange, "Failed to fetch signals: " + e.getMessage());
         }
     }
-    
+
     /**
      * GET /api/intents?signalId=xxx
      * Returns trade intents for the user.
@@ -654,8 +656,8 @@ public final class ApiHandlers {
             if (statusFilter != null) {
                 // Filter by user and status
                 trades = tradeRepo.findByUserId(userId).stream()
-                    .filter(t -> statusFilter.equalsIgnoreCase(t.status()))
-                    .toList();
+                        .filter(t -> statusFilter.equalsIgnoreCase(t.status()))
+                        .toList();
             } else {
                 trades = tradeRepo.findByUserId(userId);
             }
@@ -756,7 +758,8 @@ public final class ApiHandlers {
      */
     public void adminGetUsers(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             List<AdminService.User> users = adminService.getAllUsers();
@@ -787,10 +790,11 @@ public final class ApiHandlers {
      */
     public void adminUpdateUser(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         String userId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-            .getParameters().get("userId");
+                .getParameters().get("userId");
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -815,15 +819,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * POST /api/admin/users/:userId/toggle - Toggle user status between ACTIVE and SUSPENDED (admin only).
+     * POST /api/admin/users/:userId/toggle - Toggle user status between ACTIVE and
+     * SUSPENDED (admin only).
      */
     public void adminToggleUserStatus(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String userId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("userId");
+                    .getParameters().get("userId");
 
             String newStatus = adminService.toggleUserStatus(userId);
 
@@ -846,11 +852,12 @@ public final class ApiHandlers {
      */
     public void adminDeleteUser(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String userId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("userId");
+                    .getParameters().get("userId");
 
             adminService.deleteUser(userId);
 
@@ -872,7 +879,8 @@ public final class ApiHandlers {
      */
     public void adminGetBrokers(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             List<Broker> brokers = adminService.getAllBrokers();
@@ -901,7 +909,8 @@ public final class ApiHandlers {
      */
     public void adminGetUserBrokers(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             List<UserBroker> userBrokers = adminService.getAllUserBrokers();
@@ -953,15 +962,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * DELETE /api/admin/user-brokers/{userBrokerId} - Delete user-broker (admin only).
+     * DELETE /api/admin/user-brokers/{userBrokerId} - Delete user-broker (admin
+     * only).
      */
     public void adminDeleteUserBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String userBrokerId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("userBrokerId");
+                    .getParameters().get("userBrokerId");
 
             adminService.deleteUserBroker(userBrokerId);
 
@@ -981,15 +992,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * PATCH /api/admin/user-brokers/{userBrokerId}/toggle - Toggle enabled status (admin only).
+     * PATCH /api/admin/user-brokers/{userBrokerId}/toggle - Toggle enabled status
+     * (admin only).
      */
     public void adminToggleUserBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String userBrokerId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("userBrokerId");
+                    .getParameters().get("userBrokerId");
 
             adminService.toggleUserBrokerEnabled(userBrokerId);
 
@@ -1009,14 +1022,16 @@ public final class ApiHandlers {
     }
 
     /**
-     * PUT /api/admin/user-brokers/{userBrokerId} - Update user-broker role and enabled status (admin only).
+     * PUT /api/admin/user-brokers/{userBrokerId} - Update user-broker role and
+     * enabled status (admin only).
      */
     public void adminUpdateUserBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         String userBrokerId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-            .getParameters().get("userBrokerId");
+                .getParameters().get("userBrokerId");
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1057,7 +1072,8 @@ public final class ApiHandlers {
      */
     public void adminCreateUserBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1088,7 +1104,8 @@ public final class ApiHandlers {
      */
     public void adminCreatePortfolio(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1118,7 +1135,8 @@ public final class ApiHandlers {
      */
     public void adminGetPortfolios(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             Deque<String> userIdParam = exchange.getQueryParameters().get("userId");
@@ -1157,10 +1175,11 @@ public final class ApiHandlers {
      */
     public void adminUpdatePortfolio(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         String portfolioId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-            .getParameters().get("portfolioId");
+                .getParameters().get("portfolioId");
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1169,8 +1188,8 @@ public final class ApiHandlers {
                 // Parse name and capital from request
                 String name = json.has("name") && !json.get("name").isNull() ? json.get("name").asText() : null;
                 BigDecimal capital = json.has("capital") && !json.get("capital").isNull()
-                    ? new BigDecimal(json.get("capital").asText())
-                    : null;
+                        ? new BigDecimal(json.get("capital").asText())
+                        : null;
 
                 Portfolio updated = adminService.updatePortfolio(portfolioId, name, capital);
 
@@ -1192,15 +1211,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * DELETE /api/admin/portfolios/{portfolioId} - Soft delete portfolio (admin only).
+     * DELETE /api/admin/portfolios/{portfolioId} - Soft delete portfolio (admin
+     * only).
      */
     public void adminDeletePortfolio(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String portfolioId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("portfolioId");
+                    .getParameters().get("portfolioId");
 
             adminService.deletePortfolio(portfolioId);
 
@@ -1225,7 +1246,8 @@ public final class ApiHandlers {
      */
     public void adminAddWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1251,7 +1273,8 @@ public final class ApiHandlers {
                     } else {
                         ex.setStatusCode(400);
                         ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-                        ex.getResponseSender().send("{\"error\":\"User has no brokers configured\"}", StandardCharsets.UTF_8);
+                        ex.getResponseSender().send("{\"error\":\"User has no brokers configured\"}",
+                                StandardCharsets.UTF_8);
                         return;
                     }
                 }
@@ -1259,7 +1282,8 @@ public final class ApiHandlers {
                 if (userBrokerId == null || userId == null) {
                     ex.setStatusCode(400);
                     ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-                    ex.getResponseSender().send("{\"error\":\"userId or userBrokerId required\"}", StandardCharsets.UTF_8);
+                    ex.getResponseSender().send("{\"error\":\"userId or userBrokerId required\"}",
+                            StandardCharsets.UTF_8);
                     return;
                 }
 
@@ -1288,7 +1312,8 @@ public final class ApiHandlers {
      */
     public void adminGetWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             Deque<String> userIdParam = exchange.getQueryParameters().get("userId");
@@ -1331,11 +1356,12 @@ public final class ApiHandlers {
      */
     public void adminDeleteWatchlistItem(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String idStr = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("id");
+                    .getParameters().get("id");
             Long id = Long.parseLong(idStr);
 
             adminService.deleteWatchlistItem(id);
@@ -1360,10 +1386,11 @@ public final class ApiHandlers {
      */
     public void adminUpdateWatchlistItem(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         String idStr = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-            .getParameters().get("id");
+                .getParameters().get("id");
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1372,16 +1399,16 @@ public final class ApiHandlers {
 
                 // Parse lotSize, tickSize, and enabled from request
                 Integer lotSize = json.has("lotSize") && !json.get("lotSize").isNull()
-                    ? json.get("lotSize").asInt()
-                    : null;
+                        ? json.get("lotSize").asInt()
+                        : null;
 
                 BigDecimal tickSize = json.has("tickSize") && !json.get("tickSize").isNull()
-                    ? new BigDecimal(json.get("tickSize").asText())
-                    : null;
+                        ? new BigDecimal(json.get("tickSize").asText())
+                        : null;
 
                 Boolean enabled = json.has("enabled") && !json.get("enabled").isNull()
-                    ? json.get("enabled").asBoolean()
-                    : null;
+                        ? json.get("enabled").asBoolean()
+                        : null;
 
                 Watchlist updated = adminService.updateWatchlistItem(id, lotSize, tickSize, enabled);
 
@@ -1405,16 +1432,18 @@ public final class ApiHandlers {
     }
 
     /**
-     * POST /api/admin/watchlist/{id}/toggle - Toggle watchlist item enabled status (admin only).
+     * POST /api/admin/watchlist/{id}/toggle - Toggle watchlist item enabled status
+     * (admin only).
      * Auto-toggles the current enabled state (no request body needed).
      */
     public void adminToggleWatchlistItem(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String idStr = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("id");
+                    .getParameters().get("id");
             Long id = Long.parseLong(idStr);
 
             // Get current state and toggle it
@@ -1429,7 +1458,7 @@ public final class ApiHandlers {
             }
 
             boolean currentEnabled = watchlistOpt.get().enabled();
-            boolean newEnabled = !currentEnabled;  // Toggle
+            boolean newEnabled = !currentEnabled; // Toggle
 
             adminService.toggleWatchlistItem(id, newEnabled);
 
@@ -1450,11 +1479,13 @@ public final class ApiHandlers {
     }
 
     /**
-     * GET /api/admin/data-broker - Get system-wide data broker configuration (admin only).
+     * GET /api/admin/data-broker - Get system-wide data broker configuration (admin
+     * only).
      */
     public void adminGetDataBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             AdminService.DataBrokerInfo dataBroker = adminService.getDataBroker();
@@ -1494,7 +1525,8 @@ public final class ApiHandlers {
      */
     public void adminConfigureDataBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -1529,10 +1561,12 @@ public final class ApiHandlers {
      */
     public void adminGetOAuthUrl(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
-            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY).getParameters().get("userBrokerId");
+            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                    .getParameters().get("userBrokerId");
             String userBrokerId = pathTemplate;
 
             String oauthUrl = oauthService.generateFyersOAuthUrl(userBrokerId);
@@ -1558,7 +1592,8 @@ public final class ApiHandlers {
      */
     public void adminOAuthCallback(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             // Fyers API v3 returns auth code in 'auth_code' parameter
@@ -1614,10 +1649,12 @@ public final class ApiHandlers {
      */
     public void adminGetSession(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
-            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY).getParameters().get("userBrokerId");
+            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                    .getParameters().get("userBrokerId");
             String userBrokerId = pathTemplate;
 
             java.util.Optional<UserBrokerSession> sessionOpt = oauthService.getCurrentSession(userBrokerId);
@@ -1629,7 +1666,8 @@ public final class ApiHandlers {
                 response.put("hasSession", true);
                 response.put("sessionId", session.sessionId());
                 response.put("status", session.sessionStatus().name());
-                response.put("validTill", session.tokenValidTill() != null ? session.tokenValidTill().toString() : null);
+                response.put("validTill",
+                        session.tokenValidTill() != null ? session.tokenValidTill().toString() : null);
                 response.put("isActive", session.isActive());
             } else {
                 response.put("success", true);
@@ -1651,10 +1689,12 @@ public final class ApiHandlers {
      */
     public void adminDisconnectBroker(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
-            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY).getParameters().get("userBrokerId");
+            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                    .getParameters().get("userBrokerId");
             String userBrokerId = pathTemplate;
 
             oauthService.revokeSession(userBrokerId);
@@ -1678,10 +1718,12 @@ public final class ApiHandlers {
      */
     public void adminTestConnection(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
-            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY).getParameters().get("userBrokerId");
+            String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                    .getParameters().get("userBrokerId");
             String userBrokerId = pathTemplate;
 
             // Get user broker from database
@@ -1695,7 +1737,7 @@ public final class ApiHandlers {
 
             // Get broker code from broker repository
             in.annupaper.domain.broker.Broker broker = adminService.getBrokerById(userBroker.brokerId())
-                .orElseThrow(() -> new IllegalStateException("Broker not found: " + userBroker.brokerId()));
+                    .orElseThrow(() -> new IllegalStateException("Broker not found: " + userBroker.brokerId()));
 
             // Create broker adapter
             BrokerAdapter adapter = brokerFactory.create(broker.brokerCode(), userBrokerId);
@@ -1703,13 +1745,12 @@ public final class ApiHandlers {
             // Get credentials from user broker
             JsonNode credentialsJson = userBroker.credentials();
             BrokerAdapter.BrokerCredentials credentials = new BrokerAdapter.BrokerCredentials(
-                credentialsJson.has("apiKey") ? credentialsJson.get("apiKey").asText() : null,
-                credentialsJson.has("apiSecret") ? credentialsJson.get("apiSecret").asText() : null,
-                credentialsJson.has("accessToken") ? credentialsJson.get("accessToken").asText() : null,
-                credentialsJson.has("userId") ? credentialsJson.get("userId").asText() : null,
-                credentialsJson.has("password") ? credentialsJson.get("password").asText() : null,
-                credentialsJson.has("totp") ? credentialsJson.get("totp").asText() : null
-            );
+                    credentialsJson.has("apiKey") ? credentialsJson.get("apiKey").asText() : null,
+                    credentialsJson.has("apiSecret") ? credentialsJson.get("apiSecret").asText() : null,
+                    credentialsJson.has("accessToken") ? credentialsJson.get("accessToken").asText() : null,
+                    credentialsJson.has("userId") ? credentialsJson.get("userId").asText() : null,
+                    credentialsJson.has("password") ? credentialsJson.get("password").asText() : null,
+                    credentialsJson.has("totp") ? credentialsJson.get("totp").asText() : null);
 
             // Connect and get profile
             BrokerAdapter.ConnectionResult result = adapter.connect(credentials).get();
@@ -1751,13 +1792,15 @@ public final class ApiHandlers {
      */
     public void adminSaveConnection(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
                 JsonNode requestJson = MAPPER.readTree(body);
 
-                String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY).getParameters().get("userBrokerId");
+                String pathTemplate = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                        .getParameters().get("userBrokerId");
                 String userBrokerId = pathTemplate;
 
                 // Get user broker from database
@@ -1782,31 +1825,30 @@ public final class ApiHandlers {
 
                 // Update user broker with connected status and timestamp
                 UserBroker updatedBroker = new UserBroker(
-                    userBroker.userBrokerId(),
-                    userBroker.userId(),
-                    userBroker.brokerId(),
-                    userBroker.role(),
-                    updatedCredentials,
-                    true, // connected
-                    java.time.Instant.now(), // lastConnected
-                    null, // connectionError
-                    userBroker.capitalAllocated(),
-                    userBroker.maxExposure(),
-                    userBroker.maxPerTrade(),
-                    userBroker.maxOpenTrades(),
-                    userBroker.allowedSymbols(),
-                    userBroker.blockedSymbols(),
-                    userBroker.allowedProducts(),
-                    userBroker.maxDailyLoss(),
-                    userBroker.maxWeeklyLoss(),
-                    userBroker.cooldownMinutes(),
-                    userBroker.status(),
-                    userBroker.enabled(),
-                    userBroker.createdAt(),
-                    java.time.Instant.now(), // updatedAt
-                    userBroker.deletedAt(),
-                    userBroker.version()
-                );
+                        userBroker.userBrokerId(),
+                        userBroker.userId(),
+                        userBroker.brokerId(),
+                        userBroker.role(),
+                        updatedCredentials,
+                        true, // connected
+                        java.time.Instant.now(), // lastConnected
+                        null, // connectionError
+                        userBroker.capitalAllocated(),
+                        userBroker.maxExposure(),
+                        userBroker.maxPerTrade(),
+                        userBroker.maxOpenTrades(),
+                        userBroker.allowedSymbols(),
+                        userBroker.blockedSymbols(),
+                        userBroker.allowedProducts(),
+                        userBroker.maxDailyLoss(),
+                        userBroker.maxWeeklyLoss(),
+                        userBroker.cooldownMinutes(),
+                        userBroker.status(),
+                        userBroker.enabled(),
+                        userBroker.createdAt(),
+                        java.time.Instant.now(), // updatedAt
+                        userBroker.deletedAt(),
+                        userBroker.version());
 
                 adminService.updateUserBroker(updatedBroker);
 
@@ -1828,7 +1870,8 @@ public final class ApiHandlers {
     // Authentication helpers
     // ═══════════════════════════════════════════════════════════════
 
-    private record AuthContext(String userId, String role) {}
+    private record AuthContext(String userId, String role) {
+    }
 
     private AuthContext authenticateWithRole(HttpServerExchange exchange) {
         String token = extractToken(exchange);
@@ -1904,17 +1947,19 @@ public final class ApiHandlers {
 
         return null;
     }
-    
+
     // ============================================================
     // Watchlist Template Management Endpoints
     // ============================================================
 
     /**
-     * GET /api/admin/watchlist-templates - Get all active watchlist templates (admin only).
+     * GET /api/admin/watchlist-templates - Get all active watchlist templates
+     * (admin only).
      */
     public void adminGetWatchlistTemplates(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             var templates = adminService.getAllTemplates();
@@ -1940,15 +1985,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * GET /api/admin/watchlist-templates/{templateId}/symbols - Get symbols for a template (admin only).
+     * GET /api/admin/watchlist-templates/{templateId}/symbols - Get symbols for a
+     * template (admin only).
      */
     public void adminGetTemplateSymbols(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String templateId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("templateId");
+                    .getParameters().get("templateId");
 
             var symbols = adminService.getTemplateSymbols(templateId);
             ArrayNode symbolsArray = MAPPER.createArrayNode();
@@ -1979,11 +2026,13 @@ public final class ApiHandlers {
     }
 
     /**
-     * POST /api/admin/watchlist-templates - Create a new watchlist template (admin only).
+     * POST /api/admin/watchlist-templates - Create a new watchlist template (admin
+     * only).
      */
     public void adminCreateTemplate(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -2010,16 +2059,18 @@ public final class ApiHandlers {
     }
 
     /**
-     * POST /api/admin/watchlist-templates/{templateId}/symbols - Add symbol to template (admin only).
+     * POST /api/admin/watchlist-templates/{templateId}/symbols - Add symbol to
+     * template (admin only).
      */
     public void adminAddSymbolToTemplate(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
                 String templateId = ex.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                    .getParameters().get("templateId");
+                        .getParameters().get("templateId");
 
                 JsonNode json = MAPPER.readTree(body);
                 String symbol = json.get("symbol").asText();
@@ -2042,15 +2093,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * DELETE /api/admin/watchlist-templates/symbols/{symbolId} - Delete symbol from template (admin only).
+     * DELETE /api/admin/watchlist-templates/symbols/{symbolId} - Delete symbol from
+     * template (admin only).
      */
     public void adminDeleteSymbolFromTemplate(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String symbolIdStr = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("symbolId");
+                    .getParameters().get("symbolId");
             long symbolId = Long.parseLong(symbolIdStr);
 
             adminService.deleteSymbolFromTemplate(symbolId);
@@ -2069,15 +2122,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * DELETE /api/admin/watchlist-templates/{templateId} - Delete a template (admin only).
+     * DELETE /api/admin/watchlist-templates/{templateId} - Delete a template (admin
+     * only).
      */
     public void adminDeleteTemplate(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String templateId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("templateId");
+                    .getParameters().get("templateId");
 
             adminService.deleteTemplate(templateId);
 
@@ -2095,11 +2150,13 @@ public final class ApiHandlers {
     }
 
     /**
-     * POST /api/admin/watchlist-selected - Create a selected watchlist from template (admin only).
+     * POST /api/admin/watchlist-selected - Create a selected watchlist from
+     * template (admin only).
      */
     public void adminCreateSelectedWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
@@ -2135,11 +2192,13 @@ public final class ApiHandlers {
     }
 
     /**
-     * GET /api/admin/watchlist-selected - Get all active selected watchlists (admin only).
+     * GET /api/admin/watchlist-selected - Get all active selected watchlists (admin
+     * only).
      */
     public void adminGetSelectedWatchlists(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             var selected = adminService.getAllSelectedWatchlists();
@@ -2165,15 +2224,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * GET /api/admin/watchlist-selected/{selectedId}/symbols - Get symbols for a selected watchlist (admin only).
+     * GET /api/admin/watchlist-selected/{selectedId}/symbols - Get symbols for a
+     * selected watchlist (admin only).
      */
     public void adminGetSelectedSymbols(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String selectedId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("selectedId");
+                    .getParameters().get("selectedId");
 
             var symbols = adminService.getSelectedWatchlistSymbols(selectedId);
             ArrayNode symbolsArray = MAPPER.createArrayNode();
@@ -2204,15 +2265,17 @@ public final class ApiHandlers {
     }
 
     /**
-     * DELETE /api/admin/watchlist-selected/{selectedId} - Delete a selected watchlist (admin only).
+     * DELETE /api/admin/watchlist-selected/{selectedId} - Delete a selected
+     * watchlist (admin only).
      */
     public void adminDeleteSelectedWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             String selectedId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
-                .getParameters().get("selectedId");
+                    .getParameters().get("selectedId");
 
             adminService.deleteSelectedWatchlist(selectedId);
 
@@ -2233,11 +2296,13 @@ public final class ApiHandlers {
     }
 
     /**
-     * GET /api/admin/watchlist-default - Get merged default watchlist (Level 3) (admin only).
+     * GET /api/admin/watchlist-default - Get merged default watchlist (Level 3)
+     * (admin only).
      */
     public void adminGetDefaultWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             List<String> symbols = adminService.getMergedDefaultWatchlist();
@@ -2272,11 +2337,13 @@ public final class ApiHandlers {
     }
 
     /**
-     * POST /api/admin/watchlist-sync - Manually trigger sync to all user-brokers (admin only).
+     * POST /api/admin/watchlist-sync - Manually trigger sync to all user-brokers
+     * (admin only).
      */
     public void adminSyncWatchlists(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (!requireAdmin(exchange, auth)) return;
+        if (!requireAdmin(exchange, auth))
+            return;
 
         try {
             adminService.syncDefaultToAllUserBrokers();
@@ -2299,7 +2366,8 @@ public final class ApiHandlers {
      */
     public void searchInstruments(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
-        if (auth == null) return;
+        if (auth == null)
+            return;
 
         try {
             String query = exchange.getQueryParameters().get("q").getFirst().toUpperCase();
@@ -2328,7 +2396,8 @@ public final class ApiHandlers {
 
     /**
      * GET /api/market-watch - Get watchlist with LTP for Market Watch page.
-     * Regular users see only their symbols, admin sees superset of all users' watchlists.
+     * Regular users see only their symbols, admin sees superset of all users'
+     * watchlists.
      */
     public void marketWatch(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
@@ -2340,7 +2409,8 @@ public final class ApiHandlers {
         try {
             List<AdminService.MarketWatchEntry> watchlist;
 
-            // Admin sees superset of all users' watchlists, regular users see only their own
+            // Admin sees superset of all users' watchlists, regular users see only their
+            // own
             // Returns comprehensive market data: LTP, 52-week high/low, daily OHLC+Volume
             if ("admin".equalsIgnoreCase(auth.role())) {
                 watchlist = adminService.getMarketWatchEntriesForAdmin();
@@ -2422,10 +2492,10 @@ public final class ApiHandlers {
      *
      * Response:
      * {
-     *   "loginUrl": "https://api-t1.fyers.in/api/v3/generate-authcode?...",
-     *   "state": "uuid-state",
-     *   "redirectUri": "http://localhost:4000/admin/oauth-callback",
-     *   "appId": "NZT2TDYT0T-100"
+     * "loginUrl": "https://api-t1.fyers.in/api/v3/generate-authcode?...",
+     * "state": "uuid-state",
+     * "redirectUri": "http://localhost:4000/admin/oauth-callback",
+     * "appId": "NZT2TDYT0T-100"
      * }
      */
     public void fyersLoginUrl(HttpServerExchange exchange) {
@@ -2444,8 +2514,8 @@ public final class ApiHandlers {
             log.info("[FYERS LOGIN URL] Request for userBrokerId={}", userBrokerId);
 
             // Generate login URL
-            in.annupaper.service.oauth.FyersLoginOrchestrator.LoginUrlResponse response =
-                fyersLoginOrchestrator.generateLoginUrl(userBrokerId);
+            in.annupaper.service.oauth.FyersLoginOrchestrator.LoginUrlResponse response = fyersLoginOrchestrator
+                    .generateLoginUrl(userBrokerId);
 
             // Build JSON response
             ObjectNode json = MAPPER.createObjectNode();
@@ -2471,17 +2541,17 @@ public final class ApiHandlers {
      *
      * Request body:
      * {
-     *   "authCode": "xyz123",
-     *   "state": "uuid-state"
+     * "authCode": "xyz123",
+     * "state": "uuid-state"
      * }
      *
      * Response:
      * {
-     *   "ok": true,
-     *   "alreadyDone": false,
-     *   "userBrokerId": "UB_DATA_E7DE4B",
-     *   "sessionId": "SESSION_12345678",
-     *   "message": "Token exchanged successfully"
+     * "ok": true,
+     * "alreadyDone": false,
+     * "userBrokerId": "UB_DATA_E7DE4B",
+     * "sessionId": "SESSION_12345678",
+     * "message": "Token exchanged successfully"
      * }
      */
     public void fyersOAuthExchange(HttpServerExchange exchange) {
@@ -2504,12 +2574,11 @@ public final class ApiHandlers {
                     log.info("[FYERS OAUTH EXCHANGE] Received callback: state={}", state);
 
                     // Exchange token (with idempotency and state validation)
-                    BrokerOAuthService.ExchangeResult result =
-                        oauthService.exchangeAuthCodeWithState(authCode, state);
+                    BrokerOAuthService.ExchangeResult result = oauthService.exchangeAuthCodeWithState(authCode, state);
 
                     if (!result.success()) {
                         log.error("[FYERS OAUTH EXCHANGE] Exchange failed: {} - {}",
-                            result.errorCode(), result.errorMessage());
+                                result.errorCode(), result.errorMessage());
                         badRequest(ex, result.errorMessage());
                         return;
                     }
@@ -2521,7 +2590,7 @@ public final class ApiHandlers {
                         String sessionId = result.sessionId();
 
                         log.info("[FYERS OAUTH EXCHANGE] ✅ Token exchanged successfully: userBrokerId={}, session={}",
-                            userBrokerId, sessionId);
+                                userBrokerId, sessionId);
 
                         // Immediate reconnect via factory
                         try {
@@ -2531,15 +2600,16 @@ public final class ApiHandlers {
                             // Also ensure adapter is connected (in case no subscriptions yet)
                             BrokerAdapter adapter = brokerFactory.get(userBrokerId);
                             if (adapter != null && !adapter.isConnected()) {
-                                log.info("[FYERS OAUTH EXCHANGE] ⚡ Triggering explicit connect for userBrokerId={}", userBrokerId);
+                                log.info("[FYERS OAUTH EXCHANGE] ⚡ Triggering explicit connect for userBrokerId={}",
+                                        userBrokerId);
                                 // Trigger connect (async, non-blocking)
                                 BrokerAdapter.BrokerCredentials dummyCreds = new BrokerAdapter.BrokerCredentials(
-                                    null, null, accessToken, null, null, null
-                                );
+                                        null, null, accessToken, null, null, null);
                                 adapter.connect(dummyCreds);
                             }
 
-                            log.info("[FYERS OAUTH EXCHANGE] ✅ Triggered immediate reconnect for userBrokerId={}", userBrokerId);
+                            log.info("[FYERS OAUTH EXCHANGE] ✅ Triggered immediate reconnect for userBrokerId={}",
+                                    userBrokerId);
                         } catch (Exception e) {
                             log.error("[FYERS OAUTH EXCHANGE] Failed to trigger reconnect: {}", e.getMessage());
                             // Don't fail the request - token is saved, watchdog will pick it up
@@ -2552,9 +2622,8 @@ public final class ApiHandlers {
                     json.put("alreadyDone", result.alreadyDone());
                     json.put("userBrokerId", result.userBrokerId());
                     json.put("sessionId", result.sessionId());
-                    json.put("message", result.alreadyDone() ?
-                        "Token already exchanged (idempotent)" :
-                        "Token exchanged successfully");
+                    json.put("message", result.alreadyDone() ? "Token already exchanged (idempotent)"
+                            : "Token exchanged successfully");
 
                     ex.getResponseSender().send(json.toString(), StandardCharsets.UTF_8);
 

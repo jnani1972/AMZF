@@ -1,14 +1,14 @@
 package in.annupaper.service.execution;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.common.EventType;
 import in.annupaper.domain.trade.Trade;
 import in.annupaper.domain.trade.TradeIntent;
 import in.annupaper.domain.signal.Signal;
-import in.annupaper.repository.TradeRepository;
-import in.annupaper.repository.SignalRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.TradeRepository;
+import in.annupaper.domain.repository.SignalRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import in.annupaper.service.core.EventService;
 import in.annupaper.service.trade.TradeManagementService;
 import org.slf4j.Logger;
@@ -104,13 +104,13 @@ public final class OrderExecutionService {
 
         // Check both SDK and raw FYERS adapters for READ-ONLY mode
         boolean readOnlyMode = false;
-        if (adapter instanceof in.annupaper.broker.adapters.FyersV3SdkAdapter) {
-            in.annupaper.broker.adapters.FyersV3SdkAdapter fyersAdapter =
-                (in.annupaper.broker.adapters.FyersV3SdkAdapter) adapter;
+        if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersV3SdkAdapter) {
+            in.annupaper.infrastructure.broker.adapters.FyersV3SdkAdapter fyersAdapter =
+                (in.annupaper.infrastructure.broker.adapters.FyersV3SdkAdapter) adapter;
             readOnlyMode = !fyersAdapter.canPlaceOrders();
-        } else if (adapter instanceof in.annupaper.broker.adapters.FyersAdapter) {
-            in.annupaper.broker.adapters.FyersAdapter fyersAdapter =
-                (in.annupaper.broker.adapters.FyersAdapter) adapter;
+        } else if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersAdapter) {
+            in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter =
+                (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
             readOnlyMode = !fyersAdapter.canPlaceOrders();
         }
 

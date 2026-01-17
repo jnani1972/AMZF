@@ -170,3 +170,126 @@ body {
 .no-transition * {
   transition: none !important;
 }
+
+/* Page Transition Animations */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Notification/Modal Slide-in Animations */
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-out-right {
+  animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+/* Utility Classes */
+
+/* Page Transition */
+.page-transition {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Summary Grid - 4 column layout */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+/* Responsive Summary Grids */
+@media (max-width: 1024px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Summary Card Content - Reduced padding by 10px (from 16px to 6px) */
+.summary-card-content {
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Summary Card Icon */
+.summary-card-icon {
+  padding: 6px;
+}
+
+/* Clickable Summary Card */
+.summary-card--clickable {
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.summary-card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.summary-card--clickable:active {
+  transform: translateY(0);
+}
+
+/* Modal Slide Right - Fixed positioning for notification-style modals */
+.modal-slide-right {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  width: 100%;
+  max-width: 28rem;
+  z-index: var(--z-modal);
+}
+
+/* Modal Slide Right - Medium width variant */
+.modal-slide-right--md {
+  max-width: 28rem;
+}
+
+/* Modal Slide Right - Large width variant */
+.modal-slide-right--lg {
+  max-width: 36rem;
+}
+
+/* Modal Slide Right - Extra large width variant */
+.modal-slide-right--xl {
+  max-width: 48rem;
+}

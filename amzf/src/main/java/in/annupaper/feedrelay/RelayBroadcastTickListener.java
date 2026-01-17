@@ -1,7 +1,7 @@
 package in.annupaper.feedrelay;
 
-import in.annupaper.broker.BrokerAdapter.Tick;
-import in.annupaper.broker.BrokerAdapter.TickListener;
+import in.annupaper.domain.broker.BrokerAdapter.Tick;
+import in.annupaper.domain.broker.BrokerAdapter.TickListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

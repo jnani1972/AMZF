@@ -34,7 +34,27 @@
       "Bash(ls:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill -9)",
-      "Bash(npx storybook@latest init:*)"
+      "Bash(npx storybook@latest init:*)",
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJVQURNSU4zN0EwIiwiZW1haWwiOiJhZG1pbkBhbm51cGFwZXIuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzY4NDcwNTUzLCJleHAiOjE3Njg1NTY5NTN9.3t8aA6aaYp3Tq47ZUc1xS8dkJL7sc6BuvIdQ8FBaCc4\")",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJVQURNSU4zN0EwIiwiZW1haWwiOiJhZG1pbkBhbm51cGFwZXIuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzY4NjM0MTAzLCJleHAiOjE3Njg3MjA1MDN9.qvJUd-SB6krjDUl447kmwKlz0LOIFF5s_1IW1ugc8MU\")",
+      "Bash(__NEW_LINE__ echo \"=== Test 3: DELETE /api/admin/portfolios/P-UADMIN37A0 ===\")",
+      "Bash(__NEW_LINE__ curl -v -X DELETE \"http://localhost:9090/api/admin/portfolios/P-UADMIN37A0\" )",
+      "Bash(__NEW_LINE__ curl -X DELETE \"http://localhost:9090/api/admin/portfolios/P-UADMIN37A0\" )",
+      "Bash(__NEW_LINE__ echo \"=== Test 4: PUT /api/admin/watchlist/84 ===\")",
+      "Bash(__NEW_LINE__ curl -X PUT \"http://localhost:9090/api/admin/watchlist/84\" )",
+      "Bash(src/main/java/in/annupaper/repository/WatchlistRepository.java )",
+      "Bash(src/main/java/in/annupaper/repository/PostgresWatchlistRepository.java )",
+      "Bash(src/main/java/in/annupaper/service/admin/AdminService.java )",
+      "Bash(src/main/java/in/annupaper/transport/http/ApiHandlers.java)",
+      "Bash(__NEW_LINE__ git status --short)",
+      "Bash(__NEW_LINE__ git status)",
+      "Bash(psql:*)",
+      "Bash(wc:*)"
     ]
   }
 }

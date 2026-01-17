@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import in.annupaper.domain.common.EventScope;
 import in.annupaper.domain.common.EventType;
 import in.annupaper.domain.trade.TradeEvent;
-import in.annupaper.repository.TradeEventRepository;
+import in.annupaper.domain.repository.TradeEventRepository;
 import in.annupaper.transport.ws.WsHub;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

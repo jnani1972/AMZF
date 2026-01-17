@@ -12,7 +12,7 @@ import in.annupaper.domain.data.WatchlistTemplateSymbol;
 import in.annupaper.domain.data.WatchlistSelected;
 import in.annupaper.domain.data.WatchlistSelectedSymbol;
 import in.annupaper.domain.user.Portfolio;
-import in.annupaper.repository.*;
+import in.annupaper.domain.repository.*;
 import in.annupaper.service.MarketDataCache;
 import in.annupaper.service.candle.CandleFetcher;
 import org.slf4j.Logger;

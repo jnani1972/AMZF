@@ -135,9 +135,9 @@ class WebSocketClient {
    * Handle incoming message
    */
   private handleMessage(message: WsMessage): void {
-    // Handle heartbeat
-    if (message.type === 'HEARTBEAT') {
-      this.resetHeartbeatTimeout();
+    // Handle ping/pong
+    if (message.type === 'PING' || message.type === 'PONG' || message.type === 'HEARTBEAT') {
+      // Ignore - connection is alive
       return;
     }
 
@@ -204,28 +204,27 @@ class WebSocketClient {
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
-    // Send heartbeat every 30 seconds
-    this.heartbeatInterval = setInterval(() => {
-      this.send({ type: 'HEARTBEAT', data: {} });
-    }, 30000);
+    // Disabled heartbeat mechanism for now
+    // The backend doesn't respond to HEARTBEAT messages yet
+    // The browser will automatically detect broken WebSocket connections
 
-    // Expect heartbeat response within 10 seconds
-    this.resetHeartbeatTimeout();
+    // Send heartbeat every 60 seconds (less aggressive)
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.send({ type: 'PING', data: {} });
+      }
+    }, 60000);
+
+    // Don't enforce heartbeat timeout - let browser handle connection health
+    // The WebSocket will automatically close if the connection is broken
   }
 
   /**
    * Reset heartbeat timeout
    */
   private resetHeartbeatTimeout(): void {
-    if (this.heartbeatTimeout) {
-      clearTimeout(this.heartbeatTimeout);
-    }
-
-    this.heartbeatTimeout = setTimeout(() => {
-      console.warn('Heartbeat timeout - connection may be stale');
-      this.disconnect();
-      this.connect();
-    }, 40000); // 40 seconds timeout
+    // Disabled - we're not enforcing heartbeat responses
+    // The browser's WebSocket implementation will detect dead connections
   }
 
   /**
@@ -249,9 +248,11 @@ class WebSocketClient {
   private send(message: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
-    } else {
+    } else if (this.connectionState === 'disconnected' || this.connectionState === 'error') {
+      // Only warn if truly disconnected, not during initial connection
       console.warn('WebSocket not connected, cannot send message');
     }
+    // Silently ignore during 'connecting' state - messages will be sent via resubscribe()
   }
 
   /**

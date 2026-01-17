@@ -1,186 +1,272 @@
 /**
  * Admin Dashboard Page
- * System overview and statistics
+ * System-wide overview with all users' data and filtering capabilities
  */
 
-import { useLocation } from 'react-router-dom';
-import { useAuth } from '../auth/AuthProvider';
-import { Header } from '../../components/organisms/Header/Header';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MetricsGrid } from '../../components/organisms/MetricsGrid/MetricsGrid';
+import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
 import { Text } from '../../components/atoms/Text/Text';
 import { Card } from '../../components/atoms/Card/Card';
-import { Users, Activity, DollarSign, TrendingUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { getAdminNavItems } from '../../lib/navigation';
+import { Button } from '../../components/atoms/Button/Button';
+import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
+import { Badge } from '../../components/atoms/Badge/Badge';
+import { Users, Activity, DollarSign, TrendingUp, Settings as SettingsIcon, Filter, Briefcase, Server, Wifi, Database } from 'lucide-react';
+import { useAllUsers, useAllUserBrokers, useAllPortfolios } from '../../hooks/useApi';
+import { useWebSocket, useRealtimeEvents } from '../../hooks/useWebSocket';
 
 /**
  * Admin dashboard component
  */
 export function AdminDashboard() {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-  const navItems = getAdminNavItems(location.pathname);
+  const navigate = useNavigate();
+
+  // Fetch system-wide data
+  const { data: allUsers, loading: usersLoading } = useAllUsers();
+  const { data: allBrokers, loading: brokersLoading } = useAllUserBrokers();
+  const { data: allPortfolios, loading: portfoliosLoading, error: portfoliosError } = useAllPortfolios();
+  const { connected: wsConnected } = useWebSocket();
+  const { events } = useRealtimeEvents();
+
+  // Filter state
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+
+  // Calculate system-wide metrics
+  const totalUsers = allUsers?.length || 0;
+  const activeUsers = allUsers?.filter(u => u.status === 'ACTIVE').length || 0;
+  const activeBrokers = allBrokers?.filter(b => b.enabled && b.connected).length || 0;
+  const totalBrokers = allBrokers?.length || 0;
+
+  // Filter portfolios by selected user
+  const filteredPortfolios = selectedUserId
+    ? allPortfolios?.filter(p => p.userId === selectedUserId)
+    : allPortfolios;
+
+  // Calculate metrics from filtered portfolios
+  const totalAUM = filteredPortfolios?.reduce((sum, p) => sum + p.totalValue, 0) || 0;
+  const totalCapital = filteredPortfolios?.reduce((sum, p) => sum + p.capital, 0) || 0;
+  const totalPnl = filteredPortfolios?.reduce((sum, p) => sum + p.totalPnl, 0) || 0;
+  const totalPnlPercent = totalCapital > 0 ? (totalPnl / totalCapital) * 100 : 0;
+
+  const isLoading = usersLoading || brokersLoading || portfoliosLoading;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+    <main className="container mx-auto p-6 space-y-6">
+      {/* Page Header */}
+      <div>
+        <Text variant="h1" className="mb-2">
+          Admin Dashboard
+        </Text>
+        <Text variant="body" className="text-muted">
+          System-wide overview and management controls
+        </Text>
+      </div>
 
-      <main className="container mx-auto p-6 space-y-6">
-        {/* Page Header */}
-        <div>
-          <Text variant="h1" className="mb-2">
-            Admin Dashboard
-          </Text>
-          <Text variant="body" className="text-muted">
-            System overview and management
-          </Text>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Spinner size="lg" variant="primary" />
         </div>
+      )}
 
-        {/* Metrics Grid */}
-        <MetricsGrid
-          metrics={[
-            {
-              title: 'Total Users',
-              value: '-',
-              icon: <Users size={24} />,
-            },
-            {
-              title: 'Active Brokers',
-              value: '-',
-              icon: <Activity size={24} />,
-            },
-            {
-              title: 'Total AUM',
-              value: '₹-',
-              icon: <DollarSign size={24} />,
-            },
-            {
-              title: 'Active Trades',
-              value: '-',
-              icon: <TrendingUp size={24} />,
-            },
-          ]}
-        />
+      {/* Error State */}
+      {portfoliosError && (
+        <Alert variant="error">
+          Failed to load portfolio data: {portfoliosError}
+        </Alert>
+      )}
 
-        {/* Quick Actions */}
-        <Card>
-          <div className="p-6">
-            <Text variant="h3" className="mb-4">
-              Quick Actions
-            </Text>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link to="/admin/users">
-                <Card variant="outlined" interactive className="h-full">
-                  <div className="p-6">
-                    <Users size={32} className="text-primary mb-3" />
-                    <Text variant="h4" className="mb-2">
-                      User Management
-                    </Text>
-                    <Text variant="body" className="text-muted text-sm">
-                      View and manage system users
-                    </Text>
-                  </div>
-                </Card>
-              </Link>
+      {!isLoading && (
+        <>
+          {/* System Metrics - Clickable Cards */}
+          <SummaryCards
+            cards={[
+              {
+                icon: <Users size={20} />,
+                iconBgColor: 'bg-blue-100',
+                iconColor: 'text-blue-600',
+                label: 'Total Users',
+                value: totalUsers,
+                subtitle: `${activeUsers} active`,
+                onClick: () => navigate('/admin/users'),
+              },
+              {
+                icon: <Activity size={20} />,
+                iconBgColor: 'bg-green-100',
+                iconColor: 'text-green-600',
+                label: 'Broker Connections',
+                value: totalBrokers,
+                subtitle: `${activeBrokers} connected`,
+                onClick: () => navigate('/admin/brokers'),
+              },
+              {
+                icon: <Briefcase size={20} />,
+                iconBgColor: 'bg-purple-100',
+                iconColor: 'text-purple-600',
+                label: 'Total AUM',
+                value: `₹${(totalAUM / 100000).toFixed(1)}L`,
+                subtitle: selectedUserId ? 'Filtered' : 'All users',
+                onClick: () => navigate('/admin/portfolios'),
+              },
+              {
+                icon: <TrendingUp size={20} />,
+                iconBgColor: totalPnl >= 0 ? 'bg-green-100' : 'bg-red-100',
+                iconColor: totalPnl >= 0 ? 'text-green-600' : 'text-red-600',
+                label: 'System P&L',
+                value: `${totalPnl >= 0 ? '+' : ''}₹${(Math.abs(totalPnl) / 1000).toFixed(1)}K`,
+                subtitle: `${totalPnlPercent >= 0 ? '+' : ''}${totalPnlPercent.toFixed(2)}%`,
+                valueColor: totalPnl >= 0 ? 'text-green-600' : 'text-red-600',
+                onClick: () => navigate('/admin/portfolios'),
+              },
+            ]}
+          />
 
-              <Link to="/admin/brokers">
-                <Card variant="outlined" interactive className="h-full">
-                  <div className="p-6">
-                    <Activity size={32} className="text-primary mb-3" />
-                    <Text variant="h4" className="mb-2">
-                      Broker Management
-                    </Text>
-                    <Text variant="body" className="text-muted text-sm">
-                      Configure broker connections
-                    </Text>
-                  </div>
-                </Card>
-              </Link>
-
-              <Link to="/admin/portfolios">
-                <Card variant="outlined" interactive className="h-full">
-                  <div className="p-6">
-                    <DollarSign size={32} className="text-primary mb-3" />
-                    <Text variant="h4" className="mb-2">
-                      Portfolio Management
-                    </Text>
-                    <Text variant="body" className="text-muted text-sm">
-                      Manage user portfolios
-                    </Text>
-                  </div>
-                </Card>
-              </Link>
-
-              <Link to="/admin/settings">
-                <Card variant="outlined" interactive className="h-full">
-                  <div className="p-6">
-                    <TrendingUp size={32} className="text-primary mb-3" />
-                    <Text variant="h4" className="mb-2">
-                      Settings
-                    </Text>
-                    <Text variant="body" className="text-muted text-sm">
-                      System configuration
-                    </Text>
-                  </div>
-                </Card>
-              </Link>
-            </div>
+          {/* System Health */}
+          <div className="space-y-4">
+            <Text variant="h3">System Health</Text>
+            <SummaryCards
+              columns={3}
+              cards={[
+                {
+                  icon: <Server size={20} />,
+                  iconBgColor: 'bg-green-100',
+                  iconColor: 'text-green-600',
+                  label: 'API Server',
+                  value: 'Operational',
+                  subtitle: 'All systems running',
+                },
+                {
+                  icon: <Wifi size={20} />,
+                  iconBgColor: wsConnected ? 'bg-green-100' : 'bg-red-100',
+                  iconColor: wsConnected ? 'text-green-600' : 'text-red-600',
+                  label: 'WebSocket',
+                  value: wsConnected ? 'Connected' : 'Disconnected',
+                  valueColor: wsConnected ? 'text-green-600' : 'text-red-600',
+                  subtitle: wsConnected ? 'Real-time active' : 'Connection lost',
+                },
+                {
+                  icon: <Database size={20} />,
+                  iconBgColor: 'bg-green-100',
+                  iconColor: 'text-green-600',
+                  label: 'Database',
+                  value: 'Operational',
+                  subtitle: 'Response time: <50ms',
+                },
+              ]}
+            />
           </div>
-        </Card>
 
-        {/* System Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* User Portfolio View */}
           <Card>
-            <div className="p-6">
-              <Text variant="h3" className="mb-4">
-                System Health
-              </Text>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Text variant="body">API Server</Text>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-profit" />
-                    <Text variant="small" className="text-muted">
-                      Operational
-                    </Text>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Text variant="body">WebSocket Server</Text>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-profit" />
-                    <Text variant="small" className="text-muted">
-                      Operational
-                    </Text>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Text variant="body">Database</Text>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-profit" />
-                    <Text variant="small" className="text-muted">
-                      Operational
-                    </Text>
-                  </div>
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <Text variant="h3">User Portfolio View</Text>
+                <div className="flex items-center gap-3">
+                  <Filter size={20} className="text-muted" />
+                  <select
+                    className="input input--md"
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                  >
+                    <option value="">All Users</option>
+                    {allUsers?.map((user) => (
+                      <option key={user.userId} value={user.userId}>
+                        {user.displayName} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+                  {selectedUserId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedUserId('')}
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </div>
-            </div>
-          </Card>
 
-          <Card>
-            <div className="p-6">
-              <Text variant="h3" className="mb-4">
-                Recent Activity
-              </Text>
-              <div className="space-y-3">
-                <Text variant="body" className="text-muted text-center py-8">
-                  No recent activity
-                </Text>
-              </div>
+              {/* Portfolios Table */}
+              {filteredPortfolios && filteredPortfolios.length > 0 ? (
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Portfolio</th>
+                        <th>User</th>
+                        <th className="text-right">Capital</th>
+                        <th className="text-right">Available</th>
+                        <th className="text-right">Total Value</th>
+                        <th className="text-right">P&L</th>
+                        <th>Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPortfolios.map((portfolio) => (
+                        <tr key={portfolio.id}>
+                          <td>
+                            <div className="table-primary">{portfolio.name}</div>
+                          </td>
+                          <td>
+                            <div className="table-secondary">
+                              {allUsers?.find(u => u.userId === portfolio.userId)?.displayName || portfolio.userId}
+                            </div>
+                          </td>
+                          <td className="text-right">
+                            <div className="table-currency">
+                              ₹{portfolio.capital.toLocaleString('en-IN')}
+                            </div>
+                          </td>
+                          <td className="text-right">
+                            <div className="table-currency">
+                              ₹{portfolio.availableCapital.toLocaleString('en-IN')}
+                            </div>
+                          </td>
+                          <td className="text-right">
+                            <div className="table-currency">
+                              ₹{portfolio.totalValue.toLocaleString('en-IN')}
+                            </div>
+                          </td>
+                          <td className="text-right">
+                            <div className="table-status">
+                              <div
+                                className={`table-currency ${
+                                  portfolio.totalPnl >= 0 ? 'text-profit' : 'text-loss'
+                                }`}
+                              >
+                                {portfolio.totalPnl >= 0 ? '+' : ''}
+                                ₹{portfolio.totalPnl.toLocaleString('en-IN')}
+                              </div>
+                              <Badge variant={portfolio.totalPnl >= 0 ? 'profit' : 'loss'}>
+                                {portfolio.totalPnl >= 0 ? '+' : ''}
+                                {portfolio.totalPnlPercent.toFixed(2)}%
+                              </Badge>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="table-date">
+                              {new Date(portfolio.createdAt).toLocaleDateString()}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <Alert variant="info">
+                  {selectedUserId
+                    ? 'This user has no portfolios yet.'
+                    : 'No portfolios found in the system.'}
+                </Alert>
+              )}
             </div>
           </Card>
-        </div>
-      </main>
-    </div>
+        </>
+      )}
+    </main>
   );
 }
