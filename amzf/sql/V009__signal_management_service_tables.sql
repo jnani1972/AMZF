@@ -23,6 +23,30 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════════════════════
+-- DOMAIN TYPES (to avoid string literal duplication)
+-- ════════════════════════════════════════════════════════════════════════════
+DO $$
+BEGIN
+    -- Signal status domain (entry signals)
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'signal_status_type') THEN
+        CREATE DOMAIN signal_status_type AS VARCHAR(20) DEFAULT 'DETECTED'
+        CHECK (VALUE IN ('DETECTED', 'PUBLISHED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED'));
+    END IF;
+
+    -- Delivery status domain (signal deliveries)
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'delivery_status_type') THEN
+        CREATE DOMAIN delivery_status_type AS VARCHAR(20) DEFAULT 'CREATED'
+        CHECK (VALUE IN ('CREATED', 'DELIVERED', 'CONSUMED', 'EXPIRED', 'REJECTED'));
+    END IF;
+
+    -- Exit signal status domain
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'exit_status_type') THEN
+        CREATE DOMAIN exit_status_type AS VARCHAR(20) DEFAULT 'DETECTED'
+        CHECK (VALUE IN ('DETECTED', 'CONFIRMED', 'PUBLISHED', 'EXECUTED', 'CANCELLED', 'SUPERSEDED'));
+    END IF;
+END $$;
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- 1. ENTRY SIGNALS (Global, Symbol-Centric)
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -70,7 +94,7 @@ CREATE TABLE IF NOT EXISTS signals (
     tags TEXT[],
 
     -- Lifecycle
-    status VARCHAR(20) NOT NULL DEFAULT 'DETECTED',  -- DETECTED | PUBLISHED | EXPIRED | CANCELLED | SUPERSEDED
+    status signal_status_type NOT NULL,
     generated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     published_at TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,  -- EOD or manual override
@@ -84,7 +108,6 @@ CREATE TABLE IF NOT EXISTS signals (
     -- Constraints
     CHECK (direction IN ('BUY', 'SELL')),
     CHECK (signal_type IN ('ENTRY', 'EXIT', 'INFO')),
-    CHECK (status IN ('DETECTED', 'PUBLISHED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED')),
     CHECK (effective_floor < effective_ceiling),
     CHECK (expires_at > generated_at)
 );
@@ -104,11 +127,9 @@ CREATE UNIQUE INDEX idx_signal_dedupe ON signals (
     DATE(generated_at AT TIME ZONE 'Asia/Kolkata'),
     effective_floor,
     effective_ceiling
-) WHERE status IN ('DETECTED', 'PUBLISHED');
+) WHERE status::text IN ('DETECTED', 'PUBLISHED');
 
-COMMENT ON INDEX idx_signal_dedupe IS
-'AV-1: Prevents duplicate entry signals per (symbol, direction, zone, day).
-Uses IST timezone for trading calendar day. Partial index excludes terminal states.';
+COMMENT ON INDEX idx_signal_dedupe IS E'AV-1: Prevents duplicate entry signals per (symbol, direction, zone, day).\nUses IST timezone for trading calendar day. Partial index excludes terminal states.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Performance Indexes
@@ -116,12 +137,9 @@ Uses IST timezone for trading calendar day. Partial index excludes terminal stat
 
 CREATE INDEX idx_signals_symbol_status ON signals (symbol, status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_signals_status_expires ON signals (status, expires_at) WHERE deleted_at IS NULL;
-CREATE INDEX idx_signals_published_at ON signals (published_at DESC) WHERE status = 'PUBLISHED';
+CREATE INDEX idx_signals_published_at ON signals (published_at DESC) WHERE status::text = 'PUBLISHED';
 
-COMMENT ON TABLE signals IS
-'Entry signals from strategy detection. Global scope (not user-specific).
-One signal can result in multiple deliveries (fan-out to user-brokers).
-Immutable after publication. Only SMS may write to this table.';
+COMMENT ON TABLE signals IS E'Entry signals from strategy detection. Global scope (not user-specific).\nOne signal can result in multiple deliveries (fan-out to user-brokers).\nImmutable after publication. Only SMS may write to this table.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 2. SIGNAL DELIVERIES (Per User-Broker Tracking)
@@ -137,7 +155,7 @@ CREATE TABLE IF NOT EXISTS signal_deliveries (
     user_id VARCHAR(36) NOT NULL,  -- Denormalized for fast filtering
 
     -- Lifecycle
-    status VARCHAR(20) NOT NULL DEFAULT 'CREATED',  -- CREATED | DELIVERED | CONSUMED | EXPIRED | REJECTED
+    status delivery_status_type NOT NULL,
 
     -- Consumption tracking
     intent_id VARCHAR(36),  -- Reference to trade_intent (set when consumed)
@@ -158,10 +176,9 @@ CREATE TABLE IF NOT EXISTS signal_deliveries (
     version INTEGER NOT NULL DEFAULT 1,
 
     -- Constraints
-    CHECK (status IN ('CREATED', 'DELIVERED', 'CONSUMED', 'EXPIRED', 'REJECTED')),
     CHECK (user_action IS NULL OR user_action IN ('SNOOZED', 'DISMISSED')),
-    CHECK (status != 'CONSUMED' OR intent_id IS NOT NULL),
-    CHECK (status != 'CONSUMED' OR consumed_at IS NOT NULL)
+    CHECK (status::text != 'CONSUMED' OR intent_id IS NOT NULL),
+    CHECK (status::text != 'CONSUMED' OR consumed_at IS NOT NULL)
 );
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -176,9 +193,7 @@ CREATE UNIQUE INDEX idx_delivery_unique ON signal_deliveries (
     user_broker_id
 ) WHERE deleted_at IS NULL;
 
-COMMENT ON INDEX idx_delivery_unique IS
-'AV-9: Ensures one signal → one delivery per user-broker.
-Prevents double-delivery and duplicate intent creation.';
+COMMENT ON INDEX idx_delivery_unique IS E'AV-9: Ensures one signal → one delivery per user-broker.\nPrevents double-delivery and duplicate intent creation.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Performance Indexes
@@ -188,9 +203,7 @@ CREATE INDEX idx_deliveries_user_status ON signal_deliveries (user_id, status) W
 CREATE INDEX idx_deliveries_signal_status ON signal_deliveries (signal_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_deliveries_created_at ON signal_deliveries (created_at DESC);
 
-COMMENT ON TABLE signal_deliveries IS
-'Tracks which user-broker received which signal. Enforces one-to-one mapping
-between signal and intent per user-broker. Only SMS may write to this table.';
+COMMENT ON TABLE signal_deliveries IS E'Tracks which user-broker received which signal. Enforces one-to-one mapping\nbetween signal and intent per user-broker. Only SMS may write to this table.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 3. EXIT SIGNALS (Trade-Centric, Episode-Tracked)
@@ -224,7 +237,7 @@ CREATE TABLE IF NOT EXISTS exit_signals (
     trailing_active BOOLEAN DEFAULT FALSE,
 
     -- Lifecycle
-    status VARCHAR(20) NOT NULL DEFAULT 'DETECTED',  -- DETECTED | CONFIRMED | PUBLISHED | EXECUTED | CANCELLED | SUPERSEDED
+    status exit_status_type NOT NULL,
 
     -- Timestamps
     detected_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -243,7 +256,6 @@ CREATE TABLE IF NOT EXISTS exit_signals (
     -- Constraints
     CHECK (direction IN ('BUY', 'SELL')),
     CHECK (exit_reason IN ('TARGET_HIT', 'STOP_LOSS', 'TRAILING_STOP', 'TIME_BASED', 'MANUAL', 'BRICK_REVERSAL')),
-    CHECK (status IN ('DETECTED', 'CONFIRMED', 'PUBLISHED', 'EXECUTED', 'CANCELLED', 'SUPERSEDED')),
     CHECK (episode_id > 0)
 );
 
@@ -261,9 +273,7 @@ CREATE UNIQUE INDEX idx_exit_episode ON exit_signals (
     episode_id
 ) WHERE deleted_at IS NULL;
 
-COMMENT ON INDEX idx_exit_episode IS
-'AV-2: Prevents race conditions in exit episode generation.
-Episode numbers must be generated in DB transaction with FOR UPDATE lock.';
+COMMENT ON INDEX idx_exit_episode IS E'AV-2: Prevents race conditions in exit episode generation.\nEpisode numbers must be generated in DB transaction with FOR UPDATE lock.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Performance Indexes
@@ -271,11 +281,9 @@ Episode numbers must be generated in DB transaction with FOR UPDATE lock.';
 
 CREATE INDEX idx_exit_signals_trade_status ON exit_signals (trade_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_exit_signals_trade_reason ON exit_signals (trade_id, exit_reason, episode_id DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_exit_signals_published_at ON exit_signals (published_at DESC) WHERE status = 'PUBLISHED';
+CREATE INDEX idx_exit_signals_published_at ON exit_signals (published_at DESC) WHERE status::text = 'PUBLISHED';
 
-COMMENT ON TABLE exit_signals IS
-'Exit signals for closing trades. Episode tracking enables re-arm after brick reset.
-Each episode is a separate exit attempt. Only SMS may write to this table.';
+COMMENT ON TABLE exit_signals IS E'Exit signals for closing trades. Episode tracking enables re-arm after brick reset.\nEach episode is a separate exit attempt. Only SMS may write to this table.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 4. CROSS-TABLE ENFORCEMENT: Intent → Delivery FK
@@ -303,9 +311,7 @@ BEGIN
     END IF;
 END $$;
 
-COMMENT ON CONSTRAINT fk_intent_delivery ON trade_intents IS
-'AV-9: Ungameable enforcement - intent cannot exist without delivery.
-Prevents ValidationService from bypassing SMS delivery tracking.';
+COMMENT ON CONSTRAINT fk_intent_delivery ON trade_intents IS E'AV-9: Ungameable enforcement - intent cannot exist without delivery.\nPrevents ValidationService from bypassing SMS delivery tracking.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 5. HELPER FUNCTION: Generate Next Exit Episode
@@ -334,9 +340,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION generate_exit_episode IS
-'AV-2: Race-free exit episode generation using pessimistic lock.
-Ensures each (trade, reason) gets sequential episode numbers.';
+COMMENT ON FUNCTION generate_exit_episode IS E'AV-2: Race-free exit episode generation using pessimistic lock.\nEnsures each (trade, reason) gets sequential episode numbers.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 6. HELPER FUNCTION: Check Delivery Can Be Consumed
@@ -368,9 +372,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION consume_delivery IS
-'AV-5: Atomic delivery consumption prevents double-intent creation.
-Returns false if delivery already consumed or not in DELIVERED state.';
+COMMENT ON FUNCTION consume_delivery IS E'AV-5: Atomic delivery consumption prevents double-intent creation.\nReturns false if delivery already consumed or not in DELIVERED state.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 7. HELPER FUNCTION: Check Signal Can Be Published
@@ -402,9 +404,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION is_signal_publishable IS
-'AV-3: Validates signal is still active before delivery/intent creation.
-Prevents race condition where signal expires during processing.';
+COMMENT ON FUNCTION is_signal_publishable IS E'AV-3: Validates signal is still active before delivery/intent creation.\nPrevents race condition where signal expires during processing.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 8. DATA INTEGRITY CHECKS
@@ -413,15 +413,12 @@ Prevents race condition where signal expires during processing.';
 -- Verify all signals have valid status
 ALTER TABLE signals
 ADD CONSTRAINT chk_signal_lifecycle CHECK (
-    (status = 'DETECTED' AND published_at IS NULL) OR
-    (status IN ('PUBLISHED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED'))
+    (status::text = 'DETECTED' AND published_at IS NULL) OR
+    (status::text IN ('PUBLISHED', 'EXPIRED', 'CANCELLED', 'SUPERSEDED'))
 );
 
--- Verify deliveries reference valid signals
-ALTER TABLE signal_deliveries
-ADD CONSTRAINT chk_delivery_signal_exists CHECK (
-    EXISTS (SELECT 1 FROM signals WHERE signal_id = signal_deliveries.signal_id)
-);
+-- Signal-delivery relationship is already enforced by FK constraint
+-- (No need for redundant CHECK with EXISTS - FK is more efficient)
 
 -- Verify exit signals reference open trades (enforced in application)
 -- Cannot enforce via CHECK constraint due to circular dependency
