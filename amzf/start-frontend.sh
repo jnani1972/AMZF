@@ -11,13 +11,13 @@ echo "────────────────────────�
 KILLED=0
 for PORT in 4000 4001 4002; do
     PID=$(lsof -ti:$PORT)
-    if [ -n "$PID" ]; then
+    if [[ -n "$PID" ]]; then
         echo "Killing process on port $PORT (PID: $PID)..."
         kill -9 $PID 2>/dev/null
         KILLED=1
     fi
 done
-if [ $KILLED -eq 1 ]; then
+if [[ $KILLED -eq 1 ]]; then
     sleep 2
     echo "✓ Frontend processes killed."
 else
@@ -31,10 +31,10 @@ mkdir -p ../logs
 echo ""
 echo "STEP 2/3: Checking frontend dependencies..."
 echo "───────────────────────────────────────────────────────────"
-if [ ! -d "node_modules" ]; then
+if [[ ! -d "node_modules" ]]; then
     echo "Installing npm dependencies..."
     npm install 2>&1 | tail -5
-    if [ $? -ne 0 ]; then
+    if [[ $? -ne 0 ]]; then
         echo "✗ npm install failed!"
         exit 1
     fi
@@ -67,7 +67,7 @@ if ps -p $FRONTEND_PID > /dev/null; then
     done
 
     echo "✓ Frontend started successfully (PID: $FRONTEND_PID)"
-    if [ -n "$FRONTEND_PORT" ]; then
+    if [[ -n "$FRONTEND_PORT" ]]; then
         echo "✓ Frontend URL: http://localhost:$FRONTEND_PORT"
     else
         echo "✓ Frontend URL: Check logs/frontend.log for port"

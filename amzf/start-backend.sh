@@ -9,7 +9,7 @@ echo ""
 echo "STEP 1/3: Killing existing processes on port 9090..."
 echo "───────────────────────────────────────────────────────────"
 PID=$(lsof -ti:9090)
-if [ -n "$PID" ]; then
+if [[ -n "$PID" ]]; then
     echo "Killing backend process (PID: $PID)..."
     kill -9 $PID 2>/dev/null
     sleep 2
@@ -26,7 +26,7 @@ echo ""
 echo "STEP 2/3: Rebuilding backend application..."
 echo "───────────────────────────────────────────────────────────"
 mvn clean package -DskipTests 2>&1 | tail -10
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     echo "✗ Build failed! Check output above."
     exit 1
 fi

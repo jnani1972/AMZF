@@ -53,7 +53,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" "${API_ENDPOINT}")
 HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-if [ "$HTTP_CODE" -eq 200 ]; then
+if [[ "$HTTP_CODE" -eq 200 ]]; then
     log_pass "HTTP 200 OK received"
 
     # Verify JSON structure
@@ -103,7 +103,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_ENDPOINT}" \
 HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-if [ "$HTTP_CODE" -eq 200 ]; then
+if [[ "$HTTP_CODE" -eq 200 ]]; then
     log_pass "HTTP 200 OK received"
 
     # Verify success response
@@ -126,7 +126,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" "${API_ENDPOINT}")
 HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-if [ "$HTTP_CODE" -eq 200 ]; then
+if [[ "$HTTP_CODE" -eq 200 ]]; then
     log_pass "HTTP 200 OK received"
 
     # Verify updated values
@@ -134,19 +134,19 @@ if [ "$HTTP_CODE" -eq 200 ]; then
     TRAILING=$(echo "$BODY" | jq -r '.trailingPercent')
     FREQUENCY=$(echo "$BODY" | jq -r '.updateFrequency')
 
-    if [ "$ACTIVATION" = "1.5" ]; then
+    if [[ "$ACTIVATION" = "1.5" ]]; then
         log_pass "activationPercent updated correctly (1.5)"
     else
         log_fail "activationPercent not updated (expected 1.5, got $ACTIVATION)"
     fi
 
-    if [ "$TRAILING" = "0.75" ]; then
+    if [[ "$TRAILING" = "0.75" ]]; then
         log_pass "trailingPercent updated correctly (0.75)"
     else
         log_fail "trailingPercent not updated (expected 0.75, got $TRAILING)"
     fi
 
-    if [ "$FREQUENCY" = "BRICK" ]; then
+    if [[ "$FREQUENCY" = "BRICK" ]]; then
         log_pass "updateFrequency updated correctly (BRICK)"
     else
         log_fail "updateFrequency not updated (expected BRICK, got $FREQUENCY)"
@@ -178,7 +178,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_ENDPOINT}" \
 HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-if [ "$HTTP_CODE" -eq 400 ]; then
+if [[ "$HTTP_CODE" -eq 400 ]]; then
     log_pass "HTTP 400 Bad Request received for invalid config"
     log_info "Error message: $BODY"
 else
@@ -205,7 +205,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_ENDPOINT}" \
 HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-if [ "$HTTP_CODE" -eq 400 ]; then
+if [[ "$HTTP_CODE" -eq 400 ]]; then
     log_pass "HTTP 400 Bad Request received for invalid frequency"
     log_info "Error message: $BODY"
 else
@@ -232,7 +232,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_ENDPOINT}" \
 HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
-if [ "$HTTP_CODE" -eq 200 ]; then
+if [[ "$HTTP_CODE" -eq 200 ]]; then
     log_pass "HTTP 200 OK - Defaults restored"
 else
     log_fail "Expected HTTP 200, got HTTP $HTTP_CODE"
@@ -250,7 +250,7 @@ echo -e "Passed:       ${GREEN}$TESTS_PASSED${NC}"
 echo -e "Failed:       ${RED}$TESTS_FAILED${NC}"
 echo "============================================"
 
-if [ $TESTS_FAILED -eq 0 ]; then
+if [[ $TESTS_FAILED -eq 0 ]]; then
     echo -e "${GREEN}✓ All tests passed!${NC}"
     exit 0
 else

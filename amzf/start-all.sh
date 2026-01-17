@@ -21,7 +21,7 @@ echo ""
 echo "PHASE 1/2: Backend Startup"
 echo "═══════════════════════════════════════════════════════════"
 bash start-backend.sh
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     echo ""
     echo "✗ Backend startup failed! Aborting."
     exit 1
@@ -32,7 +32,7 @@ echo ""
 echo "PHASE 2/2: Frontend Startup"
 echo "═══════════════════════════════════════════════════════════"
 bash start-frontend.sh
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
     echo ""
     echo "✗ Frontend startup failed! Backend is still running."
     exit 1

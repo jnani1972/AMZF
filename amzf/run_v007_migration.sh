@@ -89,7 +89,7 @@ DUPLICATE_INTENTS=$(psql -U "$DB_USER" -d "$DB_NAME" -t -c "
     ) duplicates;
 " 2>/dev/null)
 
-if [ "$DUPLICATE_INTENTS" -gt 0 ]; then
+if [[ "$DUPLICATE_INTENTS" -gt 0 ]]; then
     echo -e "${RED}❌ WARNING: Found $DUPLICATE_INTENTS duplicate intent_ids in trades table${NC}"
     echo "Please clean up duplicates before running migration."
     echo "See: V007_MIGRATION_EXECUTION_GUIDE.md - Pre-Migration Checklist"
@@ -109,7 +109,7 @@ DUPLICATE_SIGNALS=$(psql -U "$DB_USER" -d "$DB_NAME" -t -c "
     ) duplicates;
 " 2>/dev/null)
 
-if [ "$DUPLICATE_SIGNALS" -gt 0 ]; then
+if [[ "$DUPLICATE_SIGNALS" -gt 0 ]]; then
     echo -e "${RED}❌ WARNING: Found $DUPLICATE_SIGNALS duplicate signals${NC}"
     echo "Please clean up duplicates before running migration."
     echo "See: V007_MIGRATION_EXECUTION_GUIDE.md - Pre-Migration Checklist"
@@ -126,7 +126,7 @@ echo ""
 echo -e "${BLUE}[4/6] Running V007 migration...${NC}"
 echo ""
 
-if [ ! -f "sql/V007__add_idempotency_constraints.sql" ]; then
+if [[ ! -f "sql/V007__add_idempotency_constraints.sql" ]]; then
     echo -e "${RED}❌ ERROR: Migration file not found: sql/V007__add_idempotency_constraints.sql${NC}"
     exit 1
 fi
@@ -155,7 +155,7 @@ echo ""
 echo -e "${BLUE}[5/6] Verifying migration...${NC}"
 echo ""
 
-if [ ! -f "sql/verify_v007_migration.sql" ]; then
+if [[ ! -f "sql/verify_v007_migration.sql" ]]; then
     echo -e "${YELLOW}⚠️  WARNING: Verification script not found: sql/verify_v007_migration.sql${NC}"
     echo "Skipping automated verification."
 else
