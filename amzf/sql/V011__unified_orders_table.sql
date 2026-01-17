@@ -19,6 +19,37 @@
 BEGIN;
 
 -- ============================================================================
+-- DOMAIN TYPES: Eliminate String Literal Duplication (SonarQube Compliance)
+-- ============================================================================
+
+DO $$
+BEGIN
+    -- Order Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_type_type') THEN
+        CREATE DOMAIN order_type_type AS VARCHAR(10)
+        CHECK (VALUE IN ('ENTRY', 'EXIT'));
+    END IF;
+
+    -- Product Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_type_type') THEN
+        CREATE DOMAIN product_type_type AS VARCHAR(20)
+        CHECK (VALUE IN ('MIS', 'CNC', 'NRML'));
+    END IF;
+
+    -- Price Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'price_type_type') THEN
+        CREATE DOMAIN price_type_type AS VARCHAR(20)
+        CHECK (VALUE IN ('MARKET', 'LIMIT', 'SL', 'SL-M'));
+    END IF;
+
+    -- Order Status Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status_type') THEN
+        CREATE DOMAIN order_status_type AS VARCHAR(20) DEFAULT 'PENDING'
+        CHECK (VALUE IN ('PENDING', 'PLACED', 'OPEN', 'COMPLETE', 'REJECTED', 'CANCELLED', 'EXPIRED'));
+    END IF;
+END $$;
+
+-- ============================================================================
 -- 1. UNIFIED ORDERS TABLE
 -- ============================================================================
 
@@ -27,7 +58,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_id VARCHAR(36) PRIMARY KEY,           -- Internal order ID (UUID)
 
     -- Order classification
-    order_type VARCHAR(10) NOT NULL,            -- ENTRY | EXIT
+    order_type order_type_type NOT NULL,        -- ENTRY | EXIT
     trade_id VARCHAR(36),                       -- Reference to trade (NULL for entry before trade created)
     intent_id VARCHAR(36),                      -- Reference to trade_intent (for entry)
     exit_intent_id VARCHAR(36),                 -- Reference to exit_intent (for exit)
@@ -41,13 +72,13 @@ CREATE TABLE IF NOT EXISTS orders (
     -- Order details
     symbol VARCHAR(50) NOT NULL,
     exchange VARCHAR(20) NOT NULL DEFAULT 'NSE',
-    direction VARCHAR(10) NOT NULL,             -- BUY | SELL
-    transaction_type VARCHAR(10) NOT NULL,      -- BUY | SELL (same as direction for clarity)
-    product_type VARCHAR(20) NOT NULL,          -- MIS | CNC | NRML
+    direction trade_direction_type NOT NULL,    -- BUY | SELL
+    transaction_type trade_direction_type NOT NULL, -- BUY | SELL (same as direction for clarity)
+    product_type product_type_type NOT NULL,    -- MIS | CNC | NRML
     order_variety VARCHAR(20) NOT NULL DEFAULT 'REGULAR', -- REGULAR | AMO | ICEBERG
 
     -- Pricing
-    price_type VARCHAR(20) NOT NULL,            -- MARKET | LIMIT | SL | SL-M
+    price_type price_type_type NOT NULL,        -- MARKET | LIMIT | SL | SL-M
     limit_price NUMERIC(20,2),
     trigger_price NUMERIC(20,2),
     disclosed_qty INTEGER,
@@ -68,7 +99,7 @@ CREATE TABLE IF NOT EXISTS orders (
     client_order_id VARCHAR(100) UNIQUE,        -- Our intent_id/exit_intent_id (idempotency)
 
     -- Order lifecycle
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- PENDING | PLACED | OPEN | COMPLETE | REJECTED | CANCELLED | EXPIRED
+    status order_status_type NOT NULL,          -- PENDING | PLACED | OPEN | COMPLETE | REJECTED | CANCELLED | EXPIRED
     validity VARCHAR(20) NOT NULL DEFAULT 'DAY', -- DAY | IOC | GTT
 
     -- Timestamps
@@ -103,23 +134,14 @@ CREATE TABLE IF NOT EXISTS orders (
     deleted_at TIMESTAMP,
     version INTEGER NOT NULL DEFAULT 1,
 
-    -- Constraints
-    CHECK (order_type IN ('ENTRY', 'EXIT')),
-    CHECK (direction IN ('BUY', 'SELL')),
-    CHECK (transaction_type IN ('BUY', 'SELL')),
-    CHECK (product_type IN ('MIS', 'CNC', 'NRML')),
-    CHECK (price_type IN ('MARKET', 'LIMIT', 'SL', 'SL-M')),
-    CHECK (status IN ('PENDING', 'PLACED', 'OPEN', 'COMPLETE', 'REJECTED', 'CANCELLED', 'EXPIRED')),
+    -- Constraints (domain types enforce enum values)
     CHECK (ordered_qty > 0),
     CHECK (filled_qty >= 0),
     CHECK (filled_qty <= ordered_qty),
     CHECK (pending_qty = ordered_qty - filled_qty OR pending_qty IS NULL)
 );
 
-COMMENT ON TABLE orders IS
-'Unified orders table tracking both entry and exit broker orders.
-Replaces fragmented tracking in trades.broker_order_id and exit_intents.broker_order_id.
-Single source of truth for all order lifecycle and reconciliation.';
+COMMENT ON TABLE orders IS E'Unified orders table tracking both entry and exit broker orders.\nReplaces fragmented tracking in trades.broker_order_id and exit_intents.broker_order_id.\nSingle source of truth for all order lifecycle and reconciliation.';
 
 -- ============================================================================
 -- 2. INDEXES FOR PERFORMANCE
@@ -138,7 +160,7 @@ CREATE UNIQUE INDEX idx_orders_client_order_id
 -- Fast queries for pending orders (reconciliation loop)
 CREATE INDEX idx_orders_reconcile
     ON orders(status, last_broker_update_at, updated_at)
-    WHERE status IN ('PLACED', 'OPEN') AND deleted_at IS NULL;
+    WHERE status::text IN ('PLACED', 'OPEN') AND deleted_at IS NULL;
 
 -- Fast queries by trade (order history)
 CREATE INDEX idx_orders_trade_id
@@ -195,9 +217,7 @@ CREATE TABLE IF NOT EXISTS order_fills (
     CHECK (fill_qty > 0)
 );
 
-COMMENT ON TABLE order_fills IS
-'Granular fill tracking for partial fills. Each broker fill creates one row.
-Allows precise reconstruction of order execution history.';
+COMMENT ON TABLE order_fills IS E'Granular fill tracking for partial fills. Each broker fill creates one row.\nAllows precise reconstruction of order execution history.';
 
 CREATE INDEX idx_fills_order_id ON order_fills(order_id, fill_timestamp DESC);
 CREATE INDEX idx_fills_trade_id ON order_fills(trade_id, fill_timestamp DESC) WHERE trade_id IS NOT NULL;
@@ -276,7 +296,7 @@ SELECT
 FROM trades
 WHERE broker_order_id IS NOT NULL
   AND deleted_at IS NULL
-  AND status IN ('OPEN', 'CLOSED')
+  AND status::text IN ('OPEN', 'CLOSED')
 ON CONFLICT (client_order_id) DO NOTHING;      -- Idempotent (if run multiple times)
 
 -- TODO: Populate orders table from existing exit_intents (exit orders)
@@ -345,7 +365,7 @@ BEGIN
         WHERE tablename IN ('orders', 'order_fills')
     );
     RAISE NOTICE '  Entry orders migrated: %', (
-        SELECT COUNT(*) FROM orders WHERE order_type = 'ENTRY'
+        SELECT COUNT(*) FROM orders WHERE order_type::text = 'ENTRY'
     );
     RAISE NOTICE '  Functions created: get_order_by_broker_id, update_order_status';
     RAISE NOTICE '';

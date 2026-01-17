@@ -39,6 +39,31 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════════════════════
+-- DOMAIN TYPES: Eliminate String Literal Duplication (SonarQube Compliance)
+-- ════════════════════════════════════════════════════════════════════════════
+
+DO $$
+BEGIN
+    -- Exit Intent Status Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'exit_intent_status_type') THEN
+        CREATE DOMAIN exit_intent_status_type AS VARCHAR(20) DEFAULT 'PENDING'
+        CHECK (VALUE IN ('PENDING', 'APPROVED', 'REJECTED', 'PLACED', 'FILLED', 'FAILED', 'CANCELLED'));
+    END IF;
+
+    -- Exit Reason Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'exit_reason_type') THEN
+        CREATE DOMAIN exit_reason_type AS VARCHAR(20)
+        CHECK (VALUE IN ('TARGET_HIT', 'STOP_LOSS', 'TRAILING_STOP', 'TIME_BASED', 'MANUAL', 'SUPERSEDED'));
+    END IF;
+
+    -- Trade Direction Type
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'trade_direction_type') THEN
+        CREATE DOMAIN trade_direction_type AS VARCHAR(10)
+        CHECK (VALUE IN ('BUY', 'SELL'));
+    END IF;
+END $$;
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- 1. EXIT INTENTS (Execution Qualification + Outcome Tracking)
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -52,11 +77,11 @@ CREATE TABLE IF NOT EXISTS exit_intents (
     user_broker_id VARCHAR(36) NOT NULL,  -- FK to user_brokers (composite key, skip for now)
 
     -- Exit context
-    exit_reason VARCHAR(20) NOT NULL,
+    exit_reason exit_reason_type NOT NULL,
     episode_id INTEGER NOT NULL,
 
     -- Qualification outcome
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    status exit_intent_status_type NOT NULL,
     -- PENDING: Awaiting qualification
     -- APPROVED: Qualified for execution
     -- REJECTED: Failed qualification
@@ -91,10 +116,8 @@ CREATE TABLE IF NOT EXISTS exit_intents (
     deleted_at TIMESTAMP,
     version INTEGER NOT NULL DEFAULT 1,
 
-    -- Constraints
-    CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'PLACED', 'FILLED', 'FAILED', 'CANCELLED')),
-    CHECK (exit_reason IN ('TARGET_HIT', 'STOP_LOSS', 'TRAILING_STOP', 'TIME_BASED', 'MANUAL', 'SUPERSEDED')),
-    CHECK (validation_passed = true OR status = 'REJECTED'),
+    -- Constraints (domain types enforce status/exit_reason values)
+    CHECK (validation_passed = true OR status::text = 'REJECTED'),
     CHECK (status != 'PLACED' OR broker_order_id IS NOT NULL),
     CHECK (status != 'FILLED' OR filled_at IS NOT NULL)
 );
@@ -113,9 +136,7 @@ CREATE UNIQUE INDEX idx_exit_intent_unique ON exit_intents (
     episode_id
 ) WHERE deleted_at IS NULL;
 
-COMMENT ON INDEX idx_exit_intent_unique IS
-'Ensures one exit intent per (trade, user_broker, reason, episode).
-Prevents duplicate exit orders. Idempotency enforcement.';
+COMMENT ON INDEX idx_exit_intent_unique IS E'Ensures one exit intent per (trade, user_broker, reason, episode).\nPrevents duplicate exit orders. Idempotency enforcement.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Performance Indexes
@@ -135,16 +156,13 @@ WHERE broker_order_id IS NOT NULL AND deleted_at IS NULL;
 
 -- Find pending/approved intents (execution queue)
 CREATE INDEX idx_exit_intents_pending ON exit_intents (status, created_at)
-WHERE status IN ('PENDING', 'APPROVED') AND deleted_at IS NULL;
+WHERE status::text IN ('PENDING', 'APPROVED') AND deleted_at IS NULL;
 
 -- Find failed intents (retry queue)
 CREATE INDEX idx_exit_intents_failed ON exit_intents (status, retry_count, created_at)
-WHERE status = 'FAILED' AND deleted_at IS NULL;
+WHERE status::text = 'FAILED' AND deleted_at IS NULL;
 
-COMMENT ON TABLE exit_intents IS
-'Exit execution qualification and order tracking. Mirrors trade_intents for entry.
-Only TMS (via OrderExecutionService) may update status to PLACED/FILLED/FAILED.
-Exit intent lifecycle: PENDING → APPROVED/REJECTED → PLACED → FILLED/FAILED/CANCELLED';
+COMMENT ON TABLE exit_intents IS E'Exit execution qualification and order tracking. Mirrors trade_intents for entry.\nOnly TMS (via OrderExecutionService) may update status to PLACED/FILLED/FAILED.\nExit intent lifecycle: PENDING → APPROVED/REJECTED → PLACED → FILLED/FAILED/CANCELLED';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 2. PERSIST TRADE DIRECTION
@@ -161,12 +179,7 @@ BEGIN
         WHERE table_name = 'trades' AND column_name = 'direction'
     ) THEN
         ALTER TABLE trades
-        ADD COLUMN direction VARCHAR(10);
-
-        -- Add constraint after column exists
-        ALTER TABLE trades
-        ADD CONSTRAINT chk_trades_direction
-        CHECK (direction IN ('BUY', 'SELL'));
+        ADD COLUMN direction trade_direction_type;
 
         RAISE NOTICE 'Added direction column to trades table';
     ELSE
@@ -178,10 +191,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_trades_direction ON trades (direction)
 WHERE deleted_at IS NULL;
 
-COMMENT ON COLUMN trades.direction IS
-'Trade direction: BUY (LONG) or SELL (SHORT).
-Persisted at trade creation from entry signal.
-Required for correct exit qualification logic.';
+COMMENT ON COLUMN trades.direction IS E'Trade direction: BUY (LONG) or SELL (SHORT).\nPersisted at trade creation from entry signal.\nRequired for correct exit qualification logic.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 3. COOLDOWN ENFORCEMENT IN DB (Restart-Safe)
@@ -228,11 +238,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION generate_exit_episode IS
-'Generate monotonic episode ID for exit signal.
-Enforces 30-second re-arm cooldown at DB level.
-Raises exception if cooldown active (restart-safe).
-Returns next episode ID if allowed.';
+COMMENT ON FUNCTION generate_exit_episode IS E'Generate monotonic episode ID for exit signal.\nEnforces 30-second re-arm cooldown at DB level.\nRaises exception if cooldown active (restart-safe).\nReturns next episode ID if allowed.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 4. HELPER FUNCTIONS
@@ -285,10 +291,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION place_exit_order IS
-'Atomically transition exit intent from APPROVED → PLACED.
-Uses optimistic locking to prevent race conditions.
-Returns true if transition successful, false otherwise.';
+COMMENT ON FUNCTION place_exit_order IS E'Atomically transition exit intent from APPROVED → PLACED.\nUses optimistic locking to prevent race conditions.\nReturns true if transition successful, false otherwise.';
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- VERIFICATION

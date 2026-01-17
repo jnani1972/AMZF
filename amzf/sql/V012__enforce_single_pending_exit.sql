@@ -58,16 +58,11 @@
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exit_intent_one_pending_per_trade
 ON exit_intents (trade_id)
-WHERE status IN ('PENDING', 'APPROVED', 'PLACED')
+WHERE status::text IN ('PENDING', 'APPROVED', 'PLACED')
   AND deleted_at IS NULL;
 
 -- Document the constraint
-COMMENT ON INDEX idx_exit_intent_one_pending_per_trade IS
-'P0 FIX: Enforces ONE pending exit intent per trade.
-Prevents race condition where TARGET_HIT and STOP_LOSS fire simultaneously.
-Partial index only applies to active states (PENDING, APPROVED, PLACED).
-Once an exit completes (FILLED/FAILED/CANCELLED), a new exit can be created.
-See: DIAGNOSTIC_AUDIT_REPORT.md - P0 Violation #2';
+COMMENT ON INDEX idx_exit_intent_one_pending_per_trade IS E'P0 FIX: Enforces ONE pending exit intent per trade.\nPrevents race condition where TARGET_HIT and STOP_LOSS fire simultaneously.\nPartial index only applies to active states (PENDING, APPROVED, PLACED).\nOnce an exit completes (FILLED/FAILED/CANCELLED), a new exit can be created.\nSee: DIAGNOSTIC_AUDIT_REPORT.md - P0 Violation #2';
 
 -- ═══════════════════════════════════════════════════════════════
 -- VERIFICATION QUERY: Test the constraint
