@@ -21,6 +21,24 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════════════════════
+-- CONSTANTS: Exit Intent Status Values (SonarQube plsql:S1192 Compliance)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Canonical status value definitions to avoid literal duplication
+-- Reference these values in DDL and PL/SQL code:
+--
+--   co_status_pending    := 'PENDING'
+--   co_status_approved   := 'APPROVED'
+--   co_status_rejected   := 'REJECTED'
+--   co_status_placed     := 'PLACED'
+--   co_status_filled     := 'FILLED'
+--   co_status_failed     := 'FAILED'
+--   co_status_cancelled  := 'CANCELLED'
+--
+-- Note: PostgreSQL DDL requires string literals, but PL/SQL functions
+-- should use CONSTANT declarations referencing these canonical values.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- 1. EXIT INTENTS (Execution Qualification + Outcome Tracking)
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -226,6 +244,10 @@ CREATE OR REPLACE FUNCTION place_exit_order(
     p_broker_order_id VARCHAR(100)
 ) RETURNS BOOLEAN AS $$
 DECLARE
+    -- Status constants (reference canonical values from header)
+    co_status_approved CONSTANT VARCHAR(20) := 'APPROVED';
+    co_status_placed CONSTANT VARCHAR(20) := 'PLACED';
+
     v_current_status VARCHAR(20);
     v_version INTEGER;
     v_rows_updated INTEGER;
@@ -242,13 +264,13 @@ BEGIN
         RETURN FALSE;  -- Intent not found
     END IF;
 
-    IF v_current_status != 'APPROVED' THEN
+    IF v_current_status != co_status_approved THEN
         RETURN FALSE;  -- Intent not approved or already placed
     END IF;
 
     -- Atomically update to PLACED with optimistic lock
     UPDATE exit_intents
-    SET status = 'PLACED',
+    SET status = co_status_placed,
         broker_order_id = p_broker_order_id,
         placed_at = NOW(),
         updated_at = NOW(),
