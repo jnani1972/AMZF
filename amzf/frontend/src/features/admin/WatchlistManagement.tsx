@@ -22,6 +22,36 @@ type SortKey = 'symbol' | 'userId' | 'lotSize' | 'tickSize' | 'lastPrice' | 'ena
 type SortDirection = 'asc' | 'desc' | null;
 
 /**
+ * Extract sortable value from watchlist item
+ */
+const getWatchlistSortValue = (item: any, key: SortKey): any => {
+  const rawValue = item[key];
+
+  if (key === 'enabled') {
+    return item.enabled ? 1 : 0;
+  }
+
+  if (key === 'lotSize' || key === 'tickSize' || key === 'lastPrice') {
+    return rawValue || 0;
+  }
+
+  if (typeof rawValue === 'string') {
+    return rawValue.toLowerCase();
+  }
+
+  return rawValue || '';
+};
+
+/**
+ * Compare values with direction
+ */
+const compareValues = (a: any, b: any, direction: SortDirection): number => {
+  if (a < b) return direction === 'asc' ? -1 : 1;
+  if (a > b) return direction === 'asc' ? 1 : -1;
+  return 0;
+};
+
+/**
  * Watchlist management component
  */
 export function WatchlistManagement() {
@@ -65,32 +95,9 @@ export function WatchlistManagement() {
     if (!sortKey || !sortDirection) return filtered;
 
     return [...filtered].sort((a, b) => {
-      let aVal: any = a[sortKey];
-      let bVal: any = b[sortKey];
-
-      // Handle booleans
-      if (sortKey === 'enabled') {
-        aVal = a.enabled ? 1 : 0;
-        bVal = b.enabled ? 1 : 0;
-      }
-
-      // Handle nulls/undefined for numeric fields
-      if (sortKey === 'lotSize' || sortKey === 'tickSize' || sortKey === 'lastPrice') {
-        aVal = aVal || 0;
-        bVal = bVal || 0;
-      }
-
-      // Handle strings
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = (bVal || '').toLowerCase();
-      }
-
-      let comparison = 0;
-      if (aVal < bVal) comparison = -1;
-      if (aVal > bVal) comparison = 1;
-
-      return sortDirection === 'asc' ? comparison : -comparison;
+      const aVal = getWatchlistSortValue(a, sortKey);
+      const bVal = getWatchlistSortValue(b, sortKey);
+      return compareValues(aVal, bVal, sortDirection);
     });
   }, [watchlists, searchQuery, sortKey, sortDirection]);
 
@@ -423,13 +430,9 @@ export function WatchlistManagement() {
                       <EmptyState
                         icon={<Eye size={48} />}
                         title={searchQuery ? 'No Symbols Found' : 'No Watchlist Items'}
-                        description={
-                          searchQuery
-                            ? `No symbols match "${searchQuery}"`
-                            : 'Add symbols to the watchlist to get started'
-                        }
-                        ctaText={searchQuery ? undefined : 'Add Symbol'}
-                        onCtaClick={searchQuery ? undefined : () => setShowAddModal(true)}
+                        description={searchQuery ? `No symbols match "${searchQuery}"` : 'Add symbols to the watchlist to get started'}
+                        ctaText={!searchQuery ? 'Add Symbol' : undefined}
+                        onCtaClick={!searchQuery ? () => setShowAddModal(true) : undefined}
                       />
                     </td>
                   </tr>
