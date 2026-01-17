@@ -48,7 +48,7 @@ SELECT
     ei.error_message
 FROM exit_intents ei
 JOIN trades t ON ei.trade_id = t.trade_id
-WHERE ei.status IN ('PENDING', 'APPROVED', 'PLACED')
+WHERE ei.status::text IN ('PENDING', 'APPROVED', 'PLACED')
   AND ei.created_at < NOW() - INTERVAL '10 minutes'
   AND ei.deleted_at IS NULL
 ORDER BY ei.created_at ASC;
@@ -112,11 +112,11 @@ WITH recent_operations AS (
     SELECT COUNT(*) FROM orders WHERE created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
 ),
 recent_errors AS (
-    SELECT COUNT(*) as error_count FROM trade_intents WHERE status = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
+    SELECT COUNT(*) as error_count FROM trade_intents WHERE status::text = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
     UNION ALL
-    SELECT COUNT(*) FROM exit_intents WHERE status = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
+    SELECT COUNT(*) FROM exit_intents WHERE status::text = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
     UNION ALL
-    SELECT COUNT(*) FROM orders WHERE status IN ('REJECTED', 'CANCELLED') AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
+    SELECT COUNT(*) FROM orders WHERE status::text IN ('REJECTED', 'CANCELLED') AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
 )
 SELECT
     'HIGH_ERROR_RATE' as alert_type,
@@ -286,11 +286,11 @@ WHERE avg_latency_sec > 2.0
 WITH error_counts AS (
     SELECT error_code, COUNT(*) as error_count
     FROM (
-        SELECT error_code FROM trade_intents WHERE status = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
+        SELECT error_code FROM trade_intents WHERE status::text = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
         UNION ALL
-        SELECT error_code FROM exit_intents WHERE status = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
+        SELECT error_code FROM exit_intents WHERE status::text = 'REJECTED' AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
         UNION ALL
-        SELECT error_code FROM orders WHERE status IN ('REJECTED', 'CANCELLED') AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
+        SELECT error_code FROM orders WHERE status::text IN ('REJECTED', 'CANCELLED') AND created_at >= NOW() - INTERVAL '1 hour' AND deleted_at IS NULL
     ) all_errors
     WHERE error_code IS NOT NULL
     GROUP BY error_code
@@ -339,7 +339,7 @@ SELECT
     'Intraday (MIS) position held beyond market hours.' as message
 FROM trades t
 WHERE t.status = 'OPEN'
-  AND t.product_type = 'MIS'
+  AND t.product_type::text = 'MIS'
   AND t.entry_timestamp < CURRENT_DATE  -- Entered before today
   AND t.deleted_at IS NULL;
 
@@ -385,7 +385,7 @@ HAVING COUNT(*) >= 20  -- Only alert if significant number of trades
   AND NOT EXISTS (
       SELECT 1 FROM trades
       WHERE status = 'CLOSED'
-        AND exit_reason = 'TRAILING_STOP'
+        AND exit_reason::text = 'TRAILING_STOP'
         AND exit_timestamp >= CURRENT_DATE - INTERVAL '7 days'
         AND deleted_at IS NULL
   );

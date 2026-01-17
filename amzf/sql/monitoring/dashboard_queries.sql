@@ -14,8 +14,8 @@
 -- Shows current open trades with P&L and duration
 SELECT
     COUNT(*) as total_open_trades,
-    SUM(CASE WHEN direction = 'BUY' THEN entry_qty ELSE 0 END) as long_positions,
-    SUM(CASE WHEN direction = 'SELL' THEN entry_qty ELSE 0 END) as short_positions,
+    SUM(CASE WHEN direction::text = 'BUY' THEN entry_qty ELSE 0 END) as long_positions,
+    SUM(CASE WHEN direction::text = 'SELL' THEN entry_qty ELSE 0 END) as short_positions,
     SUM(entry_qty * entry_price) as total_exposure_value,
     AVG(EXTRACT(EPOCH FROM (NOW() - entry_timestamp)) / 3600) as avg_holding_hours
 FROM trades
@@ -39,7 +39,7 @@ SELECT
     MIN(created_at) as oldest_pending,
     EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) / 60 as oldest_age_minutes
 FROM exit_intents
-WHERE status IN ('PENDING', 'APPROVED', 'PLACED')
+WHERE status::text IN ('PENDING', 'APPROVED', 'PLACED')
   AND deleted_at IS NULL
 UNION ALL
 SELECT
@@ -48,7 +48,7 @@ SELECT
     MIN(created_at) as oldest_pending,
     EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) / 60 as oldest_age_minutes
 FROM orders
-WHERE status IN ('PENDING', 'PLACED', 'OPEN')
+WHERE status::text IN ('PENDING', 'PLACED', 'OPEN')
   AND deleted_at IS NULL;
 
 -- 1.3 Broker Connection Status
@@ -181,9 +181,9 @@ SELECT
     COUNT(*) as total_exits,
     AVG(EXTRACT(EPOCH FROM (ei.placed_at - ei.created_at))) as avg_placement_latency_sec,
     MAX(EXTRACT(EPOCH FROM (ei.placed_at - ei.created_at))) as max_placement_latency_sec,
-    COUNT(CASE WHEN ei.status = 'REJECTED' THEN 1 END) as rejected_count,
-    COUNT(CASE WHEN ei.status = 'FILLED' THEN 1 END) as filled_count,
-    COUNT(CASE WHEN ei.status IN ('PENDING', 'APPROVED', 'PLACED') THEN 1 END) as still_pending
+    COUNT(CASE WHEN ei.status::text = 'REJECTED' THEN 1 END) as rejected_count,
+    COUNT(CASE WHEN ei.status::text = 'FILLED' THEN 1 END) as filled_count,
+    COUNT(CASE WHEN ei.status::text IN ('PENDING', 'APPROVED', 'PLACED') THEN 1 END) as still_pending
 FROM exit_intents ei
 WHERE ei.created_at >= CURRENT_DATE
   AND ei.deleted_at IS NULL
@@ -203,7 +203,7 @@ SELECT
     ei.error_message
 FROM exit_intents ei
 JOIN trades t ON ei.trade_id = t.trade_id
-WHERE ei.status IN ('PENDING', 'APPROVED', 'PLACED')
+WHERE ei.status::text IN ('PENDING', 'APPROVED', 'PLACED')
   AND ei.created_at < NOW() - INTERVAL '5 minutes'
   AND ei.deleted_at IS NULL
 ORDER BY ei.created_at ASC;
@@ -216,9 +216,9 @@ ORDER BY ei.created_at ASC;
 -- Compare trailing stop exits vs other exit types
 SELECT
     CASE
-        WHEN exit_reason = 'TRAILING_STOP' THEN 'Trailing Stop'
-        WHEN exit_reason IN ('STOP_LOSS', 'MAX_LOSS') THEN 'Stop Loss'
-        WHEN exit_reason IN ('TARGET_HIT', 'PROFIT_LOCK') THEN 'Profit Target'
+        WHEN exit_reason::text = 'TRAILING_STOP' THEN 'Trailing Stop'
+        WHEN exit_reason::text IN ('STOP_LOSS', 'MAX_LOSS') THEN 'Stop Loss'
+        WHEN exit_reason::text IN ('TARGET_HIT', 'PROFIT_LOCK') THEN 'Profit Target'
         ELSE 'Other'
     END as exit_category,
     COUNT(*) as trade_count,
@@ -246,19 +246,19 @@ SELECT
     t.realized_log_return * 100 as return_pct,
     -- Estimate potential if trailing stop was used
     CASE
-        WHEN t.direction = 'BUY' THEN
+        WHEN t.direction::text = 'BUY' THEN
             ROUND((t.exit_price / t.entry_price - 1) * 100, 2)
-        WHEN t.direction = 'SELL' THEN
+        WHEN t.direction::text = 'SELL' THEN
             ROUND((1 - t.exit_price / t.entry_price) * 100, 2)
     END as price_move_pct
 FROM trades t
 WHERE t.status = 'CLOSED'
-  AND t.exit_reason NOT IN ('TRAILING_STOP', 'PROFIT_LOCK')
+  AND t.exit_reason::text NOT IN ('TRAILING_STOP', 'PROFIT_LOCK')
   AND t.exit_timestamp >= CURRENT_DATE - INTERVAL '7 days'
   AND t.deleted_at IS NULL
   AND (
-      (t.direction = 'BUY' AND t.exit_price / t.entry_price > 1.02)  -- More than 2% profit
-      OR (t.direction = 'SELL' AND t.entry_price / t.exit_price > 1.02)
+      (t.direction::text = 'BUY' AND t.exit_price / t.entry_price > 1.02)  -- More than 2% profit
+      OR (t.direction::text = 'SELL' AND t.entry_price / t.exit_price > 1.02)
   )
 ORDER BY t.exit_timestamp DESC
 LIMIT 20;
@@ -349,7 +349,7 @@ SELECT
     ti.created_at,
     ti.updated_at
 FROM trade_intents ti
-WHERE ti.status = 'REJECTED'
+WHERE ti.status::text = 'REJECTED'
   AND ti.created_at >= CURRENT_DATE - INTERVAL '24 hours'
   AND ti.deleted_at IS NULL
 UNION ALL
@@ -364,7 +364,7 @@ SELECT
     ei.updated_at
 FROM exit_intents ei
 JOIN trades t ON ei.trade_id = t.trade_id
-WHERE ei.status = 'REJECTED'
+WHERE ei.status::text = 'REJECTED'
   AND ei.created_at >= CURRENT_DATE - INTERVAL '24 hours'
   AND ei.deleted_at IS NULL
 UNION ALL
@@ -378,7 +378,7 @@ SELECT
     o.created_at,
     o.updated_at
 FROM orders o
-WHERE o.status IN ('REJECTED', 'CANCELLED')
+WHERE o.status::text IN ('REJECTED', 'CANCELLED')
   AND o.created_at >= CURRENT_DATE - INTERVAL '24 hours'
   AND o.deleted_at IS NULL
 ORDER BY created_at DESC;
@@ -392,11 +392,11 @@ SELECT
     MIN(created_at) as first_seen,
     MAX(created_at) as last_seen
 FROM (
-    SELECT error_code, error_message, created_at FROM trade_intents WHERE status = 'REJECTED' AND deleted_at IS NULL
+    SELECT error_code, error_message, created_at FROM trade_intents WHERE status::text = 'REJECTED' AND deleted_at IS NULL
     UNION ALL
-    SELECT error_code, error_message, created_at FROM exit_intents WHERE status = 'REJECTED' AND deleted_at IS NULL
+    SELECT error_code, error_message, created_at FROM exit_intents WHERE status::text = 'REJECTED' AND deleted_at IS NULL
     UNION ALL
-    SELECT error_code, error_message, created_at FROM orders WHERE status IN ('REJECTED', 'CANCELLED') AND deleted_at IS NULL
+    SELECT error_code, error_message, created_at FROM orders WHERE status::text IN ('REJECTED', 'CANCELLED') AND deleted_at IS NULL
 ) errors
 WHERE created_at >= CURRENT_DATE - INTERVAL '24 hours'
 GROUP BY error_code
@@ -416,7 +416,7 @@ SELECT
     MAX(o.last_broker_update_at) as newest_update,
     AVG(EXTRACT(EPOCH FROM (NOW() - o.last_broker_update_at)) / 60) as avg_age_minutes
 FROM orders o
-WHERE o.status IN ('PLACED', 'OPEN')
+WHERE o.status::text IN ('PLACED', 'OPEN')
   AND o.deleted_at IS NULL
 GROUP BY o.status, o.reconcile_status;
 
@@ -434,7 +434,7 @@ SELECT
     EXTRACT(EPOCH FROM (NOW() - o.last_broker_update_at)) / 60 as minutes_since_update,
     o.error_message
 FROM orders o
-WHERE o.status IN ('PLACED', 'OPEN')
+WHERE o.status::text IN ('PLACED', 'OPEN')
   AND o.last_broker_update_at < NOW() - INTERVAL '10 minutes'
   AND o.deleted_at IS NULL
 ORDER BY o.last_broker_update_at ASC;
