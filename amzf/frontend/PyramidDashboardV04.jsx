@@ -129,11 +129,94 @@ async function fetchBootstrap(token) {
 // v04 WEBSOCKET HOOK (with JWT auth)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Extract WebSocket event handlers to reduce nesting (SonarQube javascript:S2004)
+function createWebSocketHandlers({
+  onMessage,
+  onOpen,
+  setStatus,
+  retryRef,
+  wsRef,
+  closedByUserRef,
+  connect
+}) {
+  return {
+    handleOpen: (ws) => {
+      retryRef.current.attempts = 0;
+      setStatus("CONNECTED");
+
+      // v04: Subscribe to relevant topics
+      ws.send(JSON.stringify({
+        action: "subscribe",
+        topics: [
+          "SIGNAL_GENERATED", "SIGNAL_EXPIRED",
+          "INTENT_APPROVED", "INTENT_REJECTED",
+          "ORDER_CREATED", "ORDER_FILLED", "ORDER_REJECTED",
+          "TRADE_CREATED", "TRADE_CLOSED",
+          "PORTFOLIO_UPDATED", "CAPITAL_UPDATE",
+          "SYSTEM_STATUS", "MARKET_STATUS"
+        ]
+      }));
+
+      onOpen?.(ws);
+    },
+
+    handleMessage: (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+
+        // v04: Handle BATCH messages
+        if (msg.type === "BATCH" && msg.payload?.events) {
+          msg.payload.events.forEach(event => onMessage?.(event));
+        } else if (msg.type === "ACK" || msg.type === "PONG") {
+          // Connection acknowledgments
+          console.log("[WS] ACK/PONG:", msg);
+        } else {
+          onMessage?.(msg);
+        }
+      } catch (e) {
+        console.warn("[WS] Non-JSON message:", evt.data);
+      }
+    },
+
+    handleError: (err) => {
+      // Only log if we have a meaningful error message
+      // Generic "error" events during normal close are ignored
+      if (err.message || err.code) {
+        console.error("[WS] Error:", err.message || err.code, err);
+      }
+    },
+
+    handleClose: (evt) => {
+      wsRef.current = null;
+      setStatus("DISCONNECTED");
+
+      // Log close event with reason if available
+      if (evt.code !== 1000 && evt.code !== 1001 && !closedByUserRef.current) {
+        console.warn(`[WS] Closed: code=${evt.code}, reason=${evt.reason || 'none'}`);
+      }
+
+      if (closedByUserRef.current) return;
+
+      // Exponential backoff: 0.5s, 1s, 2s, 4s, max 8s
+      const attempts = Math.min(4, retryRef.current.attempts);
+      const delay = 500 * (2 ** attempts);
+      retryRef.current.attempts += 1;
+
+      if (attempts > 0) {
+        console.log(`[WS] Reconnecting in ${delay}ms (attempt ${retryRef.current.attempts})...`);
+      }
+
+      retryRef.current.timer = setTimeout(connect, delay);
+    }
+  };
+}
+
 function useAnnuWebSocket({ onMessage, onOpen, enabled = true }) {
   const { token } = useAuth();
   const [status, setStatus] = useState("DISCONNECTED");
   const wsRef = React.useRef(null);
   const retryRef = React.useRef({ attempts: 0, timer: null });
+  const closedByUserRef = React.useRef(false);
 
   useEffect(() => {
     if (!enabled || !token) {
@@ -141,7 +224,7 @@ function useAnnuWebSocket({ onMessage, onOpen, enabled = true }) {
       return;
     }
 
-    let closedByUser = false;
+    closedByUserRef.current = false;
 
     const connect = () => {
       setStatus("CONNECTING");
@@ -150,80 +233,28 @@ function useAnnuWebSocket({ onMessage, onOpen, enabled = true }) {
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
-      ws.onopen = () => {
-        retryRef.current.attempts = 0;
-        setStatus("CONNECTED");
-        
-        // v04: Subscribe to relevant topics
-        ws.send(JSON.stringify({ 
-          action: "subscribe", 
-          topics: [
-            "SIGNAL_GENERATED", "SIGNAL_EXPIRED",
-            "INTENT_APPROVED", "INTENT_REJECTED",
-            "ORDER_CREATED", "ORDER_FILLED", "ORDER_REJECTED",
-            "TRADE_CREATED", "TRADE_CLOSED",
-            "PORTFOLIO_UPDATED", "CAPITAL_UPDATE",
-            "SYSTEM_STATUS", "MARKET_STATUS"
-          ]
-        }));
-        
-        onOpen?.(ws);
-      };
+      // Create handlers with reduced nesting
+      const handlers = createWebSocketHandlers({
+        onMessage,
+        onOpen,
+        setStatus,
+        retryRef,
+        wsRef,
+        closedByUserRef,
+        connect
+      });
 
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data);
-          
-          // v04: Handle BATCH messages
-          if (msg.type === "BATCH" && msg.payload?.events) {
-            msg.payload.events.forEach(event => onMessage?.(event));
-          } else if (msg.type === "ACK" || msg.type === "PONG") {
-            // Connection acknowledgments
-            console.log("[WS] ACK/PONG:", msg);
-          } else {
-            onMessage?.(msg);
-          }
-        } catch (e) {
-          console.warn("[WS] Non-JSON message:", evt.data);
-        }
-      };
-
-      ws.onerror = (err) => {
-        // Only log if we have a meaningful error message
-        // Generic "error" events during normal close are ignored
-        if (err.message || err.code) {
-          console.error("[WS] Error:", err.message || err.code, err);
-        }
-      };
-
-      ws.onclose = (evt) => {
-        wsRef.current = null;
-        setStatus("DISCONNECTED");
-
-        // Log close event with reason if available
-        if (evt.code !== 1000 && evt.code !== 1001 && !closedByUser) {
-          console.warn(`[WS] Closed: code=${evt.code}, reason=${evt.reason || 'none'}`);
-        }
-
-        if (closedByUser) return;
-
-        // Exponential backoff: 0.5s, 1s, 2s, 4s, max 8s
-        const attempts = Math.min(4, retryRef.current.attempts);
-        const delay = 500 * (2 ** attempts);
-        retryRef.current.attempts += 1;
-
-        if (attempts > 0) {
-          console.log(`[WS] Reconnecting in ${delay}ms (attempt ${retryRef.current.attempts})...`);
-        }
-
-        retryRef.current.timer = setTimeout(connect, delay);
-      };
+      // Attach handlers to WebSocket
+      ws.onopen = () => handlers.handleOpen(ws);
+      ws.onmessage = handlers.handleMessage;
+      ws.onerror = handlers.handleError;
+      ws.onclose = handlers.handleClose;
     };
 
     connect();
 
     return () => {
-      closedByUser = true;
+      closedByUserRef.current = true;
       if (retryRef.current.timer) clearTimeout(retryRef.current.timer);
       try { wsRef.current?.close(); } catch {}
     };
