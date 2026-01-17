@@ -77,7 +77,7 @@ public final class PostgresInstrumentRepository implements InstrumentRepository 
             FROM instruments
             WHERE (UPPER(trading_symbol) LIKE ? OR UPPER(name) LIKE ?)
               AND segment = 'EQUITY'
-            ORDER BY rank, trading_symbol
+            ORDER BY rank ASC, trading_symbol ASC
             LIMIT ?
             """;
 

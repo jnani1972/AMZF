@@ -55,7 +55,7 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
     @Override
     public List<UserBroker> findByUserId(String userId) {
         String sql = """
-            SELECT * FROM user_brokers WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at
+            SELECT * FROM user_brokers WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at ASC
             """;
 
         return queryList(sql, userId);
@@ -70,7 +70,7 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
               AND enabled = true
               AND status = 'ACTIVE'
               AND deleted_at IS NULL
-            ORDER BY created_at
+            ORDER BY created_at ASC
             """;
 
         return queryList(sql, userId);
@@ -86,7 +86,7 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
               AND ub.status = 'ACTIVE'
               AND ub.deleted_at IS NULL
               AND u.status = 'ACTIVE'
-            ORDER BY ub.user_id, ub.created_at
+            ORDER BY ub.user_id ASC, ub.created_at ASC
             """;
 
         try (Connection conn = dataSource.getConnection();
@@ -108,11 +108,12 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
     @Override
     public List<UserBroker> findAll() {
         String sql = """
-            SELECT ub.* FROM user_brokers ub
+            SELECT DISTINCT ON (ub.user_broker_id) ub.*
+            FROM user_brokers ub
             JOIN users u ON ub.user_id = u.user_id AND u.deleted_at IS NULL
             WHERE ub.deleted_at IS NULL
               AND u.status = 'ACTIVE'
-            ORDER BY ub.created_at DESC
+            ORDER BY ub.user_broker_id ASC, ub.version DESC, ub.created_at DESC
             """;
 
         try (Connection conn = dataSource.getConnection();

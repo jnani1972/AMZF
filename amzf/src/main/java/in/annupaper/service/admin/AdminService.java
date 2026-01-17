@@ -947,7 +947,7 @@ public final class AdminService {
                 last_price, last_tick_time
             FROM watchlist
             WHERE enabled = true AND deleted_at IS NULL
-            ORDER BY symbol, last_tick_time DESC NULLS LAST
+            ORDER BY symbol ASC, last_tick_time DESC NULLS LAST
             """;
 
         List<Watchlist> watchlists = new ArrayList<>();
@@ -995,7 +995,7 @@ public final class AdminService {
                 last_price, last_tick_time
             FROM watchlist
             WHERE enabled = true AND deleted_at IS NULL
-            ORDER BY symbol, last_tick_time DESC NULLS LAST
+            ORDER BY symbol ASC, last_tick_time DESC NULLS LAST
             """;
 
         List<Watchlist> watchlists = new ArrayList<>();

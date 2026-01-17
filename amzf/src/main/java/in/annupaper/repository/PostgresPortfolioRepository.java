@@ -23,7 +23,7 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
 
     @Override
     public List<Portfolio> findByUserId(String userId) {
-        String sql = "SELECT * FROM portfolios WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at";
+        String sql = "SELECT * FROM portfolios WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at ASC";
         List<Portfolio> portfolios = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();

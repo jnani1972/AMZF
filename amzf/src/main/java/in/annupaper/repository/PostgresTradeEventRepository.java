@@ -76,7 +76,7 @@ public final class PostgresTradeEventRepository implements TradeEventRepository 
                    payload, signal_id, intent_id, trade_id, order_id, created_at, created_by
             FROM trade_events
             WHERE seq > ?
-            ORDER BY seq
+            ORDER BY seq ASC
             LIMIT ?
             """;
         
@@ -91,7 +91,7 @@ public final class PostgresTradeEventRepository implements TradeEventRepository 
             FROM trade_events
             WHERE seq > ?
               AND (scope = 'GLOBAL' OR user_id = ?)
-            ORDER BY seq
+            ORDER BY seq ASC
             LIMIT ?
             """;
         
@@ -116,10 +116,10 @@ public final class PostgresTradeEventRepository implements TradeEventRepository 
                    payload, signal_id, intent_id, trade_id, order_id, created_at, created_by
             FROM trade_events
             WHERE seq > ?
-              AND (scope = 'GLOBAL' 
+              AND (scope = 'GLOBAL'
                    OR (scope = 'USER' AND user_id = ?)
                    OR (scope = 'USER_BROKER' AND user_id = ? AND user_broker_id = ?))
-            ORDER BY seq
+            ORDER BY seq ASC
             LIMIT ?
             """;
         

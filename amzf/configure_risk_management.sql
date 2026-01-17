@@ -10,7 +10,7 @@ SELECT user_broker_id, broker_id,
        max_open_trades, max_daily_loss, max_weekly_loss
 FROM user_brokers
 WHERE deleted_at IS NULL
-ORDER BY user_broker_id;
+ORDER BY user_broker_id ASC;
 
 -- ========================================
 -- RECOMMENDED SETTINGS (CONSERVATIVE)

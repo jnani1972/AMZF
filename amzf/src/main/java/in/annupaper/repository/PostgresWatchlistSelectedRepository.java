@@ -30,7 +30,7 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
                      "created_at, updated_at, deleted_at, version " +
                      "FROM watchlist_selected " +
                      "WHERE deleted_at IS NULL AND enabled = true " +
-                     "ORDER BY name";
+                     "ORDER BY name ASC";
 
         List<WatchlistSelected> selected = new ArrayList<>();
 
@@ -81,7 +81,7 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
         String sql = "SELECT id, selected_id, symbol, display_order, created_at " +
                      "FROM watchlist_selected_symbols " +
                      "WHERE selected_id = ? " +
-                     "ORDER BY display_order, symbol";
+                     "ORDER BY display_order ASC, symbol ASC";
 
         List<WatchlistSelectedSymbol> symbols = new ArrayList<>();
 
@@ -111,7 +111,7 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
                      "FROM watchlist_selected_symbols wss " +
                      "INNER JOIN watchlist_selected ws ON wss.selected_id = ws.selected_id " +
                      "WHERE ws.deleted_at IS NULL AND ws.enabled = true " +
-                     "ORDER BY symbol";
+                     "ORDER BY symbol ASC";
 
         List<String> symbols = new ArrayList<>();
 

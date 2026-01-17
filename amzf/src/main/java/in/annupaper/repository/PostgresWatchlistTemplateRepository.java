@@ -30,7 +30,7 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
                      "created_at, updated_at, deleted_at, version " +
                      "FROM watchlist_templates " +
                      "WHERE deleted_at IS NULL AND enabled = true " +
-                     "ORDER BY display_order, template_name";
+                     "ORDER BY display_order ASC, template_name ASC";
 
         List<WatchlistTemplate> templates = new ArrayList<>();
 
@@ -81,7 +81,7 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
         String sql = "SELECT id, template_id, symbol, display_order, created_at " +
                      "FROM watchlist_template_symbols " +
                      "WHERE template_id = ? " +
-                     "ORDER BY display_order, symbol";
+                     "ORDER BY display_order ASC, symbol ASC";
 
         List<WatchlistTemplateSymbol> symbols = new ArrayList<>();
 

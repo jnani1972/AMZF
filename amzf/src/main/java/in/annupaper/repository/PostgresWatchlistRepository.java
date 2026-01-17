@@ -21,7 +21,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
 
     @Override
     public List<Watchlist> findAll() {
-        String sql = "SELECT * FROM watchlist WHERE deleted_at IS NULL ORDER BY added_at";
+        String sql = "SELECT * FROM watchlist WHERE deleted_at IS NULL ORDER BY added_at ASC";
         List<Watchlist> watchlists = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
@@ -41,7 +41,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
 
     @Override
     public List<Watchlist> findByUserBrokerId(String userBrokerId) {
-        String sql = "SELECT * FROM watchlist WHERE user_broker_id = ? AND deleted_at IS NULL ORDER BY added_at";
+        String sql = "SELECT * FROM watchlist WHERE user_broker_id = ? AND deleted_at IS NULL ORDER BY added_at ASC";
         List<Watchlist> watchlists = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
@@ -68,7 +68,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
             JOIN user_brokers ub ON w.user_broker_id = ub.user_broker_id AND ub.deleted_at IS NULL
             WHERE ub.user_id = ?
               AND w.deleted_at IS NULL
-            ORDER BY w.added_at
+            ORDER BY w.added_at ASC
             """;
         List<Watchlist> watchlists = new ArrayList<>();
 

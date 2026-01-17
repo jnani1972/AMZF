@@ -44,7 +44,7 @@ public final class PostgresBrokerRepository implements BrokerRepository {
     // }
     @Override
     public List<Broker> findAll() {
-        String sql = "SELECT * FROM brokers WHERE deleted_at IS NULL ORDER BY broker_code";
+        String sql = "SELECT * FROM brokers WHERE deleted_at IS NULL ORDER BY broker_code ASC";
         List<Broker> brokers = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();

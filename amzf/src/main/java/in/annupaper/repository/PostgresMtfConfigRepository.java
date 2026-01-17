@@ -145,7 +145,7 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
 
     @Override
     public List<MtfSymbolConfig> getAllSymbolConfigs() {
-        String sql = "SELECT * FROM mtf_symbol_config ORDER BY symbol, user_broker_id";
+        String sql = "SELECT * FROM mtf_symbol_config ORDER BY symbol ASC, user_broker_id ASC";
 
         List<MtfSymbolConfig> configs = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
