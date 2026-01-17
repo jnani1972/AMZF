@@ -103,27 +103,36 @@ ALTER TABLE trades
 
 \echo 'Verifying rollback...'
 
--- Check that constraints are gone
-SELECT
-    CASE
-        WHEN NOT EXISTS (
-            SELECT 1 FROM pg_constraint
-            WHERE conrelid = 'trades'::regclass
-              AND conname IN ('uq_trades_intent_id', 'uq_trades_client_order_id')
-        )
-        AND NOT EXISTS (
-            SELECT 1 FROM pg_constraint
-            WHERE conrelid = 'signals'::regclass
-              AND conname IN ('chk_effective_floor_precision', 'chk_effective_ceiling_precision')
-        )
-        AND NOT EXISTS (
-            SELECT 1 FROM pg_indexes
-            WHERE tablename IN ('trades', 'signals')
-              AND indexname IN ('idx_signal_dedupe', 'uq_trades_broker_order_id')
-        )
-        THEN '✅ Rollback successful: All V007 constraints removed'
-        ELSE '❌ Rollback incomplete: Some constraints still exist'
-    END AS rollback_status;
+-- Check that constraints are gone (using constants to avoid duplication)
+DO $$
+DECLARE
+    trades_table CONSTANT regclass := 'trades'::regclass;
+    signals_table CONSTANT regclass := 'signals'::regclass;
+    v_status TEXT;
+BEGIN
+    SELECT
+        CASE
+            WHEN NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conrelid = trades_table
+                  AND conname IN ('uq_trades_intent_id', 'uq_trades_client_order_id')
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conrelid = signals_table
+                  AND conname IN ('chk_effective_floor_precision', 'chk_effective_ceiling_precision')
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_indexes
+                WHERE tablename IN ('trades', 'signals')
+                  AND indexname IN ('idx_signal_dedupe', 'uq_trades_broker_order_id')
+            )
+            THEN '✅ Rollback successful: All V007 constraints removed'
+            ELSE '❌ Rollback incomplete: Some constraints still exist'
+        END INTO v_status;
+
+    RAISE NOTICE '%', v_status;
+END $$;
 
 \echo ''
 
