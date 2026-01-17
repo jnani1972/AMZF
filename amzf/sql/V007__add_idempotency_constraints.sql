@@ -131,13 +131,16 @@ CREATE UNIQUE INDEX idx_signal_dedupe ON signals (
 
 -- ✅ NEW: Add explicit 2-decimal CHECK constraints
 -- Reason: Prevent accidental insertion of high-precision values that break dedupe
+-- Using constant to avoid string literal duplication
 DO $$
+DECLARE
+    signals_table CONSTANT regclass := 'signals'::regclass;
 BEGIN
     -- Drop old constraints if they exist
     IF EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'chk_effective_floor_precision'
-        AND conrelid = 'signals'::regclass
+        AND conrelid = signals_table
     ) THEN
         ALTER TABLE signals DROP CONSTRAINT chk_effective_floor_precision;
     END IF;
@@ -145,7 +148,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'chk_effective_ceiling_precision'
-        AND conrelid = 'signals'::regclass
+        AND conrelid = signals_table
     ) THEN
         ALTER TABLE signals DROP CONSTRAINT chk_effective_ceiling_precision;
     END IF;
@@ -153,12 +156,15 @@ END
 $$;
 
 -- Add new CHECK constraints
+-- Using constant to avoid string literal duplication
 DO $$
+DECLARE
+    signals_table CONSTANT regclass := 'signals'::regclass;
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'chk_effective_floor_precision'
-        AND conrelid = 'signals'::regclass
+        AND conrelid = signals_table
     ) THEN
         ALTER TABLE signals ADD CONSTRAINT chk_effective_floor_precision
             CHECK (effective_floor = ROUND(effective_floor, 2));
@@ -167,7 +173,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = 'chk_effective_ceiling_precision'
-        AND conrelid = 'signals'::regclass
+        AND conrelid = signals_table
     ) THEN
         ALTER TABLE signals ADD CONSTRAINT chk_effective_ceiling_precision
             CHECK (effective_ceiling = ROUND(effective_ceiling, 2));
