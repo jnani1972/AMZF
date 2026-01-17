@@ -1,0 +1,205 @@
+/**
+ * Standardized Table Styles
+ * Consistent table formatting across the entire application
+ */
+
+/* Table Container */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+}
+
+/* Table Base */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface-primary);
+}
+
+/* Table Header */
+.data-table thead {
+  background: var(--color-surface-secondary);
+  border-bottom: 2px solid var(--color-border-light);
+}
+
+.data-table thead tr {
+  border: none;
+}
+
+.data-table thead th {
+  padding: 12px 24px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  border: none;
+}
+
+.data-table thead th.text-right {
+  text-align: right;
+}
+
+.data-table thead th.text-center {
+  text-align: center;
+}
+
+/* Table Body */
+.data-table tbody tr {
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background-color 0.15s ease;
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-surface-secondary);
+}
+
+.data-table tbody td {
+  padding: 16px 24px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.data-table tbody td.text-right {
+  text-align: right;
+}
+
+.data-table tbody td.text-center {
+  text-align: center;
+}
+
+/* Primary Text in Tables */
+.data-table .table-primary {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+/* Secondary Text in Tables */
+.data-table .table-secondary {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Table Actions */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* Empty State in Tables */
+.table-empty {
+  padding: 80px 24px;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .data-table thead th {
+    padding: 12px 16px;
+    font-size: 12px;
+  }
+
+  .data-table tbody td {
+    padding: 16px;
+    font-size: 13px;
+  }
+
+  .data-table .table-primary {
+    font-size: 14px;
+  }
+
+  .data-table .table-secondary {
+    font-size: 12px;
+  }
+
+  .table-actions {
+    gap: 6px;
+  }
+}
+
+/* Status Badges in Tables */
+.table-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Numeric Values */
+.table-numeric {
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Currency Values */
+.table-currency {
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Date Values */
+.table-date {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Compact Table Variant */
+.data-table--compact tbody td {
+  padding: 12px 16px;
+}
+
+.data-table--compact thead th {
+  padding: 12px 16px;
+}
+
+/* Sortable Table Headers */
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition-fast);
+}
+
+.sortable-header:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.sortable-header:active {
+  background-color: var(--color-border-light);
+}
+
+.table-header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Sort Icons */
+.sort-icon {
+  opacity: 0.4;
+  transition: opacity var(--transition-fast);
+}
+
+.sortable-header:hover .sort-icon {
+  opacity: 0.7;
+}
+
+.sort-icon--active {
+  opacity: 1;
+  color: var(--color-brand-primary);
+}

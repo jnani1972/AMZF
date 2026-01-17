@@ -384,15 +384,6 @@ class ApiClient {
     });
   }
 
-  /**
-   * Disconnect broker
-   */
-  async disconnectBroker(userBrokerId: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/user-brokers/${userBrokerId}/disconnect`, {
-      method: 'POST',
-    });
-  }
-
   // ============================================================================
   // MTF Configuration
   // ============================================================================
@@ -414,6 +405,23 @@ class ApiClient {
     });
   }
 
+  /**
+   * Get global MTF configuration (admin only)
+   */
+  async getGlobalMTFConfig(): Promise<ApiResponse<MtfGlobalConfig>> {
+    return this.request<MtfGlobalConfig>('/api/mtf-config/global');
+  }
+
+  /**
+   * Update global MTF configuration (admin only)
+   */
+  async updateGlobalMTFConfig(config: Partial<MtfGlobalConfig>): Promise<ApiResponse<MtfGlobalConfig>> {
+    return this.request<MtfGlobalConfig>('/api/mtf-config/global', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  }
+
   // ============================================================================
   // Admin (Role-gated)
   // ============================================================================
@@ -426,10 +434,248 @@ class ApiClient {
   }
 
   /**
+   * Update user (admin only)
+   */
+  async updateUser(
+    userId: string,
+    data: { displayName: string; role: string }
+  ): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Toggle user status between ACTIVE and SUSPENDED (admin only)
+   */
+  async toggleUserStatus(userId: string, reason?: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request<{ status: string }>(`/api/admin/users/${userId}/toggle`, {
+      method: 'POST',
+      body: reason ? JSON.stringify({ reason }) : undefined,
+    });
+  }
+
+  /**
+   * Delete user (admin only)
+   */
+  async deleteUser(userId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
    * Get all user brokers (admin only)
    */
   async getAllUserBrokers(): Promise<ApiResponse<UserBroker[]>> {
     return this.request<UserBroker[]>('/api/admin/user-brokers');
+  }
+
+  /**
+   * Create user broker (admin only)
+   */
+  async createUserBroker(data: {
+    userId: string;
+    brokerId: string;
+    brokerRole: string;
+  }): Promise<ApiResponse<UserBroker>> {
+    return this.request<UserBroker>('/api/admin/user-brokers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete user broker (admin only)
+   */
+  async deleteUserBroker(userBrokerId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/admin/user-brokers/${userBrokerId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Toggle user broker active status (admin only)
+   */
+  async toggleUserBroker(userBrokerId: string): Promise<ApiResponse<UserBroker>> {
+    return this.request<UserBroker>(`/api/admin/user-brokers/${userBrokerId}/toggle`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Update user broker (admin only)
+   */
+  async updateUserBroker(
+    userBrokerId: string,
+    data: {
+      role?: string;
+      enabled?: boolean;
+    }
+  ): Promise<ApiResponse<UserBroker>> {
+    return this.request<UserBroker>(`/api/admin/user-brokers/${userBrokerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Test broker connection (admin only)
+   */
+  async testBrokerConnection(userBrokerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/admin/brokers/${userBrokerId}/test-connection`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Disconnect broker (admin only)
+   */
+  async disconnectBroker(userBrokerId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/admin/brokers/${userBrokerId}/disconnect`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Get broker session info (admin only)
+   */
+  async getBrokerSession(userBrokerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/admin/brokers/${userBrokerId}/session`);
+  }
+
+  /**
+   * Get OAuth URL for broker (admin only)
+   */
+  async getOAuthUrl(userBrokerId: string): Promise<ApiResponse<{ url: string }>> {
+    return this.request<{ url: string }>(`/api/admin/brokers/${userBrokerId}/oauth-url`);
+  }
+
+  /**
+   * Get all portfolios (admin only)
+   */
+  async getAllPortfolios(): Promise<ApiResponse<Portfolio[]>> {
+    return this.request<Portfolio[]>('/api/admin/portfolios');
+  }
+
+  /**
+   * Create portfolio (admin only)
+   */
+  async createPortfolio(data: {
+    userId: string;
+    name: string;
+    totalCapital: number;
+  }): Promise<ApiResponse<Portfolio>> {
+    return this.request<Portfolio>('/api/admin/portfolios', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update portfolio (admin only)
+   */
+  async updatePortfolio(
+    portfolioId: string,
+    data: {
+      name?: string;
+      capital?: number;
+    }
+  ): Promise<ApiResponse<Portfolio>> {
+    return this.request<Portfolio>(`/api/admin/portfolios/${portfolioId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete portfolio (admin only)
+   */
+  async deletePortfolio(portfolioId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/admin/portfolios/${portfolioId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get watchlist (admin only)
+   */
+  async getWatchlist(): Promise<ApiResponse<Watchlist[]>> {
+    return this.request<Watchlist[]>('/api/admin/watchlist');
+  }
+
+  /**
+   * Add watchlist item (admin only)
+   */
+  async addWatchlistItem(data: {
+    userId: string;
+    symbol: string;
+    lotSize?: number;
+  }): Promise<ApiResponse<Watchlist>> {
+    return this.request<Watchlist>('/api/admin/watchlist', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete watchlist item (admin only)
+   */
+  async deleteWatchlistItem(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/api/admin/watchlist/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Toggle watchlist item (admin only)
+   */
+  async toggleWatchlistItem(id: string): Promise<ApiResponse<Watchlist>> {
+    return this.request<Watchlist>(`/api/admin/watchlist/${id}/toggle`, {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Update watchlist item (admin only)
+   */
+  async updateWatchlistItem(
+    id: string,
+    data: {
+      lotSize?: number | null;
+      tickSize?: number | null;
+      enabled?: boolean;
+    }
+  ): Promise<ApiResponse<Watchlist>> {
+    return this.request<Watchlist>(`/api/admin/watchlist/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Get data broker configuration (admin only)
+   */
+  async getDataBroker(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/admin/data-broker');
+  }
+
+  /**
+   * Configure data broker (admin only)
+   */
+  async configureDataBroker(data: { userBrokerId: string }): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/admin/data-broker', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Get system health (admin only)
+   */
+  async getSystemHealth(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/health');
   }
 }
 

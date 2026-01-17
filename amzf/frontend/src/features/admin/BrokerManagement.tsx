@@ -3,44 +3,217 @@
  * View and manage broker connections
  */
 
-import { useLocation } from 'react-router-dom';
-import { useAuth } from '../auth/AuthProvider';
-import { useAllUserBrokers } from '../../hooks/useApi';
-import { Header } from '../../components/organisms/Header/Header';
+import { useState, useMemo } from 'react';
+import { useAllUserBrokers, useAllUsers } from '../../hooks/useApi';
 import { Text } from '../../components/atoms/Text/Text';
 import { Card } from '../../components/atoms/Card/Card';
 import { Badge } from '../../components/atoms/Badge/Badge';
 import { Button } from '../../components/atoms/Button/Button';
+import { Input } from '../../components/atoms/Input/Input';
 import { Alert } from '../../components/atoms/Alert/Alert';
 import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import { BrokerStatusBadge } from '../../components/molecules/BrokerStatusBadge/BrokerStatusBadge';
-import { RefreshCw, Activity } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { getAdminNavItems } from '../../lib/navigation';
+import { RefreshCw, Activity, PlusCircle, Trash2, CheckCircle, Database, Zap, ArrowUp, ArrowDown, ArrowUpDown, Edit2, Eye } from 'lucide-react';
+import { apiClient } from '../../lib/api';
+import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
+import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
+
+type SortKey = 'displayName' | 'brokerName' | 'role' | 'status' | 'connected' | 'lastConnected';
+type SortDirection = 'asc' | 'desc' | null;
 
 /**
  * Broker management component
  */
 export function BrokerManagement() {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-  const navItems = getAdminNavItems(location.pathname);
   const { data: brokers, loading, error, refetch } = useAllUserBrokers();
+  const { data: users } = useAllUsers();
+
+  // Sorting state - default: latest connected first
+  const [sortKey, setSortKey] = useState<SortKey>('lastConnected');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Sort brokers
+  const sortedBrokers = useMemo(() => {
+    if (!brokers || !sortKey || !sortDirection) return brokers || [];
+
+    return [...brokers].sort((a, b) => {
+      let aVal: any = a[sortKey];
+      let bVal: any = b[sortKey];
+
+      // Handle dates
+      if (sortKey === 'lastConnected') {
+        aVal = a.lastConnected ? new Date(a.lastConnected).getTime() : 0;
+        bVal = b.lastConnected ? new Date(b.lastConnected).getTime() : 0;
+      }
+
+      // Handle booleans
+      if (sortKey === 'connected') {
+        aVal = a.connected ? 1 : 0;
+        bVal = b.connected ? 1 : 0;
+      }
+
+      // Handle status
+      if (sortKey === 'status') {
+        aVal = a.enabled && a.status === 'ACTIVE' ? 1 : 0;
+        bVal = b.enabled && b.status === 'ACTIVE' ? 1 : 0;
+      }
+
+      // Handle strings
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+      }
+
+      let comparison = 0;
+      if (aVal < bVal) comparison = -1;
+      if (aVal > bVal) comparison = 1;
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [brokers, sortKey, sortDirection]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortKey('lastConnected');
+      }
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (key: SortKey) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown size={14} className="sort-icon" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp size={14} className="sort-icon sort-icon--active" />;
+    }
+    return <ArrowDown size={14} className="sort-icon sort-icon--active" />;
+  };
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Create form state
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedBrokerId, setSelectedBrokerId] = useState('');
+  const [selectedBrokerRole, setSelectedBrokerRole] = useState<'DATA' | 'EXEC'>('DATA');
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editBroker, setEditBroker] = useState<any>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // View modal state
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewBroker, setViewBroker] = useState<any>(null);
+
+  /**
+   * Handle create user broker
+   */
+  const handleCreate = async () => {
+    setCreateError(null);
+
+    if (!selectedUserId || !selectedBrokerId || !selectedBrokerRole) {
+      setCreateError('Please fill in all required fields');
+      return;
+    }
+
+    const response = await apiClient.createUserBroker({
+      userId: selectedUserId,
+      brokerId: selectedBrokerId,
+      brokerRole: selectedBrokerRole,
+    });
+
+    if (response.success) {
+      setShowCreateModal(false);
+      setSelectedUserId('');
+      setSelectedBrokerId('');
+      setSelectedBrokerRole('DATA');
+      refetch();
+    } else {
+      setCreateError(response.error || 'Failed to create broker connection');
+    }
+  };
+
+  /**
+   * Handle toggle broker
+   */
+  const handleToggle = async (userBrokerId: string) => {
+    const response = await apiClient.toggleUserBroker(userBrokerId);
+    if (response.success) {
+      refetch();
+    }
+  };
+
+  /**
+   * Handle delete broker
+   */
+  const handleDelete = async (userBrokerId: string) => {
+    if (!confirm('Are you sure you want to delete this broker connection?')) {
+      return;
+    }
+
+    const response = await apiClient.deleteUserBroker(userBrokerId);
+    if (response.success) {
+      refetch();
+    }
+  };
+
+  /**
+   * Open edit modal
+   */
+  const openEditModal = (broker: any) => {
+    setEditBroker({ ...broker });
+    setEditError(null);
+    setShowEditModal(true);
+  };
+
+  /**
+   * Handle edit broker
+   */
+  const handleEdit = async () => {
+    setEditError(null);
+
+    if (!editBroker) return;
+
+    const response = await apiClient.updateUserBroker(editBroker.userBrokerId, {
+      role: editBroker.role,
+      enabled: editBroker.enabled,
+    });
+
+    if (response.success) {
+      setShowEditModal(false);
+      refetch();
+    } else {
+      setEditError(response.error || 'Failed to update broker');
+    }
+  };
+
+  /**
+   * Open view modal
+   */
+  const openViewModal = (broker: any) => {
+    setViewBroker(broker);
+    setShowViewModal(true);
+  };
 
   /**
    * Render loading state
    */
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
-        <main className="container mx-auto p-6">
-          <div className="flex items-center justify-center py-12">
-            <Spinner size="lg" variant="primary" />
-          </div>
-        </main>
-      </div>
+      <main className="container mx-auto p-6">
+        <div className="flex items-center justify-center py-12">
+          <Spinner size="lg" variant="primary" />
+        </div>
+      </main>
     );
   }
 
@@ -49,133 +222,179 @@ export function BrokerManagement() {
    */
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
-        <main className="container mx-auto p-6">
-          <Alert variant="error">
-            Failed to load brokers: {error}
-            <Button variant="secondary" size="sm" onClick={refetch} className="mt-3">
-              Retry
-            </Button>
-          </Alert>
-        </main>
-      </div>
+      <main className="container mx-auto p-6">
+        <Alert variant="error">
+          Failed to load brokers: {error}
+          <Button variant="secondary" size="sm" onClick={refetch} className="mt-3">
+            Retry
+          </Button>
+        </Alert>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
-
+    <>
       <main className="container mx-auto p-6 space-y-6">
-        {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Link to="/admin">
-                <Text variant="body" className="text-muted hover:text-primary">
-                  Admin
-                </Text>
-              </Link>
-              <Text variant="body" className="text-muted">
-                /
-              </Text>
-              <Text variant="h2">Brokers</Text>
-            </div>
-            <Text variant="body" className="text-muted">
-              Manage broker connections and health
-            </Text>
-          </div>
+        <PageHeader
+          title="Brokers"
+          description="Manage broker connections and health"
+          actions={
+            <>
+              <Button variant="secondary" iconLeft={<RefreshCw size={20} />} onClick={refetch}>
+                Refresh
+              </Button>
+              <Button
+                variant="primary"
+                iconLeft={<PlusCircle size={20} />}
+                onClick={() => setShowCreateModal(true)}
+              >
+                Add Broker
+              </Button>
+            </>
+          }
+        />
 
-          <Button variant="secondary" iconLeft={<RefreshCw size={20} />} onClick={refetch}>
-            Refresh
-          </Button>
-        </div>
+        {/* Summary Cards */}
+        {brokers && brokers.length > 0 && (
+          <SummaryCards
+            cards={[
+              {
+                icon: <Activity size={20} />,
+                iconBgColor: 'bg-blue-100',
+                iconColor: 'text-blue-600',
+                label: 'Total Brokers',
+                value: brokers.length,
+              },
+              {
+                icon: <CheckCircle size={20} />,
+                iconBgColor: 'bg-green-100',
+                iconColor: 'text-green-600',
+                label: 'Active Brokers',
+                value: brokers.filter((b) => b.enabled && b.status === 'ACTIVE').length,
+                subtitle: `(${brokers.length > 0 ? Math.round((brokers.filter((b) => b.enabled && b.status === 'ACTIVE').length / brokers.length) * 100) : 0}%)`,
+              },
+              {
+                icon: <CheckCircle size={20} />,
+                iconBgColor: 'bg-purple-100',
+                iconColor: 'text-purple-600',
+                label: 'Connected',
+                value: brokers.filter((b) => b.connected).length,
+              },
+              {
+                icon: <Database size={20} />,
+                iconBgColor: 'bg-orange-100',
+                iconColor: 'text-orange-600',
+                label: 'DATA / EXEC',
+                value: `${brokers.filter((b) => b.role === 'DATA').length} / ${brokers.filter((b) => b.role === 'EXEC').length}`,
+              },
+            ]}
+          />
+        )}
 
         {/* Brokers Table */}
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="table-container">
+            <table className="data-table">
               <thead>
-                <tr className="border-b border-border-light">
-                  <th className="p-4 text-left">
-                    <Text variant="label">User</Text>
+                <tr>
+                  <th className="sortable-header" onClick={() => handleSort('displayName')}>
+                    <div className="table-header-content">
+                      <span>User</span>
+                      {getSortIcon('displayName')}
+                    </div>
                   </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Broker</Text>
+                  <th className="sortable-header" onClick={() => handleSort('brokerName')}>
+                    <div className="table-header-content">
+                      <span>Broker</span>
+                      {getSortIcon('brokerName')}
+                    </div>
                   </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Role</Text>
+                  <th className="sortable-header" onClick={() => handleSort('role')}>
+                    <div className="table-header-content">
+                      <span>Role</span>
+                      {getSortIcon('role')}
+                    </div>
                   </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Status</Text>
+                  <th className="sortable-header" onClick={() => handleSort('status')}>
+                    <div className="table-header-content">
+                      <span>Status</span>
+                      {getSortIcon('status')}
+                    </div>
                   </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Health</Text>
+                  <th className="sortable-header" onClick={() => handleSort('connected')}>
+                    <div className="table-header-content">
+                      <span>Health</span>
+                      {getSortIcon('connected')}
+                    </div>
                   </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Last Check</Text>
+                  <th className="sortable-header" onClick={() => handleSort('lastConnected')}>
+                    <div className="table-header-content">
+                      <span>Last Check</span>
+                      {getSortIcon('lastConnected')}
+                    </div>
                   </th>
-                  <th className="p-4 text-right">
-                    <Text variant="label">Actions</Text>
-                  </th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {brokers && brokers.length > 0 ? (
-                  brokers.map((broker) => (
-                    <tr
-                      key={broker.id}
-                      className="border-b border-border-light hover:bg-surface-secondary transition-colors"
-                    >
-                      <td className="p-4">
-                        <Text variant="body">{broker.userId}</Text>
+                {sortedBrokers && sortedBrokers.length > 0 ? (
+                  sortedBrokers.map((broker) => (
+                    <tr key={broker.userBrokerId}>
+                      <td>
+                        <div className="table-secondary">{broker.displayName || broker.userId}</div>
                       </td>
-                      <td className="p-4">
-                        <Text variant="body" className="font-medium">
-                          {broker.brokerName}
-                        </Text>
+                      <td>
+                        <div className="table-primary">{broker.brokerName || 'Unknown'}</div>
                       </td>
-                      <td className="p-4">
+                      <td>
                         <Badge variant={broker.role === 'EXEC' ? 'primary' : 'info'}>
                           {broker.role}
                         </Badge>
                       </td>
-                      <td className="p-4">
-                        <Badge variant={broker.isActive ? 'success' : 'default'}>
-                          {broker.isActive ? 'Active' : 'Inactive'}
+                      <td>
+                        <Badge variant={broker.enabled && broker.status === 'ACTIVE' ? 'success' : 'default'}>
+                          {broker.enabled && broker.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
-                      <td className="p-4">
-                        <BrokerStatusBadge
-                          broker={broker.brokerName}
-                          health={broker.healthStatus}
-                          latency={broker.latencyMs}
-                          lastUpdate={
-                            broker.lastHealthCheck
-                              ? new Date(broker.lastHealthCheck)
-                              : undefined
-                          }
-                        />
+                      <td>
+                        <Badge variant={broker.connected ? 'success' : 'warning'}>
+                          {broker.connected ? 'Connected' : 'Disconnected'}
+                        </Badge>
                       </td>
-                      <td className="p-4">
-                        <Text variant="small" className="text-muted">
-                          {broker.lastHealthCheck
-                            ? new Date(broker.lastHealthCheck).toLocaleString()
+                      <td>
+                        <div className="table-date">
+                          {broker.lastConnected
+                            ? new Date(broker.lastConnected).toLocaleString()
                             : 'Never'}
-                        </Text>
+                        </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button variant="ghost" size="sm">
-                            Edit
+                      <td className="text-right">
+                        <div className="table-actions">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            iconLeft={<Eye size={16} />}
+                            onClick={() => openViewModal(broker)}
+                          >
+                            <></>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={broker.isActive ? 'text-loss' : 'text-profit'}
+                            iconLeft={<Edit2 size={16} />}
+                            onClick={() => openEditModal(broker)}
                           >
-                            {broker.isActive ? 'Disable' : 'Enable'}
+                            <></>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            iconLeft={<Trash2 size={16} />}
+                            onClick={() => handleDelete(broker.userBrokerId)}
+                            className="text-loss"
+                          >
+                            <></>
                           </Button>
                         </div>
                       </td>
@@ -183,7 +402,7 @@ export function BrokerManagement() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="p-12">
+                    <td colSpan={7} className="table-empty">
                       <EmptyState
                         icon={<Activity size={48} />}
                         title="No Brokers Found"
@@ -197,6 +416,293 @@ export function BrokerManagement() {
           </div>
         </Card>
       </main>
-    </div>
+
+      {/* Create Broker Modal */}
+      {showCreateModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+            onClick={() => setShowCreateModal(false)}
+          />
+          <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
+            <Card className="shadow-2xl border-2 border-blue-500">
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <Text variant="h3">Add Broker Connection</Text>
+                  <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
+                    Close
+                  </Button>
+                </div>
+
+                {createError && (
+                  <Alert variant="error" onDismiss={() => setCreateError(null)}>
+                    {createError}
+                  </Alert>
+                )}
+
+                <div className="form-spacing">
+                  <div>
+                    <Text variant="label" className="mb-2">
+                      User *
+                    </Text>
+                    <select
+                      className="input input--md w-full"
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                    >
+                      <option key="placeholder" value="">
+                        Select user...
+                      </option>
+                      {users?.map((user) => (
+                        <option key={user.userId} value={user.userId}>
+                          {user.email} ({user.displayName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Text variant="label" className="mb-2">
+                      Broker *
+                    </Text>
+                    <select
+                      className="input input--md w-full"
+                      value={selectedBrokerId}
+                      onChange={(e) => setSelectedBrokerId(e.target.value)}
+                    >
+                      <option key="placeholder" value="">
+                        Select broker...
+                      </option>
+                      <option key="FYERS" value="FYERS">FYERS</option>
+                      <option key="ZERODHA" value="ZERODHA">Zerodha</option>
+                      <option key="UPSTOX" value="UPSTOX">Upstox</option>
+                      <option key="ANGEL" value="ANGEL">Angel One</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Text variant="label" className="mb-2">
+                      Broker Role *
+                    </Text>
+                    <div className="flex gap-3">
+                      <Button
+                        variant={selectedBrokerRole === 'DATA' ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() => setSelectedBrokerRole('DATA')}
+                        className="flex-1"
+                      >
+                        DATA
+                      </Button>
+                      <Button
+                        variant={selectedBrokerRole === 'EXEC' ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() => setSelectedBrokerRole('EXEC')}
+                        className="flex-1"
+                      >
+                        EXEC
+                      </Button>
+                    </div>
+                    <Text variant="small" className="text-muted mt-2">
+                      DATA: Market data only • EXEC: Order execution
+                    </Text>
+                  </div>
+                </div>
+
+                <div className="form-actions form-actions--stack-mobile">
+                  <Button variant="secondary" fullWidth onClick={() => setShowCreateModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" fullWidth onClick={handleCreate}>
+                    Add Broker
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* Edit Broker Modal */}
+      {showEditModal && editBroker && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+            onClick={() => setShowEditModal(false)}
+          />
+          <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
+            <Card className="shadow-2xl border-2 border-primary">
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <Text variant="h3">Edit Broker Connection</Text>
+                  <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)}>
+                    Close
+                  </Button>
+                </div>
+
+                {editError && (
+                  <Alert variant="error" onDismiss={() => setEditError(null)}>
+                    {editError}
+                  </Alert>
+                )}
+
+                <Alert variant="info">
+                  <Text variant="small">
+                    Broker: <strong>{editBroker.brokerName}</strong> • User: <strong>{editBroker.displayName || editBroker.userId}</strong>
+                  </Text>
+                </Alert>
+
+                <div className="form-spacing">
+                  <div>
+                    <Text variant="label" className="mb-2">
+                      Broker Role
+                    </Text>
+                    <div className="flex gap-3">
+                      <Button
+                        variant={editBroker.role === 'DATA' ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() => setEditBroker({ ...editBroker, role: 'DATA' })}
+                        className="flex-1"
+                      >
+                        DATA
+                      </Button>
+                      <Button
+                        variant={editBroker.role === 'EXEC' ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() => setEditBroker({ ...editBroker, role: 'EXEC' })}
+                        className="flex-1"
+                      >
+                        EXEC
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Text variant="label" className="mb-2">
+                      Status
+                    </Text>
+                    <div className="flex gap-3">
+                      <Button
+                        variant={editBroker.enabled ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() => setEditBroker({ ...editBroker, enabled: true })}
+                        className="flex-1"
+                      >
+                        Enabled
+                      </Button>
+                      <Button
+                        variant={!editBroker.enabled ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={() => setEditBroker({ ...editBroker, enabled: false })}
+                        className="flex-1"
+                      >
+                        Disabled
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-actions form-actions--stack-mobile">
+                  <Button variant="secondary" fullWidth onClick={() => setShowEditModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" fullWidth onClick={handleEdit}>
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* View Broker Modal */}
+      {showViewModal && viewBroker && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+            onClick={() => setShowViewModal(false)}
+          />
+          <div className="modal-slide-right modal-slide-right--lg animate-slide-in-right">
+            <Card className="shadow-2xl border-2 border-green-500">
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <Text variant="h3">Broker Details</Text>
+                  <Button variant="ghost" size="sm" onClick={() => setShowViewModal(false)}>
+                    Close
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid-2 gap-4">
+                    <div>
+                      <Text variant="small" className="text-muted">Broker Name</Text>
+                      <Text variant="h4" className="mt-1">{viewBroker.brokerName || 'Unknown'}</Text>
+                    </div>
+                    <div>
+                      <Text variant="small" className="text-muted">User</Text>
+                      <Text variant="body" className="mt-1">{viewBroker.displayName || viewBroker.userId}</Text>
+                    </div>
+                  </div>
+
+                  <div className="grid-2 gap-4">
+                    <div>
+                      <Text variant="small" className="text-muted">Broker Role</Text>
+                      <div className="mt-1">
+                        <Badge variant={viewBroker.role === 'EXEC' ? 'primary' : 'info'}>
+                          {viewBroker.role}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Text variant="small" className="text-muted">Status</Text>
+                      <div className="mt-1">
+                        <Badge variant={viewBroker.enabled && viewBroker.status === 'ACTIVE' ? 'success' : 'default'}>
+                          {viewBroker.enabled && viewBroker.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid-2 gap-4">
+                    <div>
+                      <Text variant="small" className="text-muted">Connection Health</Text>
+                      <div className="mt-1">
+                        <Badge variant={viewBroker.connected ? 'success' : 'warning'}>
+                          {viewBroker.connected ? 'Connected' : 'Disconnected'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Text variant="small" className="text-muted">Last Connected</Text>
+                      <Text variant="body" className="mt-1">
+                        {viewBroker.lastConnected
+                          ? new Date(viewBroker.lastConnected).toLocaleString()
+                          : 'Never'}
+                      </Text>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Text variant="small" className="text-muted">Broker ID</Text>
+                    <Text variant="small" className="mt-1 font-mono">{viewBroker.userBrokerId}</Text>
+                  </div>
+
+                  <div>
+                    <Text variant="small" className="text-muted">User ID</Text>
+                    <Text variant="small" className="mt-1 font-mono">{viewBroker.userId}</Text>
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <Button variant="secondary" fullWidth onClick={() => setShowViewModal(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
+    </>
   );
 }
