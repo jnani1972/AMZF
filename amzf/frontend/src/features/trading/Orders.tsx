@@ -19,8 +19,26 @@ import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import type { OrderResponse, OrderStatus } from '../../types';
 import { FileText, RefreshCw } from 'lucide-react';
 import { getNavItems } from '../../lib/navigation';
+import { useMemo } from 'react';
 
 type OrderFilter = 'all' | OrderStatus;
+
+/**
+ * Get user display object from auth user
+ */
+const getUserDisplay = (user: any) =>
+  user ? { name: user.displayName, email: user.email } : undefined;
+
+/**
+ * Merge live orders with API orders, avoiding duplicates
+ */
+const mergeOrders = (liveOrders: OrderResponse[], apiOrders: OrderResponse[] | null | undefined): OrderResponse[] => {
+  if (!apiOrders) return liveOrders;
+  const apiOrdersFiltered = apiOrders.filter(
+    (o) => !liveOrders.find((lo) => lo.brokerOrderId === o.brokerOrderId)
+  );
+  return [...liveOrders, ...apiOrdersFiltered];
+};
 
 /**
  * Orders component
@@ -47,15 +65,12 @@ export function Orders() {
   });
 
   // Merge API orders with live updates
-  const allOrders = orders
-    ? [...liveOrders, ...orders.filter((o) => !liveOrders.find((lo) => lo.brokerOrderId === o.brokerOrderId))]
-    : liveOrders;
+  const allOrders = useMemo(() => mergeOrders(liveOrders, orders), [liveOrders, orders]);
 
   // Filter orders
-  const filteredOrders =
-    filter === 'all'
-      ? allOrders
-      : allOrders.filter((order) => order.status === filter);
+  const filteredOrders = useMemo(() => {
+    return filter === 'all' ? allOrders : allOrders.filter((order) => order.status === filter);
+  }, [allOrders, filter]);
 
   /**
    * Get badge variant for order status
@@ -85,7 +100,7 @@ export function Orders() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+        <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
         <main className="container mx-auto p-6">
           <div className="flex items-center justify-center py-12">
             <Spinner size="lg" variant="primary" />
@@ -101,7 +116,7 @@ export function Orders() {
   if (error) {
     return (
       <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+        <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
         <main className="container mx-auto p-6">
           <Alert variant="error">
             Failed to load orders: {error}
@@ -116,7 +131,7 @@ export function Orders() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+      <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
 
       <main className="container mx-auto p-6 space-y-6">
         {/* Page Header */}
@@ -162,94 +177,71 @@ export function Orders() {
 
         {/* Orders Table */}
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="table-container">
+            <table className="data-table">
               <thead>
-                <tr className="border-b border-border-light">
-                  <th className="p-4 text-left">
-                    <Text variant="label">Order ID</Text>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Symbol</Text>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Type</Text>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Direction</Text>
-                  </th>
-                  <th className="p-4 text-right">
-                    <Text variant="label">Quantity</Text>
-                  </th>
-                  <th className="p-4 text-right">
-                    <Text variant="label">Price</Text>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Status</Text>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Text variant="label">Time</Text>
-                  </th>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Direction</th>
+                  <th className="text-right">Quantity</th>
+                  <th className="text-right">Price</th>
+                  <th>Status</th>
+                  <th>Time</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOrders.length > 0 ? (
                   filteredOrders.map((order) => (
-                    <tr
-                      key={order.brokerOrderId}
-                      className="border-b border-border-light hover:bg-surface-secondary transition-colors"
-                    >
-                      <td className="p-4">
-                        <Text variant="small" className="font-mono">
+                    <tr key={order.brokerOrderId}>
+                      <td>
+                        <div className="table-secondary">
                           {order.brokerOrderId.slice(0, 8)}...
-                        </Text>
+                        </div>
                       </td>
-                      <td className="p-4">
-                        <Text variant="label">{order.symbol}</Text>
+                      <td>
+                        <div className="table-primary">{order.symbol}</div>
                       </td>
-                      <td className="p-4">
-                        <Text variant="small">{order.orderType}</Text>
+                      <td>
+                        <div className="table-secondary">{order.orderType}</div>
                       </td>
-                      <td className="p-4">
+                      <td>
                         <Badge variant={order.direction === 'BUY' ? 'success' : 'error'}>
                           {order.direction}
                         </Badge>
                       </td>
-                      <td className="p-4 text-right">
-                        <Text variant="body">
+                      <td className="text-right">
+                        <div className="table-numeric">
                           {order.filledQuantity}/{order.quantity}
-                        </Text>
+                        </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <Text variant="body">
+                      <td className="text-right">
+                        <div className="table-currency">
                           ₹{order.avgFillPrice?.toFixed(2) || order.orderPrice?.toFixed(2) || '-'}
-                        </Text>
+                        </div>
                       </td>
-                      <td className="p-4">
+                      <td>
                         <Badge variant={getStatusVariant(order.status)}>
                           {order.status}
                         </Badge>
                       </td>
-                      <td className="p-4">
-                        <Text variant="small" className="text-muted">
+                      <td>
+                        <div className="table-date">
                           {new Date(order.orderTime).toLocaleString()}
-                        </Text>
+                        </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="p-12">
+                    <td colSpan={8} className="table-empty">
                       <EmptyState
                         icon={<FileText size={48} />}
                         title="No Orders Found"
-                        description={
-                          filter === 'all'
-                            ? "You haven't placed any orders yet"
-                            : `No orders with status: ${filter}`
-                        }
-                        ctaText={filter !== 'all' ? 'Show All Orders' : undefined}
-                        onCtaClick={filter !== 'all' ? () => setFilter('all') : undefined}
+                        description={filter === 'all' ? "You haven't placed any orders yet" : `No orders with status: ${filter}`}
+                        ctaText={filter === 'all' ? undefined : 'Show All Orders'}
+                        onCtaClick={filter === 'all' ? undefined : () => setFilter('all')}
                       />
                     </td>
                   </tr>
