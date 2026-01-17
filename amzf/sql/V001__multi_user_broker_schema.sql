@@ -10,6 +10,18 @@
 BEGIN;
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- DOMAIN TYPES (to avoid string literal duplication)
+-- ═══════════════════════════════════════════════════════════════════════════
+DO $$
+BEGIN
+    -- Create domain for status fields with ACTIVE default
+    -- This eliminates duplication of 'ACTIVE' literal across 5+ tables
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'status_active') THEN
+        CREATE DOMAIN status_active AS TEXT DEFAULT 'ACTIVE' CHECK (VALUE IN ('ACTIVE', 'SUSPENDED', 'DELETED', 'PAUSED', 'DISABLED', 'EXPIRED', 'CANCELLED', 'OPEN', 'CLOSED', 'PENDING'));
+    END IF;
+END $$;
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- USERS
 -- ═══════════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS users (
@@ -18,7 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name    TEXT NOT NULL,
     password_hash   TEXT NOT NULL,                    -- bcrypt hash
     role            TEXT NOT NULL DEFAULT 'USER',    -- USER | ADMIN
-    status          TEXT NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE | SUSPENDED | DELETED
+    status          status_active NOT NULL,           -- ACTIVE | SUSPENDED | DELETED
     preferences     JSONB NOT NULL DEFAULT '{}',     -- UI prefs, notification settings
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -41,7 +53,7 @@ CREATE TABLE IF NOT EXISTS brokers (
     lot_sizes       JSONB NOT NULL DEFAULT '{}',     -- symbol -> lot size mapping
     margin_rules    JSONB NOT NULL DEFAULT '{}',     -- margin calculation rules
     rate_limits     JSONB NOT NULL DEFAULT '{}',     -- API rate limits
-    status          TEXT NOT NULL DEFAULT 'ACTIVE',
+    status          status_active NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -81,9 +93,9 @@ CREATE TABLE IF NOT EXISTS user_brokers (
     max_daily_loss      DECIMAL(18,2) NOT NULL DEFAULT 0,
     max_weekly_loss     DECIMAL(18,2) NOT NULL DEFAULT 0,
     cooldown_minutes    INTEGER NOT NULL DEFAULT 0,     -- after loss, wait before next trade
-    
+
     -- State
-    status          TEXT NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE | PAUSED | DISABLED
+    status          status_active NOT NULL,           -- ACTIVE | PAUSED | DISABLED
     enabled         BOOLEAN NOT NULL DEFAULT TRUE,
     
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -145,9 +157,9 @@ CREATE TABLE IF NOT EXISTS signals (
     -- Timestamps
     generated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at      TIMESTAMPTZ,                     -- signal expiry
-    
+
     -- Status
-    status          TEXT NOT NULL DEFAULT 'ACTIVE'   -- ACTIVE | EXPIRED | CANCELLED
+    status          status_active NOT NULL            -- ACTIVE | EXPIRED | CANCELLED
 );
 
 CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals(symbol);
@@ -269,9 +281,9 @@ CREATE TABLE IF NOT EXISTS portfolios (
     
     -- Allocation
     allocation_mode TEXT NOT NULL DEFAULT 'EQUAL_WEIGHT',
-    
+
     -- Status
-    status          TEXT NOT NULL DEFAULT 'ACTIVE',
+    status          status_active NOT NULL,
     paused          BOOLEAN NOT NULL DEFAULT FALSE,
     
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
