@@ -19,6 +19,9 @@ RETURNS TABLE (
     check_name TEXT,
     status TEXT
 ) AS $$
+DECLARE
+    trades_table CONSTANT regclass := 'trades'::regclass;
+    signals_table CONSTANT regclass := 'signals'::regclass;
 BEGIN
     -- Check 1: trades.intent_id column exists
     RETURN QUERY
@@ -53,7 +56,7 @@ BEGIN
         'Trades: intent_id unique constraint'::TEXT,
         CASE WHEN EXISTS (
             SELECT 1 FROM pg_constraint
-            WHERE conrelid = 'trades'::regclass AND conname = 'uq_trades_intent_id'
+            WHERE conrelid = trades_table AND conname = 'uq_trades_intent_id'
         ) THEN 'PASS' ELSE 'FAIL' END::TEXT;
 
     -- Check 5: uq_trades_client_order_id constraint exists
@@ -62,7 +65,7 @@ BEGIN
         'Trades: client_order_id unique'::TEXT,
         CASE WHEN EXISTS (
             SELECT 1 FROM pg_constraint
-            WHERE conrelid = 'trades'::regclass AND conname = 'uq_trades_client_order_id'
+            WHERE conrelid = trades_table AND conname = 'uq_trades_client_order_id'
         ) THEN 'PASS' ELSE 'FAIL' END::TEXT;
 
     -- Check 6: uq_trades_broker_order_id partial index exists
@@ -127,7 +130,7 @@ BEGIN
         'Signals: floor CHECK constraint'::TEXT,
         CASE WHEN EXISTS (
             SELECT 1 FROM pg_constraint
-            WHERE conrelid = 'signals'::regclass
+            WHERE conrelid = signals_table
               AND conname = 'chk_effective_floor_precision'
         ) THEN 'PASS' ELSE 'FAIL' END::TEXT;
 
@@ -137,7 +140,7 @@ BEGIN
         'Signals: ceiling CHECK constraint'::TEXT,
         CASE WHEN EXISTS (
             SELECT 1 FROM pg_constraint
-            WHERE conrelid = 'signals'::regclass
+            WHERE conrelid = signals_table
               AND conname = 'chk_effective_ceiling_precision'
         ) THEN 'PASS' ELSE 'FAIL' END::TEXT;
 
@@ -165,17 +168,22 @@ END AS summary;
 
 -- Detailed constraint info (for debugging)
 \echo 'Trades Constraints:'
-SELECT conname, contype,
-       CASE contype
-           WHEN 'u' THEN 'UNIQUE'
-           WHEN 'p' THEN 'PRIMARY KEY'
-           WHEN 'c' THEN 'CHECK'
-           WHEN 'f' THEN 'FOREIGN KEY'
-       END AS constraint_type
-FROM pg_constraint
-WHERE conrelid = 'trades'::regclass
-  AND conname LIKE 'uq_trades_%'
-ORDER BY conname;
+DO $$
+DECLARE
+    trades_table CONSTANT regclass := 'trades'::regclass;
+BEGIN
+    RAISE NOTICE '%',
+        (SELECT string_agg(conname || ' (' || CASE contype
+               WHEN 'u' THEN 'UNIQUE'
+               WHEN 'p' THEN 'PRIMARY KEY'
+               WHEN 'c' THEN 'CHECK'
+               WHEN 'f' THEN 'FOREIGN KEY'
+           END || ')', ', ')
+         FROM pg_constraint
+         WHERE conrelid = trades_table
+           AND conname LIKE 'uq_trades_%'
+         ORDER BY conname);
+END $$;
 
 \echo ''
 \echo 'Trades Indexes:'
@@ -191,17 +199,22 @@ ORDER BY indexname;
 
 \echo ''
 \echo 'Signals Constraints:'
-SELECT conname, contype,
-       CASE contype
-           WHEN 'u' THEN 'UNIQUE'
-           WHEN 'p' THEN 'PRIMARY KEY'
-           WHEN 'c' THEN 'CHECK'
-           WHEN 'f' THEN 'FOREIGN KEY'
-       END AS constraint_type
-FROM pg_constraint
-WHERE conrelid = 'signals'::regclass
-  AND (conname LIKE 'chk_effective_%' OR conname LIKE 'uq_signal_%')
-ORDER BY conname;
+DO $$
+DECLARE
+    signals_table CONSTANT regclass := 'signals'::regclass;
+BEGIN
+    RAISE NOTICE '%',
+        (SELECT string_agg(conname || ' (' || CASE contype
+               WHEN 'u' THEN 'UNIQUE'
+               WHEN 'p' THEN 'PRIMARY KEY'
+               WHEN 'c' THEN 'CHECK'
+               WHEN 'f' THEN 'FOREIGN KEY'
+           END || ')', ', ')
+         FROM pg_constraint
+         WHERE conrelid = signals_table
+           AND (conname LIKE 'chk_effective_%' OR conname LIKE 'uq_signal_%')
+         ORDER BY conname);
+END $$;
 
 \echo ''
 \echo 'Signals Indexes:'
