@@ -79,21 +79,24 @@ ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP WITH TIM
 CREATE INDEX IF NOT EXISTS idx_watchlist_custom ON watchlist(is_custom);
 
 -- =====================================================
--- Seed Data: Watchlist Templates
+-- Seed Data: Watchlist Templates and Symbols
 -- =====================================================
-INSERT INTO watchlist_templates (template_id, template_name, description, display_order) VALUES
-('TPL_ALL', 'All', 'All available symbols', 1),
-('TPL_NIFTY50', 'NIFTY50', 'Nifty 50 Index constituents', 2),
-('TPL_BANKING', 'Banking', 'Banking sector stocks', 3),
-('TPL_NIFTY100', 'Nifty100', 'Nifty 100 Index constituents', 4)
-ON CONFLICT (template_id) DO NOTHING;
-
--- Seed template symbols using constants to avoid string duplication
+-- Using constants to avoid string literal duplication
 DO $$
 DECLARE
+    tpl_all CONSTANT TEXT := 'TPL_ALL';
     tpl_nifty50 CONSTANT TEXT := 'TPL_NIFTY50';
     tpl_banking CONSTANT TEXT := 'TPL_BANKING';
+    tpl_nifty100 CONSTANT TEXT := 'TPL_NIFTY100';
 BEGIN
+    -- Seed watchlist templates
+    INSERT INTO watchlist_templates (template_id, template_name, description, display_order) VALUES
+    (tpl_all, 'All', 'All available symbols', 1),
+    (tpl_nifty50, 'NIFTY50', 'Nifty 50 Index constituents', 2),
+    (tpl_banking, 'Banking', 'Banking sector stocks', 3),
+    (tpl_nifty100, 'Nifty100', 'Nifty 100 Index constituents', 4)
+    ON CONFLICT (template_id) DO NOTHING;
+
     -- Seed NIFTY50 symbols (sample - top 10)
     INSERT INTO watchlist_template_symbols (template_id, symbol, display_order) VALUES
     (tpl_nifty50, 'NSE:RELIANCE-EQ', 1),
