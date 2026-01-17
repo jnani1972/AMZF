@@ -23,6 +23,40 @@ type SortKey = 'displayName' | 'brokerName' | 'role' | 'status' | 'connected' | 
 type SortDirection = 'asc' | 'desc' | null;
 
 /**
+ * Extract sortable value from broker based on sort key
+ */
+const getSortValue = (broker: any, key: SortKey): any => {
+  const rawValue = broker[key];
+
+  if (key === 'lastConnected') {
+    return broker.lastConnected ? new Date(broker.lastConnected).getTime() : 0;
+  }
+
+  if (key === 'connected') {
+    return broker.connected ? 1 : 0;
+  }
+
+  if (key === 'status') {
+    return broker.enabled && broker.status === 'ACTIVE' ? 1 : 0;
+  }
+
+  if (typeof rawValue === 'string') {
+    return rawValue.toLowerCase();
+  }
+
+  return rawValue || '';
+};
+
+/**
+ * Compare two values with sort direction
+ */
+const compareValues = (a: any, b: any, direction: SortDirection): number => {
+  if (a < b) return direction === 'asc' ? -1 : 1;
+  if (a > b) return direction === 'asc' ? 1 : -1;
+  return 0;
+};
+
+/**
  * Broker management component
  */
 export function BrokerManagement() {
@@ -38,38 +72,9 @@ export function BrokerManagement() {
     if (!brokers || !sortKey || !sortDirection) return brokers || [];
 
     return [...brokers].sort((a, b) => {
-      let aVal: any = a[sortKey];
-      let bVal: any = b[sortKey];
-
-      // Handle dates
-      if (sortKey === 'lastConnected') {
-        aVal = a.lastConnected ? new Date(a.lastConnected).getTime() : 0;
-        bVal = b.lastConnected ? new Date(b.lastConnected).getTime() : 0;
-      }
-
-      // Handle booleans
-      if (sortKey === 'connected') {
-        aVal = a.connected ? 1 : 0;
-        bVal = b.connected ? 1 : 0;
-      }
-
-      // Handle status
-      if (sortKey === 'status') {
-        aVal = a.enabled && a.status === 'ACTIVE' ? 1 : 0;
-        bVal = b.enabled && b.status === 'ACTIVE' ? 1 : 0;
-      }
-
-      // Handle strings
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = (bVal || '').toLowerCase();
-      }
-
-      let comparison = 0;
-      if (aVal < bVal) comparison = -1;
-      if (aVal > bVal) comparison = 1;
-
-      return sortDirection === 'asc' ? comparison : -comparison;
+      const aVal = getSortValue(a, sortKey);
+      const bVal = getSortValue(b, sortKey);
+      return compareValues(aVal, bVal, sortDirection);
     });
   }, [brokers, sortKey, sortDirection]);
 
