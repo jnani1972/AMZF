@@ -41,6 +41,24 @@ public final class ApiHandlers {
         .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
         .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
+    // JSON Response Keys
+    private static final String JSON_SUCCESS = "success";
+    private static final String JSON_MESSAGE = "message";
+    private static final String JSON_DATA = "data";
+    private static final String JSON_ERROR = "error";
+
+    // Common Error Messages
+    private static final String ERROR_UPDATE_USER_BROKER = "Failed to update user-broker";
+    private static final String ERROR_UPDATE_PORTFOLIO = "Failed to update portfolio";
+    private static final String ERROR_DELETE_PORTFOLIO = "Failed to delete portfolio";
+    private static final String ERROR_UPDATE_WATCHLIST = "Failed to update watchlist item";
+
+    // Common Success Messages
+    private static final String SUCCESS_USER_BROKER_UPDATED = "User-broker updated successfully";
+    private static final String SUCCESS_PORTFOLIO_UPDATED = "Portfolio updated successfully";
+    private static final String SUCCESS_PORTFOLIO_DELETED = "Portfolio deleted successfully";
+    private static final String SUCCESS_WATCHLIST_UPDATED = "Watchlist item updated successfully";
+
     private final TradeEventRepository eventRepo;
     private final Function<String, String> tokenValidator;  // Authorization header -> userId
     private final JwtService jwtService;
@@ -1018,9 +1036,9 @@ public final class ApiHandlers {
                 UserBroker updated = adminService.updateUserBroker(userBrokerId, role, enabled);
 
                 ObjectNode response = MAPPER.createObjectNode();
-                response.put("success", true);
-                response.set("data", MAPPER.valueToTree(updated));
-                response.put("message", "User-broker updated successfully");
+                response.put(JSON_SUCCESS, true);
+                response.set(JSON_DATA, MAPPER.valueToTree(updated));
+                response.put(JSON_MESSAGE, SUCCESS_USER_BROKER_UPDATED);
 
                 ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
                 ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
@@ -1029,7 +1047,7 @@ public final class ApiHandlers {
                 badRequest(ex, e.getMessage());
             } catch (Exception e) {
                 log.error("Error updating user-broker: {}", e.getMessage(), e);
-                serverError(ex, "Failed to update user-broker");
+                serverError(ex, ERROR_UPDATE_USER_BROKER);
             }
         }, StandardCharsets.UTF_8);
     }
@@ -1157,9 +1175,9 @@ public final class ApiHandlers {
                 Portfolio updated = adminService.updatePortfolio(portfolioId, name, capital);
 
                 ObjectNode response = MAPPER.createObjectNode();
-                response.put("success", true);
-                response.set("data", MAPPER.valueToTree(updated));
-                response.put("message", "Portfolio updated successfully");
+                response.put(JSON_SUCCESS, true);
+                response.set(JSON_DATA, MAPPER.valueToTree(updated));
+                response.put(JSON_MESSAGE, SUCCESS_PORTFOLIO_UPDATED);
 
                 ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
                 ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
@@ -1168,7 +1186,7 @@ public final class ApiHandlers {
                 badRequest(ex, e.getMessage());
             } catch (Exception e) {
                 log.error("Error updating portfolio: {}", e.getMessage(), e);
-                serverError(ex, "Failed to update portfolio");
+                serverError(ex, ERROR_UPDATE_PORTFOLIO);
             }
         }, StandardCharsets.UTF_8);
     }
@@ -1187,8 +1205,8 @@ public final class ApiHandlers {
             adminService.deletePortfolio(portfolioId);
 
             ObjectNode response = MAPPER.createObjectNode();
-            response.put("success", true);
-            response.put("message", "Portfolio deleted successfully");
+            response.put(JSON_SUCCESS, true);
+            response.put(JSON_MESSAGE, SUCCESS_PORTFOLIO_DELETED);
 
             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
             exchange.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
@@ -1197,7 +1215,7 @@ public final class ApiHandlers {
             badRequest(exchange, e.getMessage());
         } catch (Exception e) {
             log.error("Error deleting portfolio: {}", e.getMessage(), e);
-            serverError(exchange, "Failed to delete portfolio");
+            serverError(exchange, ERROR_DELETE_PORTFOLIO);
         }
     }
 
@@ -1368,9 +1386,9 @@ public final class ApiHandlers {
                 Watchlist updated = adminService.updateWatchlistItem(id, lotSize, tickSize, enabled);
 
                 ObjectNode response = MAPPER.createObjectNode();
-                response.put("success", true);
-                response.set("data", MAPPER.valueToTree(updated));
-                response.put("message", "Watchlist item updated successfully");
+                response.put(JSON_SUCCESS, true);
+                response.set(JSON_DATA, MAPPER.valueToTree(updated));
+                response.put(JSON_MESSAGE, SUCCESS_WATCHLIST_UPDATED);
 
                 ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
                 ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
@@ -1381,7 +1399,7 @@ public final class ApiHandlers {
                 badRequest(ex, e.getMessage());
             } catch (Exception e) {
                 log.error("Error updating watchlist item: {}", e.getMessage(), e);
-                serverError(ex, "Failed to update watchlist item");
+                serverError(ex, ERROR_UPDATE_WATCHLIST);
             }
         }, StandardCharsets.UTF_8);
     }
