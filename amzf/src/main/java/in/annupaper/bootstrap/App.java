@@ -614,15 +614,6 @@ public final class App {
         log.info("✓ Trailing stops config service initialized: {}", configDir);
 
         // ═══════════════════════════════════════════════════════════════
-        // Monitoring Service: Health checks and alerts
-        // ═══════════════════════════════════════════════════════════════
-        in.annupaper.application.monitoring.AlertService alertService = new in.annupaper.application.monitoring.AlertService();
-        in.annupaper.application.monitoring.MonitoringService monitoringService = new in.annupaper.application.monitoring.MonitoringService(
-                exitIntentRepo, tradeRepo, userBrokerRepo, alertService);
-        monitoringService.start();
-        log.info("✅ Monitoring service started (health checks + alerts)");
-
-        // ═══════════════════════════════════════════════════════════════
         // HTTP handlers (skipped in collector mode)
         // ═══════════════════════════════════════════════════════════════
         if (!collectorMode) {
