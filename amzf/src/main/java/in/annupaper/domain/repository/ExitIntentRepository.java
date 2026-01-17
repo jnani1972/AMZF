@@ -1,4 +1,4 @@
-package in.annupaper.repository;
+package in.annupaper.domain.repository;
 
 import in.annupaper.domain.trade.ExitIntent;
 import in.annupaper.domain.trade.ExitIntentStatus;
@@ -150,17 +150,18 @@ public interface ExitIntentRepository {
     // ========================================================================
 
     /**
-     * Count exit intents stuck in pending states beyond threshold.
+     * Count exit intents that are stuck (pending/approved/placed for more than threshold minutes).
+     * Used for health monitoring and alerting.
      *
-     * @param thresholdMinutes Number of minutes before considering stuck
+     * @param thresholdMinutes Age threshold in minutes
      * @return Count of stuck exit intents
      */
     long countStuckExitIntents(int thresholdMinutes);
 
     /**
-     * Find exit intents stuck in pending states beyond threshold.
+     * Find stuck exit intents with full details for alerting.
      *
-     * @param thresholdMinutes Number of minutes before considering stuck
+     * @param thresholdMinutes Age threshold in minutes
      * @return List of stuck exit intents
      */
     List<ExitIntent> findStuckExitIntents(int thresholdMinutes);

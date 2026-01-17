@@ -1,4 +1,4 @@
-package in.annupaper.repository;
+package in.annupaper.domain.repository;
 
 import in.annupaper.domain.broker.BrokerRole;
 import in.annupaper.domain.broker.UserBroker;
@@ -78,7 +78,7 @@ public interface UserBrokerRepository {
      *
      * @return List of expired UserBrokers
      */
-    java.util.List<UserBroker> findExpiredBrokerSessions();
+    List<UserBroker> findExpiredBrokerSessions();
 
     /**
      * Count active brokers (is_active = true, deleted_at IS NULL).

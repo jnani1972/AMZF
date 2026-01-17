@@ -3,9 +3,9 @@ package in.annupaper.application.monitoring;
 import in.annupaper.domain.monitoring.*;
 import in.annupaper.domain.trade.ExitIntent;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.ExitIntentRepository;
-import in.annupaper.repository.TradeRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.ExitIntentRepository;
+import in.annupaper.domain.repository.TradeRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

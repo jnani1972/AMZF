@@ -1,4 +1,6 @@
-package in.annupaper.repository;
+package in.annupaper.infrastructure.persistence;
+
+import in.annupaper.domain.repository.*;
 
 import in.annupaper.domain.trade.Trade;
 import org.slf4j.Logger;
@@ -9,7 +11,9 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -1048,7 +1052,7 @@ public final class PostgresTradeRepository implements TradeRepository {
     }
 
     @Override
-    public java.util.Map<String, Object> getTradeHealthMetrics() {
+    public Map<String, Object> getTradeHealthMetrics() {
         String sql = """
             SELECT
                 COUNT(*) as total_open_trades,
@@ -1061,7 +1065,7 @@ public final class PostgresTradeRepository implements TradeRepository {
               AND deleted_at IS NULL
             """;
 
-        java.util.Map<String, Object> metrics = new java.util.HashMap<>();
+        Map<String, Object> metrics = new HashMap<>();
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -1081,7 +1085,7 @@ public final class PostgresTradeRepository implements TradeRepository {
     }
 
     @Override
-    public java.util.Map<String, Object> getDailyPerformanceMetrics() {
+    public Map<String, Object> getDailyPerformanceMetrics() {
         String sql = """
             SELECT
                 COUNT(*) as trades_closed,
@@ -1098,7 +1102,7 @@ public final class PostgresTradeRepository implements TradeRepository {
               AND deleted_at IS NULL
             """;
 
-        java.util.Map<String, Object> metrics = new java.util.HashMap<>();
+        Map<String, Object> metrics = new HashMap<>();
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {

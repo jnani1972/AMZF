@@ -1,4 +1,6 @@
-package in.annupaper.repository;
+package in.annupaper.infrastructure.persistence;
+
+import in.annupaper.domain.repository.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -533,22 +535,22 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
             SELECT COUNT(*)
             FROM user_brokers
             WHERE enabled = true
-              AND deleted_at IS NULL
               AND session_expiry_at < NOW()
+              AND deleted_at IS NULL
             """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             if (rs.next()) {
                 return rs.getLong(1);
             }
-            return 0L;
-        } catch (SQLException e) {
-            log.error("Failed to count expired broker sessions", e);
-            return 0L;
+        } catch (Exception e) {
+            log.error("Failed to count expired broker sessions: {}", e.getMessage());
+            throw new RuntimeException("Failed to count expired broker sessions", e);
         }
+        return 0;
     }
 
     @Override
@@ -557,48 +559,48 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
             SELECT COUNT(*)
             FROM user_brokers
             WHERE enabled = true
-              AND deleted_at IS NULL
               AND session_expiry_at > NOW()
               AND session_expiry_at < NOW() + INTERVAL '1 hour'
+              AND deleted_at IS NULL
             """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             if (rs.next()) {
                 return rs.getLong(1);
             }
-            return 0L;
-        } catch (SQLException e) {
-            log.error("Failed to count expiring soon broker sessions", e);
-            return 0L;
+        } catch (Exception e) {
+            log.error("Failed to count expiring broker sessions: {}", e.getMessage());
+            throw new RuntimeException("Failed to count expiring broker sessions", e);
         }
+        return 0;
     }
 
     @Override
     public List<UserBroker> findExpiredBrokerSessions() {
         String sql = """
-            SELECT *
-            FROM user_brokers
+            SELECT * FROM user_brokers
             WHERE enabled = true
-              AND deleted_at IS NULL
               AND session_expiry_at < NOW()
+              AND deleted_at IS NULL
             ORDER BY session_expiry_at ASC
             """;
 
-        List<UserBroker> results = new ArrayList<>();
+        List<UserBroker> expired = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                results.add(mapRow(rs));
+                expired.add(mapRow(rs));
             }
-        } catch (SQLException e) {
-            log.error("Failed to find expired broker sessions", e);
+        } catch (Exception e) {
+            log.error("Failed to find expired broker sessions: {}", e.getMessage());
+            throw new RuntimeException("Failed to find expired broker sessions", e);
         }
-        return results;
+        return expired;
     }
 
     @Override
@@ -611,16 +613,16 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
             """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             if (rs.next()) {
                 return rs.getLong(1);
             }
-            return 0L;
-        } catch (SQLException e) {
-            log.error("Failed to count active brokers", e);
-            return 0L;
+        } catch (Exception e) {
+            log.error("Failed to count active brokers: {}", e.getMessage());
+            throw new RuntimeException("Failed to count active brokers", e);
         }
+        return 0;
     }
 }

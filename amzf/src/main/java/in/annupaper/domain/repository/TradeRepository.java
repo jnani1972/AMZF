@@ -1,4 +1,4 @@
-package in.annupaper.repository;
+package in.annupaper.domain.repository;
 
 import in.annupaper.domain.trade.Trade;
 import java.util.List;
@@ -160,30 +160,32 @@ public interface TradeRepository {
     // ========================================================================
 
     /**
-     * Count currently open trades.
+     * Count open trades.
      *
-     * @return Count of open trades
+     * @return Count of OPEN trades
      */
     long countOpenTrades();
 
     /**
      * Count trades closed today.
      *
-     * @return Count of trades closed today
+     * @return Count of CLOSED trades with exit timestamp today
      */
     long countClosedTradesToday();
 
     /**
-     * Get trade health metrics (open trades, exposure, positions).
+     * Get system health snapshot with trade metrics.
+     * Includes open trades count, long/short positions, total exposure.
      *
-     * @return Map with trade health metrics
+     * @return Map with metrics: total_open_trades, long_positions, short_positions, total_exposure_value, avg_holding_hours
      */
     java.util.Map<String, Object> getTradeHealthMetrics();
 
     /**
-     * Get daily performance metrics (P&L, win rate, etc.).
+     * Get daily performance metrics for today.
+     * Includes trades closed, win rate, total P&L, best/worst trades.
      *
-     * @return Map with daily performance metrics
+     * @return Map with daily performance metrics, empty if no trades closed today
      */
     java.util.Map<String, Object> getDailyPerformanceMetrics();
 }
