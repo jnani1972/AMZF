@@ -18,6 +18,42 @@ import { Button } from '../../components/atoms/Button/Button';
 import { Badge } from '../../components/atoms/Badge/Badge';
 import { TrendingUp, TrendingDown, Wallet, PieChart, Download } from 'lucide-react';
 import { getNavItems } from '../../lib/navigation';
+import { useMemo } from 'react';
+
+/**
+ * Get trend direction from numeric value
+ */
+const getTrend = (value: number): 'up' | 'down' | 'neutral' => {
+  if (value > 0) return 'up';
+  if (value < 0) return 'down';
+  return 'neutral';
+};
+
+/**
+ * Get signed prefix for positive/negative values
+ */
+const getSignPrefix = (value: number): string => (value > 0 ? '+' : '');
+
+/**
+ * Get trend icon component based on P&L value
+ */
+const getTrendIcon = (pnl: number) =>
+  pnl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />;
+
+/**
+ * Get P&L badge variant
+ */
+const getPnlBadgeVariant = (pnl: number): 'profit' | 'loss' | 'default' => {
+  if (pnl > 0) return 'profit';
+  if (pnl < 0) return 'loss';
+  return 'default';
+};
+
+/**
+ * Get user display object from auth user
+ */
+const getUserDisplay = (user: any) =>
+  user ? { name: user.displayName, email: user.email } : undefined;
 
 /**
  * Portfolio component
@@ -35,15 +71,31 @@ export function Portfolio() {
     : portfolios?.[0];
 
   // Calculate aggregated metrics if no specific portfolio selected
-  const totalValue = portfolios?.reduce((sum, p) => sum + p.totalValue, 0) || 0;
-  const totalPnl = portfolios?.reduce((sum, p) => sum + p.totalPnl, 0) || 0;
-  const totalPnlPercent =
-    portfolios && portfolios.length > 0
-      ? (totalPnl / portfolios.reduce((sum, p) => sum + p.capital, 0)) * 100
-      : 0;
-  const totalCapital = portfolios?.reduce((sum, p) => sum + p.capital, 0) || 0;
-  const allocatedCapital =
-    portfolios?.reduce((sum, p) => sum + p.allocatedCapital, 0) || 0;
+  const aggregatedMetrics = useMemo(() => {
+    if (!portfolios || portfolios.length === 0) {
+      return {
+        totalValue: 0,
+        totalPnl: 0,
+        totalPnlPercent: 0,
+        totalCapital: 0,
+        allocatedCapital: 0,
+      };
+    }
+
+    const totalValue = portfolios.reduce((sum, p) => sum + p.totalValue, 0);
+    const totalPnl = portfolios.reduce((sum, p) => sum + p.totalPnl, 0);
+    const totalCapital = portfolios.reduce((sum, p) => sum + p.capital, 0);
+    const totalPnlPercent = totalCapital > 0 ? (totalPnl / totalCapital) * 100 : 0;
+    const allocatedCapital = portfolios.reduce((sum, p) => sum + p.allocatedCapital, 0);
+
+    return {
+      totalValue,
+      totalPnl,
+      totalPnlPercent,
+      totalCapital,
+      allocatedCapital,
+    };
+  }, [portfolios]);
 
   /**
    * Handle export to CSV
@@ -59,7 +111,7 @@ export function Portfolio() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+        <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
         <main className="container mx-auto p-6">
           <div className="flex items-center justify-center py-12">
             <Spinner size="lg" variant="primary" />
@@ -75,7 +127,7 @@ export function Portfolio() {
   if (error) {
     return (
       <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+        <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
         <main className="container mx-auto p-6">
           <Alert variant="error">
             Failed to load portfolio data: {error}
@@ -94,7 +146,7 @@ export function Portfolio() {
   if (!portfolios || portfolios.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+        <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
         <main className="container mx-auto p-6">
           <Card>
             <div className="p-12 text-center">
@@ -115,7 +167,7 @@ export function Portfolio() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+      <Header navItems={navItems} user={getUserDisplay(user)} onLogout={logout} />
 
       <main className="container mx-auto p-6 space-y-6">
         {/* Page Header */}
@@ -171,44 +223,30 @@ export function Portfolio() {
           metrics={[
             {
               title: 'Total Value',
-              value: `₹${(portfolio?.totalValue || totalValue).toLocaleString('en-IN', {
+              value: `₹${(portfolio?.totalValue || aggregatedMetrics.totalValue).toLocaleString('en-IN', {
                 maximumFractionDigits: 2,
               })}`,
               icon: <Wallet size={24} />,
             },
             {
               title: 'Total P&L',
-              value: `₹${(portfolio?.totalPnl || totalPnl).toLocaleString('en-IN', {
+              value: `₹${(portfolio?.totalPnl || aggregatedMetrics.totalPnl).toLocaleString('en-IN', {
                 maximumFractionDigits: 2,
               })}`,
-              icon:
-                (portfolio?.totalPnl || totalPnl) >= 0 ? (
-                  <TrendingUp size={24} />
-                ) : (
-                  <TrendingDown size={24} />
-                ),
-              trend:
-                (portfolio?.totalPnl || totalPnl) > 0
-                  ? 'up'
-                  : (portfolio?.totalPnl || totalPnl) < 0
-                  ? 'down'
-                  : 'neutral',
-              trendValue: `${
-                (portfolio?.totalPnlPercent || totalPnlPercent) > 0 ? '+' : ''
-              }${(portfolio?.totalPnlPercent || totalPnlPercent).toFixed(2)}%`,
+              icon: getTrendIcon(portfolio?.totalPnl || aggregatedMetrics.totalPnl),
+              trend: getTrend(portfolio?.totalPnl || aggregatedMetrics.totalPnl),
+              trendValue: `${getSignPrefix(portfolio?.totalPnlPercent || aggregatedMetrics.totalPnlPercent)}${(portfolio?.totalPnlPercent || aggregatedMetrics.totalPnlPercent).toFixed(2)}%`,
             },
             {
               title: 'Total Capital',
-              value: `₹${(portfolio?.capital || totalCapital).toLocaleString('en-IN', {
+              value: `₹${(portfolio?.capital || aggregatedMetrics.totalCapital).toLocaleString('en-IN', {
                 maximumFractionDigits: 2,
               })}`,
               icon: <PieChart size={24} />,
             },
             {
               title: 'Allocated Capital',
-              value: `₹${(
-                portfolio?.allocatedCapital || allocatedCapital
-              ).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+              value: `₹${(portfolio?.allocatedCapital || aggregatedMetrics.allocatedCapital).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
               icon: <PieChart size={24} />,
             },
           ]}
@@ -220,16 +258,8 @@ export function Portfolio() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <Text variant="h3">{portfolio.name}</Text>
-                <Badge
-                  variant={
-                    portfolio.totalPnl > 0
-                      ? 'profit'
-                      : portfolio.totalPnl < 0
-                      ? 'loss'
-                      : 'default'
-                  }
-                >
-                  {portfolio.totalPnl > 0 ? '+' : ''}
+                <Badge variant={getPnlBadgeVariant(portfolio.totalPnl)}>
+                  {getSignPrefix(portfolio.totalPnl)}
                   {portfolio.totalPnlPercent.toFixed(2)}%
                 </Badge>
               </div>
