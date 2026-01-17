@@ -22,6 +22,47 @@ type SortKey = 'name' | 'userId' | 'capital' | 'availableCapital' | 'totalValue'
 type SortDirection = 'asc' | 'desc' | null;
 
 /**
+ * Get P&L sign prefix
+ */
+const getPnlSign = (pnl: number): string => (pnl >= 0 ? '+' : '');
+
+/**
+ * Get P&L text color class
+ */
+const getPnlColorClass = (pnl: number): string => (pnl >= 0 ? 'text-profit' : 'text-loss');
+
+/**
+ * Get P&L badge variant
+ */
+const getPnlBadgeVariant = (pnl: number): 'profit' | 'loss' => (pnl >= 0 ? 'profit' : 'loss');
+
+/**
+ * Extract sortable value from portfolio
+ */
+const getPortfolioSortValue = (portfolio: any, key: SortKey): any => {
+  const rawValue = portfolio[key];
+
+  if (key === 'createdAt') {
+    return new Date(rawValue).getTime();
+  }
+
+  if (typeof rawValue === 'string') {
+    return rawValue.toLowerCase();
+  }
+
+  return rawValue;
+};
+
+/**
+ * Compare values with direction
+ */
+const compareValues = (a: any, b: any, direction: SortDirection): number => {
+  if (a < b) return direction === 'asc' ? -1 : 1;
+  if (a > b) return direction === 'asc' ? 1 : -1;
+  return 0;
+};
+
+/**
  * Portfolio management component
  */
 export function PortfolioManagement() {
@@ -50,6 +91,26 @@ export function PortfolioManagement() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewPortfolio, setViewPortfolio] = useState<any>(null);
 
+  // Calculate portfolio summary statistics
+  const portfolioSummary = useMemo(() => {
+    if (!portfolios || portfolios.length === 0) {
+      return {
+        totalAUM: 0,
+        totalCapital: 0,
+        totalPnl: 0,
+        pnlIsPositive: false,
+      };
+    }
+
+    const totalPnl = portfolios.reduce((sum, p) => sum + p.totalPnl, 0);
+    return {
+      totalAUM: portfolios.reduce((sum, p) => sum + p.totalValue, 0),
+      totalCapital: portfolios.reduce((sum, p) => sum + p.capital, 0),
+      totalPnl,
+      pnlIsPositive: totalPnl >= 0,
+    };
+  }, [portfolios]);
+
   // Filter and sort portfolios
   const filteredPortfolios = useMemo(() => {
     // First filter
@@ -64,26 +125,9 @@ export function PortfolioManagement() {
     if (!sortKey || !sortDirection) return filtered;
 
     return [...filtered].sort((a, b) => {
-      let aVal: any = a[sortKey];
-      let bVal: any = b[sortKey];
-
-      // Handle dates
-      if (sortKey === 'createdAt') {
-        aVal = new Date(aVal).getTime();
-        bVal = new Date(bVal).getTime();
-      }
-
-      // Handle strings
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-
-      let comparison = 0;
-      if (aVal < bVal) comparison = -1;
-      if (aVal > bVal) comparison = 1;
-
-      return sortDirection === 'asc' ? comparison : -comparison;
+      const aVal = getPortfolioSortValue(a, sortKey);
+      const bVal = getPortfolioSortValue(b, sortKey);
+      return compareValues(aVal, bVal, sortDirection);
     });
   }, [portfolios, searchQuery, sortKey, sortDirection]);
 
@@ -345,16 +389,12 @@ export function PortfolioManagement() {
                       </td>
                       <td className="text-right">
                         <div className="table-status">
-                          <div
-                            className={`table-currency ${
-                              portfolio.totalPnl >= 0 ? 'text-profit' : 'text-loss'
-                            }`}
-                          >
-                            {portfolio.totalPnl >= 0 ? '+' : ''}
+                          <div className={`table-currency ${getPnlColorClass(portfolio.totalPnl)}`}>
+                            {getPnlSign(portfolio.totalPnl)}
                             ₹{portfolio.totalPnl.toLocaleString('en-IN')}
                           </div>
-                          <Badge variant={portfolio.totalPnl >= 0 ? 'profit' : 'loss'}>
-                            {portfolio.totalPnl >= 0 ? '+' : ''}
+                          <Badge variant={getPnlBadgeVariant(portfolio.totalPnl)}>
+                            {getPnlSign(portfolio.totalPnl)}
                             {portfolio.totalPnlPercent.toFixed(2)}%
                           </Badge>
                         </div>
@@ -400,20 +440,10 @@ export function PortfolioManagement() {
                     <td colSpan={8} className="table-empty">
                       <EmptyState
                         icon={<Briefcase size={48} />}
-                        title={
-                          searchQuery
-                            ? 'No Portfolios Found'
-                            : 'No Portfolios Created'
-                        }
-                        description={
-                          searchQuery
-                            ? `No portfolios match "${searchQuery}"`
-                            : 'Create a portfolio to get started'
-                        }
-                        ctaText={searchQuery ? undefined : 'Create Portfolio'}
-                        onCtaClick={
-                          searchQuery ? undefined : () => setShowCreateModal(true)
-                        }
+                        title={searchQuery ? 'No Portfolios Found' : 'No Portfolios Created'}
+                        description={searchQuery ? `No portfolios match "${searchQuery}"` : 'Create a portfolio to get started'}
+                        ctaText={!searchQuery ? 'Create Portfolio' : undefined}
+                        onCtaClick={!searchQuery ? () => setShowCreateModal(true) : undefined}
                       />
                     </td>
                   </tr>
@@ -439,22 +469,22 @@ export function PortfolioManagement() {
                 iconBgColor: 'bg-purple-100',
                 iconColor: 'text-purple-600',
                 label: 'Total AUM',
-                value: `₹${(portfolios.reduce((sum, p) => sum + p.totalValue, 0) / 100000).toFixed(1)}L`,
+                value: `₹${(portfolioSummary.totalAUM / 100000).toFixed(1)}L`,
               },
               {
                 icon: <TrendingUp size={20} />,
                 iconBgColor: 'bg-green-100',
                 iconColor: 'text-green-600',
                 label: 'Total Capital',
-                value: `₹${(portfolios.reduce((sum, p) => sum + p.capital, 0) / 100000).toFixed(1)}L`,
+                value: `₹${(portfolioSummary.totalCapital / 100000).toFixed(1)}L`,
               },
               {
                 icon: <TrendingUp size={20} />,
-                iconBgColor: portfolios.reduce((sum, p) => sum + p.totalPnl, 0) >= 0 ? 'bg-green-100' : 'bg-red-100',
-                iconColor: portfolios.reduce((sum, p) => sum + p.totalPnl, 0) >= 0 ? 'text-green-600' : 'text-red-600',
+                iconBgColor: portfolioSummary.pnlIsPositive ? 'bg-green-100' : 'bg-red-100',
+                iconColor: portfolioSummary.pnlIsPositive ? 'text-green-600' : 'text-red-600',
                 label: 'Total P&L',
-                value: `${portfolios.reduce((sum, p) => sum + p.totalPnl, 0) >= 0 ? '+' : ''}₹${(Math.abs(portfolios.reduce((sum, p) => sum + p.totalPnl, 0)) / 1000).toFixed(1)}K`,
-                valueColor: portfolios.reduce((sum, p) => sum + p.totalPnl, 0) >= 0 ? 'text-green-600' : 'text-red-600',
+                value: `${getPnlSign(portfolioSummary.totalPnl)}₹${(Math.abs(portfolioSummary.totalPnl) / 1000).toFixed(1)}K`,
+                valueColor: portfolioSummary.pnlIsPositive ? 'text-green-600' : 'text-red-600',
               },
             ]}
           />
@@ -671,11 +701,11 @@ export function PortfolioManagement() {
                     <div>
                       <Text variant="small" className="text-muted">Total P&L</Text>
                       <div className="mt-1 flex items-center gap-2">
-                        <Text variant="h4" className={viewPortfolio.totalPnl >= 0 ? 'text-profit' : 'text-loss'}>
-                          {viewPortfolio.totalPnl >= 0 ? '+' : ''}₹{viewPortfolio.totalPnl.toLocaleString('en-IN')}
+                        <Text variant="h4" className={getPnlColorClass(viewPortfolio.totalPnl)}>
+                          {getPnlSign(viewPortfolio.totalPnl)}₹{viewPortfolio.totalPnl.toLocaleString('en-IN')}
                         </Text>
-                        <Badge variant={viewPortfolio.totalPnl >= 0 ? 'profit' : 'loss'}>
-                          {viewPortfolio.totalPnl >= 0 ? '+' : ''}{viewPortfolio.totalPnlPercent.toFixed(2)}%
+                        <Badge variant={getPnlBadgeVariant(viewPortfolio.totalPnl)}>
+                          {getPnlSign(viewPortfolio.totalPnl)}{viewPortfolio.totalPnlPercent.toFixed(2)}%
                         </Badge>
                       </div>
                     </div>
