@@ -3,57 +3,132 @@
  * System settings and configuration
  */
 
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useAuth } from '../auth/AuthProvider';
-import { Header } from '../../components/organisms/Header/Header';
+import { useState, useEffect } from 'react';
 import { Text } from '../../components/atoms/Text/Text';
 import { Card } from '../../components/atoms/Card/Card';
 import { Button } from '../../components/atoms/Button/Button';
 import { Input } from '../../components/atoms/Input/Input';
 import { Badge } from '../../components/atoms/Badge/Badge';
 import { Alert } from '../../components/atoms/Alert/Alert';
+import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { Save, Settings as SettingsIcon, TrendingUp, Database, Bell } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import type { Timeframe } from '../../types';
-import { getAdminNavItems } from '../../lib/navigation';
+import { apiClient } from '../../lib/api';
+import type { MtfGlobalConfig } from '../../types';
 
 /**
  * Settings component
  */
 export function Settings() {
-  const { user, logout } = useAuth();
-  const location = useLocation();
-  const navItems = getAdminNavItems(location.pathname);
+  const [loading, setLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [config, setConfig] = useState<MtfGlobalConfig | null>(null);
 
-  // MTF Configuration
-  const [primaryTimeframe, setPrimaryTimeframe] = useState<Timeframe>('15m');
-  const [secondaryTimeframe, setSecondaryTimeframe] = useState<Timeframe>('1h');
-  const [tertiaryTimeframe, setTertiaryTimeframe] = useState<Timeframe>('1d');
+  // MTF Configuration - LTF/ITF/HTF (1m, 25m, 125m)
+  const [ltfMinutes, setLtfMinutes] = useState(1);
+  const [ltfCount, setLtfCount] = useState(375);
+  const [ltfWeight, setLtfWeight] = useState(20);
+
+  const [itfMinutes, setItfMinutes] = useState(25);
+  const [itfCount, setItfCount] = useState(75);
+  const [itfWeight, setItfWeight] = useState(30);
+
+  const [htfMinutes, setHtfMinutes] = useState(125);
+  const [htfCount, setHtfCount] = useState(175);
+  const [htfWeight, setHtfWeight] = useState(50);
 
   // System Settings
   const [maxConcurrentOrders, setMaxConcurrentOrders] = useState(10);
   const [orderTimeout, setOrderTimeout] = useState(30);
   const [wsReconnectDelay, setWsReconnectDelay] = useState(5);
   const [dataRetentionDays, setDataRetentionDays] = useState(90);
+  const [inactivityTimeout, setInactivityTimeout] = useState(15); // In minutes
 
   // Notification Settings
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [tradeAlerts, setTradeAlerts] = useState(true);
   const [systemAlerts, setSystemAlerts] = useState(true);
 
-  const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h', '1d'];
+  const mtfTimeframes = [1, 25, 125] as const;
+
+  /**
+   * Load MTF configuration on mount
+   */
+  useEffect(() => {
+    const loadConfig = async () => {
+      setLoading(true);
+      const response = await apiClient.getGlobalMTFConfig();
+
+      if (response.success && response.data) {
+        setConfig(response.data);
+
+        // Set LTF (Lower Timeframe)
+        setLtfMinutes(response.data.ltfCandleMinutes);
+        setLtfCount(response.data.ltfCandleCount);
+        setLtfWeight(response.data.ltfWeight);
+
+        // Set ITF (Intermediate Timeframe)
+        setItfMinutes(response.data.itfCandleMinutes);
+        setItfCount(response.data.itfCandleCount);
+        setItfWeight(response.data.itfWeight);
+
+        // Set HTF (Higher Timeframe)
+        setHtfMinutes(response.data.htfCandleMinutes);
+        setHtfCount(response.data.htfCandleCount);
+        setHtfWeight(response.data.htfWeight);
+      }
+
+      // Load inactivity timeout from localStorage (default: 15 minutes)
+      const storedTimeout = localStorage.getItem('inactivity_timeout_minutes');
+      if (storedTimeout) {
+        setInactivityTimeout(parseInt(storedTimeout, 10));
+      }
+
+      setLoading(false);
+    };
+
+    loadConfig();
+  }, []);
 
   /**
    * Handle save settings
    */
-  const handleSave = () => {
-    console.log('Saving settings...');
-    setSaveSuccess(true);
-    setHasChanges(false);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  const handleSave = async () => {
+    setSaveError(null);
+
+    // Validate inactivity timeout (min 1 minute, max 1440 minutes / 24 hours)
+    if (inactivityTimeout < 1 || inactivityTimeout > 1440) {
+      setSaveError('Inactivity timeout must be between 1 and 1440 minutes (24 hours)');
+      return;
+    }
+
+    const updates: Partial<MtfGlobalConfig> = {
+      ltfCandleMinutes: ltfMinutes,
+      ltfCandleCount: ltfCount,
+      ltfWeight: ltfWeight,
+
+      itfCandleMinutes: itfMinutes,
+      itfCandleCount: itfCount,
+      itfWeight: itfWeight,
+
+      htfCandleMinutes: htfMinutes,
+      htfCandleCount: htfCount,
+      htfWeight: htfWeight,
+    };
+
+    const response = await apiClient.updateGlobalMTFConfig(updates);
+
+    if (response.success) {
+      // Save inactivity timeout to localStorage
+      localStorage.setItem('inactivity_timeout_minutes', inactivityTimeout.toString());
+
+      setSaveSuccess(true);
+      setHasChanges(false);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } else {
+      setSaveError(response.error || 'Failed to save settings');
+    }
   };
 
   /**
@@ -63,25 +138,25 @@ export function Settings() {
     if (!hasChanges) setHasChanges(true);
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Header navItems={navItems} user={user ? { name: user.displayName, email: user.email } : undefined} onLogout={logout} />
+  /**
+   * Render loading state
+   */
+  if (loading) {
+    return (
+      <main className="container mx-auto p-6">
+        <div className="flex items-center justify-center py-12">
+          <Spinner size="lg" variant="primary" />
+        </div>
+      </main>
+    );
+  }
 
-      <main className="container mx-auto p-6 space-y-6">
+  return (
+    <main className="container mx-auto p-6 space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Link to="/admin">
-                <Text variant="body" className="text-muted hover:text-primary">
-                  Admin
-                </Text>
-              </Link>
-              <Text variant="body" className="text-muted">
-                /
-              </Text>
-              <Text variant="h2">Settings</Text>
-            </div>
+            <Text variant="h2" className="mb-2">Settings</Text>
             <Text variant="body" className="text-muted">
               Configure system settings and preferences
             </Text>
@@ -104,6 +179,13 @@ export function Settings() {
           </Alert>
         )}
 
+        {/* Error Alert */}
+        {saveError && (
+          <Alert variant="error" onDismiss={() => setSaveError(null)}>
+            {saveError}
+          </Alert>
+        )}
+
         {/* MTF Configuration */}
         <Card>
           <div className="p-6 space-y-6">
@@ -112,92 +194,157 @@ export function Settings() {
               <div>
                 <Text variant="h3">Multi-Timeframe Configuration</Text>
                 <Text variant="body" className="text-muted text-sm">
-                  Configure default timeframes for MTF analysis
+                  Configure LTF/ITF/HTF analysis parameters (1m, 25m, 125m)
                 </Text>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Primary Timeframe */}
-              <div>
-                <Text variant="label" className="mb-2">
-                  Primary Timeframe
-                </Text>
-                <div className="flex flex-wrap gap-2">
-                  {timeframes.map((tf) => (
-                    <Button
-                      key={tf}
-                      variant={primaryTimeframe === tf ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => {
-                        setPrimaryTimeframe(tf);
-                        markChanged();
-                      }}
-                    >
-                      {tf}
-                    </Button>
-                  ))}
+            <div className="form-grid form-grid--cols-3">
+              {/* LTF - Lower Timeframe */}
+              <div className="space-y-4">
+                <div>
+                  <Text variant="label" className="mb-2">
+                    LTF (Lower Timeframe)
+                  </Text>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="primary">{ltfMinutes} minutes</Badge>
+                  </div>
+                  <Text variant="small" className="text-muted mt-2">
+                    Fast timeframe for entry precision
+                  </Text>
                 </div>
-                <Text variant="small" className="text-muted mt-2">
-                  Main analysis timeframe
-                </Text>
+
+                <div>
+                  <Text variant="label" className="mb-2">
+                    Candle Count
+                  </Text>
+                  <Input
+                    type="number"
+                    value={ltfCount}
+                    onChange={(e) => {
+                      setLtfCount(Number(e.target.value));
+                      markChanged();
+                    }}
+                    fullWidth
+                  />
+                </div>
+
+                <div>
+                  <Text variant="label" className="mb-2">
+                    Weight (%)
+                  </Text>
+                  <Input
+                    type="number"
+                    value={ltfWeight}
+                    onChange={(e) => {
+                      setLtfWeight(Number(e.target.value));
+                      markChanged();
+                    }}
+                    fullWidth
+                  />
+                </div>
               </div>
 
-              {/* Secondary Timeframe */}
-              <div>
-                <Text variant="label" className="mb-2">
-                  Secondary Timeframe
-                </Text>
-                <div className="flex flex-wrap gap-2">
-                  {timeframes.map((tf) => (
-                    <Button
-                      key={tf}
-                      variant={secondaryTimeframe === tf ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => {
-                        setSecondaryTimeframe(tf);
-                        markChanged();
-                      }}
-                    >
-                      {tf}
-                    </Button>
-                  ))}
+              {/* ITF - Intermediate Timeframe */}
+              <div className="space-y-4">
+                <div>
+                  <Text variant="label" className="mb-2">
+                    ITF (Intermediate Timeframe)
+                  </Text>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="primary">{itfMinutes} minutes</Badge>
+                  </div>
+                  <Text variant="small" className="text-muted mt-2">
+                    Medium timeframe for trend confirmation
+                  </Text>
                 </div>
-                <Text variant="small" className="text-muted mt-2">
-                  Supporting timeframe
-                </Text>
+
+                <div>
+                  <Text variant="label" className="mb-2">
+                    Candle Count
+                  </Text>
+                  <Input
+                    type="number"
+                    value={itfCount}
+                    onChange={(e) => {
+                      setItfCount(Number(e.target.value));
+                      markChanged();
+                    }}
+                    fullWidth
+                  />
+                </div>
+
+                <div>
+                  <Text variant="label" className="mb-2">
+                    Weight (%)
+                  </Text>
+                  <Input
+                    type="number"
+                    value={itfWeight}
+                    onChange={(e) => {
+                      setItfWeight(Number(e.target.value));
+                      markChanged();
+                    }}
+                    fullWidth
+                  />
+                </div>
               </div>
 
-              {/* Tertiary Timeframe */}
-              <div>
-                <Text variant="label" className="mb-2">
-                  Tertiary Timeframe
-                </Text>
-                <div className="flex flex-wrap gap-2">
-                  {timeframes.map((tf) => (
-                    <Button
-                      key={tf}
-                      variant={tertiaryTimeframe === tf ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => {
-                        setTertiaryTimeframe(tf);
-                        markChanged();
-                      }}
-                    >
-                      {tf}
-                    </Button>
-                  ))}
+              {/* HTF - Higher Timeframe */}
+              <div className="space-y-4">
+                <div>
+                  <Text variant="label" className="mb-2">
+                    HTF (Higher Timeframe)
+                  </Text>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="primary">{htfMinutes} minutes</Badge>
+                  </div>
+                  <Text variant="small" className="text-muted mt-2">
+                    Slow timeframe for trend direction
+                  </Text>
                 </div>
-                <Text variant="small" className="text-muted mt-2">
-                  Long-term timeframe
-                </Text>
+
+                <div>
+                  <Text variant="label" className="mb-2">
+                    Candle Count
+                  </Text>
+                  <Input
+                    type="number"
+                    value={htfCount}
+                    onChange={(e) => {
+                      setHtfCount(Number(e.target.value));
+                      markChanged();
+                    }}
+                    fullWidth
+                  />
+                </div>
+
+                <div>
+                  <Text variant="label" className="mb-2">
+                    Weight (%)
+                  </Text>
+                  <Input
+                    type="number"
+                    value={htfWeight}
+                    onChange={(e) => {
+                      setHtfWeight(Number(e.target.value));
+                      markChanged();
+                    }}
+                    fullWidth
+                  />
+                </div>
               </div>
             </div>
 
             <Alert variant="info">
               <Text variant="body" className="text-sm">
-                <strong>Current Configuration:</strong> {primaryTimeframe} (Primary) • {secondaryTimeframe}{' '}
-                (Secondary) • {tertiaryTimeframe} (Tertiary)
+                <strong>Current Configuration:</strong> LTF {ltfMinutes}m (Count: {ltfCount}, Weight: {ltfWeight}%) • ITF {itfMinutes}m (Count: {itfCount}, Weight: {itfWeight}%) • HTF {htfMinutes}m (Count: {htfCount}, Weight: {htfWeight}%)
+              </Text>
+            </Alert>
+
+            <Alert variant="warning">
+              <Text variant="body" className="text-sm">
+                <strong>Note:</strong> MTF system uses 25× multiplier - LTF: 1m, ITF: 25m (25× LTF), HTF: 125m (25× ITF). Changing these values requires system restart.
               </Text>
             </Alert>
           </div>
@@ -216,7 +363,28 @@ export function Settings() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="form-grid form-grid--cols-2">
+              {/* Inactivity Timeout */}
+              <div>
+                <Text variant="label" className="mb-2">
+                  Session Inactivity Timeout (minutes)
+                </Text>
+                <Input
+                  type="number"
+                  value={inactivityTimeout}
+                  onChange={(e) => {
+                    setInactivityTimeout(Number(e.target.value));
+                    markChanged();
+                  }}
+                  fullWidth
+                  min={1}
+                  max={1440}
+                />
+                <Text variant="small" className="text-muted mt-1">
+                  Auto-logout after inactivity (1-1440 min)
+                </Text>
+              </div>
+
               {/* Max Concurrent Orders */}
               <div>
                 <Text variant="label" className="mb-2">
@@ -293,6 +461,12 @@ export function Settings() {
                 </Text>
               </div>
             </div>
+
+            <Alert variant="info">
+              <Text variant="body" className="text-sm">
+                <strong>Security Note:</strong> Session Inactivity Timeout automatically logs users out after {inactivityTimeout} minutes of no activity. This protects against unauthorized access when users leave their trading terminals unattended.
+              </Text>
+            </Alert>
           </div>
         </Card>
 
@@ -429,6 +603,5 @@ export function Settings() {
           </div>
         </Card>
       </main>
-    </div>
   );
 }

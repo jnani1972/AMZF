@@ -1,9 +1,9 @@
 package in.annupaper.service.signal;
 
-import in.annupaper.broker.BrokerAdapter;
+import in.annupaper.domain.broker.BrokerAdapter;
 import in.annupaper.domain.signal.Signal;
 import in.annupaper.domain.data.Watchlist;
-import in.annupaper.repository.WatchlistRepository;
+import in.annupaper.domain.repository.WatchlistRepository;
 import in.annupaper.service.MarketDataCache;
 import in.annupaper.service.candle.SessionClock;
 import org.slf4j.Logger;
@@ -37,7 +37,7 @@ public final class MtfSignalGenerator implements BrokerAdapter.TickListener {
     private final SignalService signalService;
     private final WatchlistRepository watchlistRepo;
     private final MarketDataCache marketDataCache;
-    private final in.annupaper.repository.UserBrokerRepository userBrokerRepo;
+    private final in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo;
 
     // Minimum price movement (%) before re-analyzing (default: 0.3%)
     private static final BigDecimal MIN_PRICE_MOVE_PCT = new BigDecimal("0.003");
@@ -52,7 +52,7 @@ public final class MtfSignalGenerator implements BrokerAdapter.TickListener {
         SignalService signalService,
         WatchlistRepository watchlistRepo,
         MarketDataCache marketDataCache,
-        in.annupaper.repository.UserBrokerRepository userBrokerRepo
+        in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo
     ) {
         this.signalService = signalService;
         this.watchlistRepo = watchlistRepo;

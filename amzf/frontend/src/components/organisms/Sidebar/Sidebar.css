@@ -1,0 +1,118 @@
+/**
+ * Sidebar Component Styles
+ */
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 260px;
+  background-color: var(--color-surface-primary);
+  border-right: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0;
+  z-index: var(--z-sticky);
+  overflow-y: auto;
+}
+
+/* Header */
+.sidebar__header {
+  padding: 0 1.5rem 1.5rem;
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: 1rem;
+}
+
+/* Navigation */
+.sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+  overflow-y: auto;
+}
+
+.sidebar__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.sidebar__nav-item:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.sidebar__nav-item--active {
+  background-color: var(--color-brand-primary);
+  color: white;
+}
+
+.sidebar__nav-item--active:hover {
+  background-color: var(--color-brand-primary);
+  color: white;
+}
+
+.sidebar__nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar__nav-label {
+  flex: 1;
+}
+
+/* Footer */
+.sidebar__footer {
+  padding: 1rem 0.75rem 0;
+  border-top: 1px solid var(--color-border-light);
+  margin-top: auto;
+}
+
+.sidebar__user {
+  padding: 0.75rem;
+  margin-top: 0.75rem;
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.sidebar__user-info {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .sidebar__nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .sidebar__nav-item {
+    white-space: nowrap;
+  }
+
+  .sidebar__footer {
+    display: none;
+  }
+}

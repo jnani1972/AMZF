@@ -1,13 +1,13 @@
 package in.annupaper.service.signal;
 
-import in.annupaper.broker.BrokerAdapter;
+import in.annupaper.domain.broker.BrokerAdapter;
 import in.annupaper.domain.trade.Direction;
 import in.annupaper.domain.common.EventType;
 import in.annupaper.domain.trade.ExitReason;
 import in.annupaper.domain.signal.ExitSignal;
 import in.annupaper.domain.signal.MtfGlobalConfig;
 import in.annupaper.domain.trade.Trade;
-import in.annupaper.repository.TradeRepository;
+import in.annupaper.domain.repository.TradeRepository;
 import in.annupaper.service.MtfConfigService;
 import in.annupaper.service.core.EventService;
 import in.annupaper.service.trade.TradeManagementService;

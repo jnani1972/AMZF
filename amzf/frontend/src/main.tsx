@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/theme.css';
+import './styles/layout.css';
+import './styles/forms.css';
+import './styles/tables.css';
 
 // Get root element
 const rootElement = document.getElementById('root');

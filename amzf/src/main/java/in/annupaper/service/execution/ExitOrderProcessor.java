@@ -1,7 +1,7 @@
 package in.annupaper.service.execution;
 
 import in.annupaper.domain.trade.ExitIntent;
-import in.annupaper.repository.ExitIntentRepository;
+import in.annupaper.domain.repository.ExitIntentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

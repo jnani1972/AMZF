@@ -4,8 +4,9 @@
  */
 
 import { useState, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
+import { apiClient } from '../../lib/api';
 import { Button } from '../../components/atoms/Button/Button';
 import { Input } from '../../components/atoms/Input/Input';
 import { Card } from '../../components/atoms/Card/Card';
@@ -17,12 +18,17 @@ import { UserPlus } from 'lucide-react';
  * Register page component
  */
 export function Register() {
-  const { register, loading } = useAuth();
+  const { register, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isAdminCreate = searchParams.get('adminCreate') === 'true';
+
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   /**
    * Handle form submission
@@ -57,30 +63,45 @@ export function Register() {
       return;
     }
 
-    // Attempt registration
-    const result = await register(email, password, displayName);
+    // Admin creating user vs self-registration
+    if (isAdminCreate) {
+      // Admin is creating a user - don't log in as the new user
+      setLoading(true);
+      const response = await apiClient.register(email, password, displayName);
+      setLoading(false);
 
-    if (!result.success) {
-      setError(result.error || 'Registration failed. Please try again.');
+      if (response.success) {
+        // Success - redirect back to admin panel
+        navigate('/admin/users');
+      } else {
+        setError(response.error || 'Failed to create user. Please try again.');
+      }
+    } else {
+      // Self-registration - log in as the new user
+      const result = await register(email, password, displayName);
+
+      if (!result.success) {
+        setError(result.error || 'Registration failed. Please try again.');
+      }
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+      <div className="form-container">
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <Text variant="h1" className="text-primary mb-2">
             AMZF Trading
           </Text>
           <Text variant="body" className="text-muted">
-            Create your account
+            {isAdminCreate ? 'Create New User' : 'Create your account'}
           </Text>
         </div>
 
         {/* Registration Form */}
         <Card variant="outlined">
-          <form onSubmit={handleSubmit} className="space-y-6 p-6">
+          <form onSubmit={handleSubmit} className="form-spacing p-6">
             {/* Error Alert */}
             {error && (
               <Alert variant="error" onDismiss={() => setError(null)}>
@@ -176,17 +197,28 @@ export function Register() {
               Create Account
             </Button>
 
-            {/* Login Link */}
+            {/* Login Link / Back to Admin */}
             <div className="text-center">
-              <Text variant="small" className="text-muted">
-                Already have an account?{' '}
-                <Link
-                  to="/auth/login"
-                  className="text-primary hover:underline font-medium"
-                >
-                  Sign in
-                </Link>
-              </Text>
+              {isAdminCreate ? (
+                <Text variant="small" className="text-muted">
+                  <Link
+                    to="/admin/users"
+                    className="text-primary hover:underline font-medium"
+                  >
+                    ← Back to User Management
+                  </Link>
+                </Text>
+              ) : (
+                <Text variant="small" className="text-muted">
+                  Already have an account?{' '}
+                  <Link
+                    to="/auth/login"
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Sign in
+                  </Link>
+                </Text>
+              )}
             </div>
           </form>
         </Card>

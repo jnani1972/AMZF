@@ -72,9 +72,15 @@ export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     children: [
-      // Root - redirect to dashboard
+      // Root - redirect to login
       {
         path: '/',
+        element: <Navigate to="/auth/login" replace />,
+      },
+
+      // Dashboard - for regular users
+      {
+        path: '/dashboard',
         element: (
           <ProtectedRoute>
             <Suspense fallback={<LoadingFallback />}>

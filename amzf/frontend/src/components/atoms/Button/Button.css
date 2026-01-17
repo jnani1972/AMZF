@@ -206,3 +206,33 @@
     min-width: 44px;
   }
 }
+
+/* Responsive Sizing */
+@media (max-width: 768px) {
+  /* Mobile: Better touch targets and sizing */
+  .button--sm {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    min-height: 44px;
+  }
+
+  .button--md {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    min-height: 44px;
+  }
+
+  .button--lg {
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-size: var(--font-size-lg);
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Small mobile: Stack buttons, full width by default in forms */
+  .button {
+    white-space: normal;
+    text-align: center;
+  }
+}

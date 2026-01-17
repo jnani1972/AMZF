@@ -1,11 +1,11 @@
 package in.annupaper.service.candle;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.data.TimeframeType;
 import in.annupaper.domain.data.Candle;
-import in.annupaper.repository.BrokerRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.BrokerRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,0 +1,186 @@
+/**
+ * Layout Utilities
+ * Reusable layout classes for consistent spacing and positioning
+ */
+
+/* Sidebar Layout - Left sidebar + content area */
+.sidebar-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
+}
+
+/* Main Content Area - Positioned next to sidebar */
+.main-content {
+  flex: 1;
+  margin-left: 260px; /* Sidebar width */
+  min-width: 0; /* Prevents flex overflow */
+}
+
+/* Page Container - Standard page wrapper with padding */
+.page-container {
+  width: 100%;
+  max-width: 1400px; /* Prevents content from being too wide */
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Page Container - Full width variant (no max-width) */
+.page-container--full {
+  width: 100%;
+  max-width: none;
+  padding: 1.5rem;
+}
+
+/* Content Area - Main content section */
+.content-area {
+  width: 100%;
+  padding: 1.5rem;
+}
+
+/* Content Area - Narrow variant for forms */
+.content-area--narrow {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Content Area - Wide variant for tables/dashboards */
+.content-area--wide {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Grid Layouts */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0; /* No sidebar offset on mobile */
+  }
+
+  .page-container,
+  .page-container--full,
+  .content-area,
+  .content-area--narrow,
+  .content-area--wide {
+    padding: 1rem;
+  }
+
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Flex Layouts */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.flex-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Spacing Utilities */
+.gap-xs {
+  gap: var(--spacing-xs);
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+
+.gap-xl {
+  gap: var(--spacing-xl);
+}
+
+/* Form Layouts */
+.form-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.form-spacing {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+.form-actions--stack-mobile {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+@media (max-width: 640px) {
+  .form-actions--stack-mobile {
+    flex-direction: column-reverse;
+  }
+}

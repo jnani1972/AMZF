@@ -2,7 +2,7 @@ package in.annupaper.service.candle;
 
 import in.annupaper.domain.data.TimeframeType;
 import in.annupaper.domain.data.Candle;
-import in.annupaper.repository.CandleRepository;
+import in.annupaper.domain.repository.CandleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -3,7 +3,6 @@
  * Watchlist and live market data
  */
 
-import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { useMarketWatch, useWatchlists } from '../../hooks/useApi';
@@ -29,13 +28,11 @@ export function MarketWatch() {
   const navItems = getNavItems(location.pathname);
   const { data: marketData, loading, error, refetch } = useMarketWatch();
   const { data: watchlists } = useWatchlists();
-  const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
 
-  // Get symbols from selected watchlist or use all from market data
-  const symbols =
-    selectedWatchlist && watchlists
-      ? watchlists.find((w) => w.id === selectedWatchlist)?.symbols || []
-      : marketData?.map((d) => d.symbol) || [];
+  // Get symbols from watchlists or fallback to market data
+  const symbols = watchlists && watchlists.length > 0
+    ? watchlists.map((w) => w.symbol)
+    : marketData?.map((d) => d.symbol) || [];
 
   // Get real-time prices for symbols
   const { prices, lastUpdate } = useRealtimePrices(symbols);
@@ -107,29 +104,26 @@ export function MarketWatch() {
           </div>
         </div>
 
-        {/* Watchlist Selector */}
+        {/* Market Statistics */}
         {watchlists && watchlists.length > 0 && (
           <Card>
             <div className="p-6">
               <Text variant="label" className="mb-3">
-                Select Watchlist
+                Watchlist Statistics
               </Text>
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  variant={selectedWatchlist === null ? 'primary' : 'secondary'}
-                  onClick={() => setSelectedWatchlist(null)}
-                >
-                  All Markets
-                </Button>
-                {watchlists.map((w) => (
-                  <Button
-                    key={w.id}
-                    variant={selectedWatchlist === w.id ? 'primary' : 'secondary'}
-                    onClick={() => setSelectedWatchlist(w.id)}
-                  >
-                    {w.name} ({w.symbols.length})
-                  </Button>
-                ))}
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <Text variant="small" className="text-muted">Total Symbols</Text>
+                  <Text variant="h4" className="font-semibold">{watchlists.length}</Text>
+                </div>
+                <div>
+                  <Text variant="small" className="text-muted">Enabled</Text>
+                  <Text variant="h4" className="font-semibold">{watchlists.filter((w) => w.enabled).length}</Text>
+                </div>
+                <div>
+                  <Text variant="small" className="text-muted">Market Data Available</Text>
+                  <Text variant="h4" className="font-semibold">{marketData?.length || 0}</Text>
+                </div>
               </div>
             </div>
           </Card>

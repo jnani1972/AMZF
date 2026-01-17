@@ -1,11 +1,11 @@
 package in.annupaper.service.execution;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.trade.Trade;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.TradeRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.TradeRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

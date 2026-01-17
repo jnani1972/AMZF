@@ -3,8 +3,8 @@
  * Email/password authentication
  */
 
-import { useState, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, FormEvent, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { Button } from '../../components/atoms/Button/Button';
 import { Input } from '../../components/atoms/Input/Input';
@@ -17,10 +17,25 @@ import { LogIn } from 'lucide-react';
  * Login page component
  */
 export function Login() {
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Redirect if already authenticated
+   */
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      // Redirect based on role
+      if (isAdmin) {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, isAdmin, loading, navigate]);
 
   /**
    * Handle form submission
@@ -50,7 +65,7 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+      <div className="form-container">
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <Text variant="h1" className="text-primary mb-2">
@@ -63,7 +78,7 @@ export function Login() {
 
         {/* Login Form */}
         <Card variant="outlined">
-          <form onSubmit={handleSubmit} className="space-y-6 p-6">
+          <form onSubmit={handleSubmit} className="form-spacing p-6">
             {/* Error Alert */}
             {error && (
               <Alert variant="error" onDismiss={() => setError(null)}>

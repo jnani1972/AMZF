@@ -1,15 +1,15 @@
 package in.annupaper.service.execution;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.common.EventType;
 import in.annupaper.domain.trade.ExitIntent;
 import in.annupaper.domain.trade.ExitIntentStatus;
 import in.annupaper.domain.trade.Trade;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.ExitIntentRepository;
-import in.annupaper.repository.TradeRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.ExitIntentRepository;
+import in.annupaper.domain.repository.TradeRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import in.annupaper.service.core.EventService;
 import in.annupaper.service.trade.TradeManagementService;  // ✅ P0 fix: single-writer enforcement
 import org.slf4j.Logger;

@@ -27,9 +27,9 @@ public final class ConfluenceCalculator {
     private static final Logger log = LoggerFactory.getLogger(ConfluenceCalculator.class);
 
     private final CandleStore candleStore;
-    private final in.annupaper.repository.MtfConfigRepository mtfConfigRepo;
+    private final in.annupaper.domain.repository.MtfConfigRepository mtfConfigRepo;
 
-    public ConfluenceCalculator(CandleStore candleStore, in.annupaper.repository.MtfConfigRepository mtfConfigRepo) {
+    public ConfluenceCalculator(CandleStore candleStore, in.annupaper.domain.repository.MtfConfigRepository mtfConfigRepo) {
         this.candleStore = candleStore;
         this.mtfConfigRepo = mtfConfigRepo;
     }

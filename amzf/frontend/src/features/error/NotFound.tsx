@@ -16,7 +16,7 @@ export function NotFound() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+      <div className="form-container">
         <Card variant="outlined">
           <div className="p-8 text-center space-y-6">
             {/* Icon */}

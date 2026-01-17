@@ -1,9 +1,9 @@
 package in.annupaper.service;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.broker.BrokerAdapterFactory;
+import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.domain.broker.BrokerIds;
-import in.annupaper.repository.InstrumentRepository;
+import in.annupaper.domain.repository.InstrumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

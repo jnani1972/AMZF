@@ -7,8 +7,8 @@ import in.annupaper.domain.signal.Signal;
 import in.annupaper.domain.signal.MtfGlobalConfig;
 import in.annupaper.domain.trade.TradeIntent;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.SignalRepository;
-import in.annupaper.repository.UserBrokerRepository;
+import in.annupaper.domain.repository.SignalRepository;
+import in.annupaper.domain.repository.UserBrokerRepository;
 import in.annupaper.service.candle.CandleStore;
 import in.annupaper.service.core.EventService;
 import in.annupaper.service.execution.ExecutionOrchestrator;
@@ -32,10 +32,10 @@ public final class SignalService {
     private final EventService eventService;
     private final ExecutionOrchestrator executionOrchestrator;
     private final ConfluenceCalculator confluenceCalculator;
-    private final in.annupaper.repository.MtfConfigRepository mtfConfigRepo;
-    private final in.annupaper.repository.TradeRepository tradeRepo;
+    private final in.annupaper.domain.repository.MtfConfigRepository mtfConfigRepo;
+    private final in.annupaper.domain.repository.TradeRepository tradeRepo;
     private final CandleStore candleStore;
-    private final in.annupaper.repository.PortfolioRepository portfolioRepo;
+    private final in.annupaper.domain.repository.PortfolioRepository portfolioRepo;
     private final SignalManagementService signalManagementService;
 
     public SignalService(
@@ -44,10 +44,10 @@ public final class SignalService {
         EventService eventService,
         ExecutionOrchestrator executionOrchestrator,
         ConfluenceCalculator confluenceCalculator,
-        in.annupaper.repository.MtfConfigRepository mtfConfigRepo,
-        in.annupaper.repository.TradeRepository tradeRepo,
+        in.annupaper.domain.repository.MtfConfigRepository mtfConfigRepo,
+        in.annupaper.domain.repository.TradeRepository tradeRepo,
         CandleStore candleStore,
-        in.annupaper.repository.PortfolioRepository portfolioRepo,
+        in.annupaper.domain.repository.PortfolioRepository portfolioRepo,
         SignalManagementService signalManagementService
     ) {
         this.signalRepo = signalRepo;

@@ -3,7 +3,7 @@ package in.annupaper.service.validation;
 import in.annupaper.domain.trade.Direction;
 import in.annupaper.domain.trade.Trade;
 import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.repository.ExitIntentRepository;
+import in.annupaper.domain.repository.ExitIntentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

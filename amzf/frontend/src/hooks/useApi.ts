@@ -127,6 +127,34 @@ export function useAllUserBrokers() {
 }
 
 /**
+ * Hook to get all portfolios (admin only)
+ */
+export function useAllPortfolios() {
+  return useApi(() => apiClient.getAllPortfolios());
+}
+
+/**
+ * Hook to get watchlist (admin only)
+ */
+export function useAdminWatchlist() {
+  return useApi(() => apiClient.getWatchlist());
+}
+
+/**
+ * Hook to get data broker configuration (admin only)
+ */
+export function useDataBroker() {
+  return useApi(() => apiClient.getDataBroker());
+}
+
+/**
+ * Hook to get system health
+ */
+export function useSystemHealth() {
+  return useApi(() => apiClient.getSystemHealth());
+}
+
+/**
  * Hook for API mutations
  */
 export interface UseMutationState<T, V> {

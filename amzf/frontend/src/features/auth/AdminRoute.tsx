@@ -44,7 +44,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md">
+        <div className="form-container">
           <Card variant="outlined">
             <div className="p-6 space-y-6">
               <div className="text-center">
@@ -64,7 +64,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
                 administrator if you believe you should have access.
               </Alert>
 
-              <Button variant="primary" fullWidth onClick={() => (window.location.href = '/')}>
+              <Button variant="primary" fullWidth onClick={() => (window.location.href = '/dashboard')}>
                 Go to Dashboard
               </Button>
             </div>
