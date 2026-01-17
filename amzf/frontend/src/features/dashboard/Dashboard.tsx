@@ -23,6 +23,35 @@ import { TrendingUp, Activity, BarChart3, AlertCircle } from 'lucide-react';
 import { getNavItems } from '../../lib/navigation';
 
 /**
+ * Get trend direction from numeric value
+ */
+const getTrend = (value: number): 'up' | 'down' | 'neutral' => {
+  if (value > 0) return 'up';
+  if (value < 0) return 'down';
+  return 'neutral';
+};
+
+/**
+ * Get signed prefix for positive/negative values
+ */
+const getSignPrefix = (value: number): string => (value > 0 ? '+' : '');
+
+/**
+ * Get event type color class
+ */
+const getEventTypeColor = (eventType: string): string => {
+  if (eventType === 'SIGNAL') return 'bg-primary';
+  if (eventType === 'TRADE_UPDATE') return 'bg-profit';
+  return 'bg-warning';
+};
+
+/**
+ * Get user display object from auth user
+ */
+const getUserDisplay = (user: any) =>
+  user ? { name: user.displayName, email: user.email } : undefined;
+
+/**
  * Dashboard component
  */
 export function Dashboard() {
@@ -76,7 +105,7 @@ export function Dashboard() {
       <div className="min-h-screen bg-background">
         <Header
           navItems={navItems}
-          user={user ? { name: user.displayName, email: user.email } : undefined}
+          user={getUserDisplay(user)}
           onLogout={logout}
         />
         <main className="container mx-auto p-6">
@@ -96,7 +125,7 @@ export function Dashboard() {
       <div className="min-h-screen bg-background">
         <Header
           navItems={navItems}
-          user={user ? { name: user.displayName, email: user.email } : undefined}
+          user={getUserDisplay(user)}
           onLogout={logout}
         />
         <main className="container mx-auto p-6">
@@ -112,7 +141,7 @@ export function Dashboard() {
     <div className="min-h-screen bg-background">
       <Header
         navItems={navItems}
-        user={user ? { name: user.displayName, email: user.email } : undefined}
+        user={getUserDisplay(user)}
         onLogout={logout}
       />
 
@@ -148,15 +177,15 @@ export function Dashboard() {
               title: 'Total Portfolio Value',
               value: `₹${totalValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
               icon: <BarChart3 size={24} />,
-              trend: totalPnlPercent > 0 ? 'up' : totalPnlPercent < 0 ? 'down' : 'neutral',
-              trendValue: `${totalPnlPercent > 0 ? '+' : ''}${totalPnlPercent.toFixed(2)}%`,
+              trend: getTrend(totalPnlPercent),
+              trendValue: `${getSignPrefix(totalPnlPercent)}${totalPnlPercent.toFixed(2)}%`,
             },
             {
               title: 'Total P&L',
               value: `₹${totalPnl.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
               icon: <TrendingUp size={24} />,
-              trend: totalPnl > 0 ? 'up' : totalPnl < 0 ? 'down' : 'neutral',
-              trendValue: `${totalPnl > 0 ? '+' : ''}${totalPnl.toFixed(2)}`,
+              trend: getTrend(totalPnl),
+              trendValue: `${getSignPrefix(totalPnl)}${totalPnl.toFixed(2)}`,
             },
             {
               title: 'Available Capital',
@@ -252,15 +281,7 @@ export function Dashboard() {
                       key={index}
                       className="flex items-start gap-3 p-3 bg-surface-secondary rounded-lg"
                     >
-                      <div
-                        className={`w-2 h-2 rounded-full mt-1.5 ${
-                          event.type === 'SIGNAL'
-                            ? 'bg-primary'
-                            : event.type === 'TRADE_UPDATE'
-                            ? 'bg-profit'
-                            : 'bg-warning'
-                        }`}
-                      />
+                      <div className={`w-2 h-2 rounded-full mt-1.5 ${getEventTypeColor(event.type)}`} />
                       <div className="flex-1 min-w-0">
                         <Text variant="label" className="truncate">
                           {event.type}
