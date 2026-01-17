@@ -608,7 +608,8 @@ public final class App {
             // ApiHandlers api = new ApiHandlers(eventRepo, tokenValidator);
             ApiHandlers api = new ApiHandlers(eventRepo, tokenValidator, jwtService, adminService, oauthService,
                     fyersLoginOrchestrator, legacyBrokerFactory, instrumentService,
-                    userBrokerRepo, brokerRepo, watchlistRepo, tickCandleBuilder, exitSignalService, recoveryManager, mtfBackfillService);
+                    userBrokerRepo, brokerRepo, watchlistRepo, tickCandleBuilder, exitSignalService, recoveryManager, mtfBackfillService,
+                    signalRepo, tradeRepo);
         in.annupaper.transport.http.MtfConfigHandler mtfConfigHandler =
             new in.annupaper.transport.http.MtfConfigHandler(mtfConfigService, tokenValidator);
         in.annupaper.transport.http.AdminConfigHandler adminConfigHandler =
@@ -633,16 +634,26 @@ public final class App {
             .get("/api/brokers", api::brokers)
             .get("/api/signals", api::signals)
             .get("/api/intents", api::intents)
+            .get("/api/portfolios", api::portfolios)
+            .get("/api/trades", api::trades)
+            .get("/api/watchlists", api::watchlists)
             .get("/api/admin/users", api::adminGetUsers)
+            .put("/api/admin/users/{userId}", api::adminUpdateUser)
+            .post("/api/admin/users/{userId}/toggle", api::adminToggleUserStatus)
+            .delete("/api/admin/users/{userId}", api::adminDeleteUser)
             .get("/api/admin/brokers", api::adminGetBrokers)
             .get("/api/admin/user-brokers", api::adminGetUserBrokers)
             .post("/api/admin/user-brokers", api::adminCreateUserBroker)
+            .put("/api/admin/user-brokers/{userBrokerId}", api::adminUpdateUserBroker)
             .delete("/api/admin/user-brokers/{userBrokerId}", api::adminDeleteUserBroker)
             .post("/api/admin/user-brokers/{userBrokerId}/toggle", api::adminToggleUserBroker)
             .post("/api/admin/portfolios", api::adminCreatePortfolio)
             .get("/api/admin/portfolios", api::adminGetPortfolios)
+            .put("/api/admin/portfolios/{portfolioId}", api::adminUpdatePortfolio)
+            .delete("/api/admin/portfolios/{portfolioId}", api::adminDeletePortfolio)
             .post("/api/admin/watchlist", api::adminAddWatchlist)
             .get("/api/admin/watchlist", api::adminGetWatchlist)
+            .put("/api/admin/watchlist/{id}", api::adminUpdateWatchlistItem)
             .delete("/api/admin/watchlist/{id}", api::adminDeleteWatchlistItem)
             .post("/api/admin/watchlist/{id}/toggle", api::adminToggleWatchlistItem)
             .get("/api/admin/data-broker", api::adminGetDataBroker)

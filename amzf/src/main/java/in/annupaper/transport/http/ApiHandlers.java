@@ -9,6 +9,7 @@ import in.annupaper.broker.BrokerAdapter;
 import in.annupaper.broker.BrokerAdapterFactory;
 import in.annupaper.domain.broker.BrokerIds;
 import in.annupaper.domain.broker.Broker;
+import in.annupaper.domain.broker.BrokerRole;
 import in.annupaper.domain.user.Portfolio;
 import in.annupaper.domain.trade.TradeEvent;
 import in.annupaper.domain.broker.UserBroker;
@@ -36,7 +37,9 @@ import java.util.function.Function;
  */
 public final class ApiHandlers {
     private static final Logger log = LoggerFactory.getLogger(ApiHandlers.class);
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+        .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+        .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final TradeEventRepository eventRepo;
     private final Function<String, String> tokenValidator;  // Authorization header -> userId
@@ -55,6 +58,8 @@ public final class ApiHandlers {
     private final in.annupaper.service.signal.ExitSignalService exitSignalService;
     private final in.annupaper.service.candle.RecoveryManager recoveryManager;
     private final in.annupaper.service.candle.MtfBackfillService mtfBackfillService;
+    private final in.annupaper.repository.SignalRepository signalRepo;
+    private final in.annupaper.repository.TradeRepository tradeRepo;
 
     // Old constructor
     // public ApiHandlers(TradeEventRepository eventRepo, Function<String, String> tokenValidator) {
@@ -72,7 +77,9 @@ public final class ApiHandlers {
                        in.annupaper.service.candle.TickCandleBuilder tickCandleBuilder,
                        in.annupaper.service.signal.ExitSignalService exitSignalService,
                        in.annupaper.service.candle.RecoveryManager recoveryManager,
-                       in.annupaper.service.candle.MtfBackfillService mtfBackfillService) {
+                       in.annupaper.service.candle.MtfBackfillService mtfBackfillService,
+                       in.annupaper.repository.SignalRepository signalRepo,
+                       in.annupaper.repository.TradeRepository tradeRepo) {
         this.eventRepo = eventRepo;
         this.tokenValidator = tokenValidator;
         this.jwtService = jwtService;
@@ -88,6 +95,8 @@ public final class ApiHandlers {
         this.exitSignalService = exitSignalService;
         this.recoveryManager = recoveryManager;
         this.mtfBackfillService = mtfBackfillService;
+        this.signalRepo = signalRepo;
+        this.tradeRepo = tradeRepo;
     }
 
     /**
@@ -330,15 +339,37 @@ public final class ApiHandlers {
             unauthorized(exchange);
             return;
         }
-        
+
+        // Extract token to get role
+        String token = null;
+        String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        }
+
+        // Decode token to get role
+        String role = "USER";  // default
+        if (token != null) {
+            try {
+                var claims = jwtService.getClaims(token);
+                if (claims != null) {
+                    role = claims.role();
+                    if (role == null) role = "USER";
+                }
+            } catch (Exception e) {
+                log.warn("Failed to decode token for role: {}", e.getMessage());
+            }
+        }
+
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-        
+
         // TODO: Fetch real data from repositories
         ObjectNode response = MAPPER.createObjectNode();
-        
+
         ObjectNode user = MAPPER.createObjectNode();
         user.put("id", userId);
         user.put("name", "User " + userId);
+        user.put("role", role);  // ✅ Add role to user object
         response.set("user", user);
         
         ObjectNode portfolio = MAPPER.createObjectNode();
@@ -450,8 +481,9 @@ public final class ApiHandlers {
     }
     
     /**
-     * GET /api/signals?afterSeq=0&limit=50
-     * Returns recent signals (GLOBAL, visible to all).
+     * GET /api/signals?status=PUBLISHED
+     * Returns signals, optionally filtered by status.
+     * Signals are visible to all authenticated users.
      */
     public void signals(HttpServerExchange exchange) {
         String userId = authenticate(exchange);
@@ -459,17 +491,58 @@ public final class ApiHandlers {
             unauthorized(exchange);
             return;
         }
-        
-        // Signals are GLOBAL, but we still require authentication
-        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-        
-        // TODO: Fetch signals from repository
+
         try {
-            ObjectNode response = MAPPER.createObjectNode();
-            response.set("signals", MAPPER.createArrayNode());
-            exchange.getResponseSender().send(MAPPER.writeValueAsString(response), StandardCharsets.UTF_8);
+            Map<String, Deque<String>> params = exchange.getQueryParameters();
+            String statusFilter = params.containsKey("status") ? params.get("status").getFirst() : null;
+
+            List<in.annupaper.domain.signal.Signal> signals;
+            if (statusFilter != null) {
+                signals = signalRepo.findByStatus(statusFilter);
+            } else {
+                // Default to PUBLISHED signals only
+                signals = signalRepo.findByStatus("PUBLISHED");
+            }
+
+            ArrayNode signalsArray = MAPPER.createArrayNode();
+
+            for (in.annupaper.domain.signal.Signal s : signals) {
+                ObjectNode sNode = MAPPER.createObjectNode();
+                sNode.put("id", s.signalId());
+                sNode.put("symbol", s.symbol());
+                sNode.put("direction", s.direction().name());
+                sNode.put("confluenceType", s.confluenceType());
+                if (s.confluenceScore() != null) {
+                    sNode.put("confluenceScore", s.confluenceScore().doubleValue());
+                }
+                if (s.effectiveFloor() != null) {
+                    sNode.put("effectiveFloor", s.effectiveFloor().doubleValue());
+                }
+                if (s.effectiveCeiling() != null) {
+                    sNode.put("effectiveCeiling", s.effectiveCeiling().doubleValue());
+                }
+                if (s.refPrice() != null) {
+                    sNode.put("refPrice", s.refPrice().doubleValue());
+                }
+                if (s.entryLow() != null) {
+                    sNode.put("entryLow", s.entryLow().doubleValue());
+                }
+                if (s.entryHigh() != null) {
+                    sNode.put("entryHigh", s.entryHigh().doubleValue());
+                }
+                sNode.put("status", s.status());
+                sNode.put("generatedAt", s.generatedAt().toString());
+                if (s.expiresAt() != null) {
+                    sNode.put("expiresAt", s.expiresAt().toString());
+                }
+                signalsArray.add(sNode);
+            }
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(signalsArray.toString(), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            serverError(exchange, e.getMessage());
+            log.error("Error fetching signals: {}", e.getMessage(), e);
+            serverError(exchange, "Failed to fetch signals: " + e.getMessage());
         }
     }
     
@@ -483,9 +556,9 @@ public final class ApiHandlers {
             unauthorized(exchange);
             return;
         }
-        
+
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-        
+
         // TODO: Fetch user's intents from repository
         try {
             ObjectNode response = MAPPER.createObjectNode();
@@ -496,7 +569,166 @@ public final class ApiHandlers {
             serverError(exchange, e.getMessage());
         }
     }
-    
+
+    /**
+     * GET /api/portfolios
+     * Returns user's portfolios.
+     */
+    public void portfolios(HttpServerExchange exchange) {
+        String userId = authenticate(exchange);
+        if (userId == null) {
+            unauthorized(exchange);
+            return;
+        }
+
+        try {
+            List<Portfolio> portfolios = adminService.getUserPortfolios(userId);
+            ArrayNode portfoliosArray = MAPPER.createArrayNode();
+
+            for (Portfolio p : portfolios) {
+                ObjectNode pNode = MAPPER.createObjectNode();
+                pNode.put("id", p.portfolioId());
+                pNode.put("userId", p.userId());
+                pNode.put("name", p.name());
+                if (p.totalCapital() != null) {
+                    pNode.put("totalCapital", p.totalCapital().doubleValue());
+                }
+                if (p.reservedCapital() != null) {
+                    pNode.put("reservedCapital", p.reservedCapital().doubleValue());
+                }
+                BigDecimal availableCap = p.availableCapital();
+                if (availableCap != null) {
+                    pNode.put("availableCapital", availableCap.doubleValue());
+                }
+                pNode.put("status", p.status());
+                pNode.put("paused", p.paused());
+                pNode.put("createdAt", p.createdAt().toString());
+                if (p.updatedAt() != null) {
+                    pNode.put("updatedAt", p.updatedAt().toString());
+                }
+                portfoliosArray.add(pNode);
+            }
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(portfoliosArray.toString(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("Error fetching portfolios for user {}: {}", userId, e.getMessage(), e);
+            serverError(exchange, "Failed to fetch portfolios: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/trades?status=open|closed
+     * Returns user's trades, optionally filtered by status.
+     */
+    public void trades(HttpServerExchange exchange) {
+        String userId = authenticate(exchange);
+        if (userId == null) {
+            unauthorized(exchange);
+            return;
+        }
+
+        try {
+            Map<String, Deque<String>> params = exchange.getQueryParameters();
+            String statusFilter = params.containsKey("status") ? params.get("status").getFirst() : null;
+
+            List<in.annupaper.domain.trade.Trade> trades;
+            if (statusFilter != null) {
+                // Filter by user and status
+                trades = tradeRepo.findByUserId(userId).stream()
+                    .filter(t -> statusFilter.equalsIgnoreCase(t.status()))
+                    .toList();
+            } else {
+                trades = tradeRepo.findByUserId(userId);
+            }
+
+            ArrayNode tradesArray = MAPPER.createArrayNode();
+
+            for (in.annupaper.domain.trade.Trade t : trades) {
+                ObjectNode tNode = MAPPER.createObjectNode();
+                tNode.put("id", t.tradeId());
+                tNode.put("portfolioId", t.portfolioId());
+                tNode.put("symbol", t.symbol());
+                tNode.put("direction", t.direction());
+                tNode.put("quantity", t.entryQty());
+                if (t.entryPrice() != null) {
+                    tNode.put("entryPrice", t.entryPrice().doubleValue());
+                }
+                if (t.exitPrice() != null) {
+                    tNode.put("exitPrice", t.exitPrice().doubleValue());
+                }
+                if (t.realizedPnl() != null) {
+                    tNode.put("pnl", t.realizedPnl().doubleValue());
+                } else if (t.unrealizedPnl() != null) {
+                    tNode.put("pnl", t.unrealizedPnl().doubleValue());
+                }
+                tNode.put("status", t.status());
+                tNode.put("entryTime", t.entryTimestamp().toString());
+                if (t.exitTimestamp() != null) {
+                    tNode.put("exitTime", t.exitTimestamp().toString());
+                }
+                tradesArray.add(tNode);
+            }
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(tradesArray.toString(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("Error fetching trades for user {}: {}", userId, e.getMessage(), e);
+            serverError(exchange, "Failed to fetch trades: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/watchlists
+     * Returns user's watchlists.
+     */
+    public void watchlists(HttpServerExchange exchange) {
+        String userId = authenticate(exchange);
+        if (userId == null) {
+            unauthorized(exchange);
+            return;
+        }
+
+        try {
+            List<Watchlist> watchlists = watchlistRepo.findByUserId(userId);
+            ArrayNode watchlistsArray = MAPPER.createArrayNode();
+
+            for (Watchlist w : watchlists) {
+                ObjectNode wNode = MAPPER.createObjectNode();
+                if (w.id() != null) {
+                    wNode.put("id", w.id().toString());
+                }
+                wNode.put("symbol", w.symbol());
+                wNode.put("enabled", w.enabled());
+                if (w.lotSize() != null) {
+                    wNode.put("lotSize", w.lotSize());
+                }
+                if (w.tickSize() != null) {
+                    wNode.put("tickSize", w.tickSize().doubleValue());
+                }
+                if (w.lastPrice() != null) {
+                    wNode.put("lastPrice", w.lastPrice().doubleValue());
+                }
+                if (w.lastTickTime() != null) {
+                    wNode.put("lastTickTime", w.lastTickTime().toString());
+                }
+                if (w.addedAt() != null) {
+                    wNode.put("addedAt", w.addedAt().toString());
+                }
+                if (w.updatedAt() != null) {
+                    wNode.put("updatedAt", w.updatedAt().toString());
+                }
+                watchlistsArray.add(wNode);
+            }
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(watchlistsArray.toString(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("Error fetching watchlists for user {}: {}", userId, e.getMessage(), e);
+            serverError(exchange, "Failed to fetch watchlists: " + e.getMessage());
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // ADMIN ENDPOINTS
     // ═══════════════════════════════════════════════════════════════
@@ -529,6 +761,91 @@ public final class ApiHandlers {
         } catch (Exception e) {
             log.error("Error getting users: {}", e.getMessage(), e);
             serverError(exchange, "Failed to get users");
+        }
+    }
+
+    /**
+     * PUT /api/admin/users/:userId - Update user details (admin only).
+     */
+    public void adminUpdateUser(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        String userId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+            .getParameters().get("userId");
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+                String displayName = json.get("displayName").asText();
+                String role = json.get("role").asText();
+
+                adminService.updateUser(userId, displayName, role);
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put("success", true);
+                response.put("message", "User updated successfully");
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (Exception e) {
+                log.error("Error updating user: {}", e.getMessage(), e);
+                serverError(ex, "Failed to update user");
+            }
+        }, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * POST /api/admin/users/:userId/toggle - Toggle user status between ACTIVE and SUSPENDED (admin only).
+     */
+    public void adminToggleUserStatus(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        try {
+            String userId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                .getParameters().get("userId");
+
+            String newStatus = adminService.toggleUserStatus(userId);
+
+            ObjectNode response = MAPPER.createObjectNode();
+            response.put("success", true);
+            response.put("status", newStatus);
+            response.put("message", "User status toggled to " + newStatus);
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            log.error("Error toggling user status: {}", e.getMessage(), e);
+            serverError(exchange, "Failed to toggle user status");
+        }
+    }
+
+    /**
+     * DELETE /api/admin/users/:userId - Soft delete user (admin only).
+     */
+    public void adminDeleteUser(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        try {
+            String userId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                .getParameters().get("userId");
+
+            adminService.deleteUser(userId);
+
+            ObjectNode response = MAPPER.createObjectNode();
+            response.put("success", true);
+            response.put("message", "User deleted successfully");
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            log.error("Error deleting user: {}", e.getMessage(), e);
+            serverError(exchange, "Failed to delete user");
         }
     }
 
@@ -571,11 +888,18 @@ public final class ApiHandlers {
         try {
             List<UserBroker> userBrokers = adminService.getAllUserBrokers();
             List<AdminService.User> users = adminService.getAllUsers();
+            List<Broker> brokers = adminService.getAllBrokers();
 
             // Create a map of userId -> displayName for quick lookup
             Map<String, String> userDisplayNames = new HashMap<>();
             for (AdminService.User user : users) {
                 userDisplayNames.put(user.userId(), user.displayName());
+            }
+
+            // Create a map of brokerId -> brokerName for quick lookup
+            Map<String, String> brokerNames = new HashMap<>();
+            for (Broker broker : brokers) {
+                brokerNames.put(broker.brokerId(), broker.brokerName());
             }
 
             ArrayNode ubArray = MAPPER.createArrayNode();
@@ -586,6 +910,7 @@ public final class ApiHandlers {
                 ubNode.put("userId", ub.userId());
                 ubNode.put("displayName", userDisplayNames.getOrDefault(ub.userId(), "Unknown"));
                 ubNode.put("brokerId", ub.brokerId());
+                ubNode.put("brokerName", brokerNames.getOrDefault(ub.brokerId(), "Unknown"));
                 ubNode.put("role", ub.role().name());
                 ubNode.put("connected", ub.connected());
                 if (ub.lastConnected() != null) {
@@ -663,6 +988,50 @@ public final class ApiHandlers {
             log.error("Error toggling user-broker: {}", e.getMessage(), e);
             serverError(exchange, "Failed to toggle user-broker");
         }
+    }
+
+    /**
+     * PUT /api/admin/user-brokers/{userBrokerId} - Update user-broker role and enabled status (admin only).
+     */
+    public void adminUpdateUserBroker(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        String userBrokerId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+            .getParameters().get("userBrokerId");
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+
+                // Parse role and enabled from request
+                BrokerRole role = null;
+                if (json.has("role") && !json.get("role").isNull()) {
+                    role = BrokerRole.valueOf(json.get("role").asText());
+                }
+
+                Boolean enabled = null;
+                if (json.has("enabled") && !json.get("enabled").isNull()) {
+                    enabled = json.get("enabled").asBoolean();
+                }
+
+                UserBroker updated = adminService.updateUserBroker(userBrokerId, role, enabled);
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put("success", true);
+                response.set("data", MAPPER.valueToTree(updated));
+                response.put("message", "User-broker updated successfully");
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (IllegalArgumentException e) {
+                badRequest(ex, e.getMessage());
+            } catch (Exception e) {
+                log.error("Error updating user-broker: {}", e.getMessage(), e);
+                serverError(ex, "Failed to update user-broker");
+            }
+        }, StandardCharsets.UTF_8);
     }
 
     /**
@@ -766,7 +1135,75 @@ public final class ApiHandlers {
     }
 
     /**
+     * PUT /api/admin/portfolios/{portfolioId} - Update portfolio (admin only).
+     */
+    public void adminUpdatePortfolio(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        String portfolioId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+            .getParameters().get("portfolioId");
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+
+                // Parse name and capital from request
+                String name = json.has("name") && !json.get("name").isNull() ? json.get("name").asText() : null;
+                BigDecimal capital = json.has("capital") && !json.get("capital").isNull()
+                    ? new BigDecimal(json.get("capital").asText())
+                    : null;
+
+                Portfolio updated = adminService.updatePortfolio(portfolioId, name, capital);
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put("success", true);
+                response.set("data", MAPPER.valueToTree(updated));
+                response.put("message", "Portfolio updated successfully");
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (IllegalArgumentException e) {
+                badRequest(ex, e.getMessage());
+            } catch (Exception e) {
+                log.error("Error updating portfolio: {}", e.getMessage(), e);
+                serverError(ex, "Failed to update portfolio");
+            }
+        }, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * DELETE /api/admin/portfolios/{portfolioId} - Soft delete portfolio (admin only).
+     */
+    public void adminDeletePortfolio(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        try {
+            String portfolioId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                .getParameters().get("portfolioId");
+
+            adminService.deletePortfolio(portfolioId);
+
+            ObjectNode response = MAPPER.createObjectNode();
+            response.put("success", true);
+            response.put("message", "Portfolio deleted successfully");
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+        } catch (IllegalArgumentException e) {
+            badRequest(exchange, e.getMessage());
+        } catch (Exception e) {
+            log.error("Error deleting portfolio: {}", e.getMessage(), e);
+            serverError(exchange, "Failed to delete portfolio");
+        }
+    }
+
+    /**
      * POST /api/admin/watchlist - Add watchlist symbol (admin only).
+     * Accepts userId or userBrokerId in request body.
      */
     public void adminAddWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
@@ -775,9 +1212,43 @@ public final class ApiHandlers {
         exchange.getRequestReceiver().receiveFullString((ex, body) -> {
             try {
                 JsonNode json = MAPPER.readTree(body);
-                String userBrokerId = json.get("userBrokerId").asText();
-                String symbol = json.get("symbol").asText();
 
+                // Accept either userId or userBrokerId
+                String userBrokerId = null;
+                String userId = null;
+
+                if (json.has("userBrokerId")) {
+                    userBrokerId = json.get("userBrokerId").asText();
+                    // Get userId from userBrokerId for validation
+                    var userBrokerOpt = userBrokerRepo.findById(userBrokerId);
+                    if (userBrokerOpt.isPresent()) {
+                        userId = userBrokerOpt.get().userId();
+                    }
+                } else if (json.has("userId")) {
+                    userId = json.get("userId").asText();
+                    // Find a userBrokerId for this userId
+                    var userBrokers = userBrokerRepo.findByUserId(userId);
+                    if (!userBrokers.isEmpty()) {
+                        userBrokerId = userBrokers.get(0).userBrokerId();
+                    } else {
+                        ex.setStatusCode(400);
+                        ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                        ex.getResponseSender().send("{\"error\":\"User has no brokers configured\"}", StandardCharsets.UTF_8);
+                        return;
+                    }
+                }
+
+                if (userBrokerId == null || userId == null) {
+                    ex.setStatusCode(400);
+                    ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                    ex.getResponseSender().send("{\"error\":\"userId or userBrokerId required\"}", StandardCharsets.UTF_8);
+                    return;
+                }
+
+                // Validate user is ACTIVE before adding watchlist item
+                adminService.validateUserIsActive(userId);
+
+                String symbol = json.get("symbol").asText();
                 adminService.addWatchlistSymbol(userBrokerId, symbol);
 
                 ObjectNode response = MAPPER.createObjectNode();
@@ -795,6 +1266,7 @@ public final class ApiHandlers {
 
     /**
      * GET /api/admin/watchlist?userId=X - Get user watchlist (admin only).
+     * If userId parameter is not provided, returns all watchlists.
      */
     public void adminGetWatchlist(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
@@ -802,15 +1274,17 @@ public final class ApiHandlers {
 
         try {
             Deque<String> userIdParam = exchange.getQueryParameters().get("userId");
+            List<Watchlist> watchlist;
+
             if (userIdParam == null || userIdParam.isEmpty()) {
-                exchange.setStatusCode(400);
-                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-                exchange.getResponseSender().send("{\"error\":\"userId parameter required\"}", StandardCharsets.UTF_8);
-                return;
+                // No userId provided - return all watchlists
+                watchlist = adminService.getAllWatchlists();
+            } else {
+                // userId provided - return watchlists for that user
+                String userId = userIdParam.peekFirst();
+                watchlist = adminService.getUserWatchlist(userId);
             }
 
-            String userId = userIdParam.peekFirst();
-            List<Watchlist> watchlist = adminService.getUserWatchlist(userId);
             ArrayNode watchlistArray = MAPPER.createArrayNode();
 
             for (Watchlist w : watchlist) {
@@ -864,7 +1338,57 @@ public final class ApiHandlers {
     }
 
     /**
+     * PUT /api/admin/watchlist/{id} - Update watchlist item (admin only).
+     */
+    public void adminUpdateWatchlistItem(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth)) return;
+
+        String idStr = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+            .getParameters().get("id");
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                Long id = Long.parseLong(idStr);
+                JsonNode json = MAPPER.readTree(body);
+
+                // Parse lotSize, tickSize, and enabled from request
+                Integer lotSize = json.has("lotSize") && !json.get("lotSize").isNull()
+                    ? json.get("lotSize").asInt()
+                    : null;
+
+                BigDecimal tickSize = json.has("tickSize") && !json.get("tickSize").isNull()
+                    ? new BigDecimal(json.get("tickSize").asText())
+                    : null;
+
+                Boolean enabled = json.has("enabled") && !json.get("enabled").isNull()
+                    ? json.get("enabled").asBoolean()
+                    : null;
+
+                Watchlist updated = adminService.updateWatchlistItem(id, lotSize, tickSize, enabled);
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put("success", true);
+                response.set("data", MAPPER.valueToTree(updated));
+                response.put("message", "Watchlist item updated successfully");
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (NumberFormatException e) {
+                badRequest(ex, "Invalid watchlist ID");
+            } catch (IllegalArgumentException e) {
+                badRequest(ex, e.getMessage());
+            } catch (Exception e) {
+                log.error("Error updating watchlist item: {}", e.getMessage(), e);
+                serverError(ex, "Failed to update watchlist item");
+            }
+        }, StandardCharsets.UTF_8);
+    }
+
+    /**
      * POST /api/admin/watchlist/{id}/toggle - Toggle watchlist item enabled status (admin only).
+     * Auto-toggles the current enabled state (no request body needed).
      */
     public void adminToggleWatchlistItem(HttpServerExchange exchange) {
         AuthContext auth = authenticateWithRole(exchange);
@@ -875,25 +1399,29 @@ public final class ApiHandlers {
                 .getParameters().get("id");
             Long id = Long.parseLong(idStr);
 
-            exchange.getRequestReceiver().receiveFullString((ex, body) -> {
-                try {
-                    JsonNode json = MAPPER.readTree(body);
-                    boolean enabled = json.get("enabled").asBoolean();
+            // Get current state and toggle it
+            var watchlists = watchlistRepo.findAll();
+            var watchlistOpt = watchlists.stream().filter(w -> w.id().equals(id)).findFirst();
 
-                    adminService.toggleWatchlistItem(id, enabled);
+            if (watchlistOpt.isEmpty()) {
+                exchange.setStatusCode(404);
+                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send("{\"error\":\"Watchlist item not found\"}", StandardCharsets.UTF_8);
+                return;
+            }
 
-                    ObjectNode response = MAPPER.createObjectNode();
-                    response.put("success", true);
-                    response.put("message", "Watchlist item toggled successfully");
+            boolean currentEnabled = watchlistOpt.get().enabled();
+            boolean newEnabled = !currentEnabled;  // Toggle
 
-                    ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-                    ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+            adminService.toggleWatchlistItem(id, newEnabled);
 
-                } catch (Exception e) {
-                    log.error("Error toggling watchlist item: {}", e.getMessage(), e);
-                    serverError(ex, "Failed to toggle watchlist item");
-                }
-            });
+            ObjectNode response = MAPPER.createObjectNode();
+            response.put("success", true);
+            response.put("message", "Watchlist item toggled successfully");
+            response.put("enabled", newEnabled);
+
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
 
         } catch (NumberFormatException e) {
             badRequest(exchange, "Invalid watchlist ID");

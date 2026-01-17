@@ -158,6 +158,48 @@ public final class AdminService {
         log.info("User-broker enabled toggled: {} -> {}", userBrokerId, !ub.enabled());
     }
 
+    /**
+     * Update user broker role and/or enabled status.
+     */
+    public UserBroker updateUserBroker(String userBrokerId, BrokerRole role, Boolean enabled) {
+        Optional<UserBroker> ubOpt = userBrokerRepo.findById(userBrokerId);
+        if (ubOpt.isEmpty()) {
+            throw new IllegalArgumentException("User-broker not found: " + userBrokerId);
+        }
+
+        UserBroker ub = ubOpt.get();
+        UserBroker updated = new UserBroker(
+            ub.userBrokerId(),
+            ub.userId(),
+            ub.brokerId(),
+            role != null ? role : ub.role(), // Update role if provided
+            ub.credentials(),
+            ub.connected(),
+            ub.lastConnected(),
+            ub.connectionError(),
+            ub.capitalAllocated(),
+            ub.maxExposure(),
+            ub.maxPerTrade(),
+            ub.maxOpenTrades(),
+            ub.allowedSymbols(),
+            ub.blockedSymbols(),
+            ub.allowedProducts(),
+            ub.maxDailyLoss(),
+            ub.maxWeeklyLoss(),
+            ub.cooldownMinutes(),
+            ub.status(),
+            enabled != null ? enabled : ub.enabled(), // Update enabled if provided
+            ub.createdAt(),
+            Instant.now(), // updated_at
+            ub.deletedAt(),
+            ub.version()
+        );
+
+        userBrokerRepo.save(updated);
+        log.info("User-broker updated: {} (role={}, enabled={})", userBrokerId, updated.role(), updated.enabled());
+        return updated;
+    }
+
     public void createBroker(String brokerId, String brokerCode, String brokerName,
                             String adapterClass, JsonNode config,
                             List<String> supportedExchanges, List<String> supportedProducts,
@@ -173,6 +215,9 @@ public final class AdminService {
     }
 
     public String createUserBroker(String userId, String brokerId, JsonNode credentials, boolean isDataBroker) {
+        // Validate user is ACTIVE before creating user-broker connection
+        validateUserIsActive(userId);
+
         String userBrokerId = "UB" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
         BrokerRole role = isDataBroker ? BrokerRole.DATA : BrokerRole.EXEC;
 
@@ -191,6 +236,9 @@ public final class AdminService {
     }
 
     public String createPortfolio(String userId, String name, BigDecimal totalCapital) {
+        // Validate user is ACTIVE before creating portfolio
+        validateUserIsActive(userId);
+
         String portfolioId = "P-" + userId;
 
         Portfolio portfolio = new Portfolio(
@@ -207,6 +255,52 @@ public final class AdminService {
 
     public List<Portfolio> getUserPortfolios(String userId) {
         return portfolioRepo.findByUserId(userId);
+    }
+
+    /**
+     * Update portfolio name and/or capital.
+     */
+    public Portfolio updatePortfolio(String portfolioId, String name, BigDecimal capital) {
+        Optional<Portfolio> portOpt = portfolioRepo.findById(portfolioId);
+        if (portOpt.isEmpty()) {
+            throw new IllegalArgumentException("Portfolio not found: " + portfolioId);
+        }
+
+        Portfolio port = portOpt.get();
+        Portfolio updated = new Portfolio(
+            port.portfolioId(),
+            port.userId(),
+            name != null ? name : port.name(), // Update name if provided
+            capital != null ? capital : port.totalCapital(), // Update capital if provided
+            port.reservedCapital(),
+            port.maxPortfolioLogLoss(),
+            port.maxSymbolWeight(),
+            port.maxSymbols(),
+            port.allocationMode(),
+            port.status(),
+            port.paused(),
+            port.createdAt(),
+            Instant.now(), // updated_at
+            port.deletedAt(),
+            port.version()
+        );
+
+        portfolioRepo.update(updated);
+        log.info("Portfolio updated: {} (name={}, capital={})", portfolioId, updated.name(), updated.totalCapital());
+        return updated;
+    }
+
+    /**
+     * Soft delete portfolio by setting deleted_at timestamp.
+     */
+    public void deletePortfolio(String portfolioId) {
+        Optional<Portfolio> portOpt = portfolioRepo.findById(portfolioId);
+        if (portOpt.isEmpty()) {
+            throw new IllegalArgumentException("Portfolio not found: " + portfolioId);
+        }
+
+        portfolioRepo.delete(portfolioId);
+        log.info("Portfolio deleted (soft): {}", portfolioId);
     }
 
     // public void addWatchlistSymbol(String userBrokerId, String symbol) {
@@ -248,6 +342,10 @@ public final class AdminService {
         fetchHistoricalDailyCandles(userBrokerId, cleanSymbol);
     }
 
+    public List<Watchlist> getAllWatchlists() {
+        return watchlistRepo.findAll();
+    }
+
     public List<Watchlist> getUserWatchlist(String userId) {
         return watchlistRepo.findByUserId(userId);
     }
@@ -260,6 +358,39 @@ public final class AdminService {
     public void toggleWatchlistItem(Long id, boolean enabled) {
         watchlistRepo.toggleEnabled(id, enabled);
         log.info("Watchlist item {} enabled set to: {}", id, enabled);
+    }
+
+    /**
+     * Update watchlist item lot size, tick size, and/or enabled status.
+     */
+    public Watchlist updateWatchlistItem(Long id, Integer lotSize, BigDecimal tickSize, Boolean enabled) {
+        Optional<Watchlist> watchlistOpt = watchlistRepo.findById(id);
+        if (watchlistOpt.isEmpty()) {
+            throw new IllegalArgumentException("Watchlist item not found: " + id);
+        }
+
+        Watchlist item = watchlistOpt.get();
+        Watchlist updated = new Watchlist(
+            item.id(),
+            item.userBrokerId(),
+            item.symbol(),
+            lotSize != null ? lotSize : item.lotSize(), // Update lot size if provided
+            tickSize != null ? tickSize : item.tickSize(), // Update tick size if provided
+            item.isCustom(),
+            enabled != null ? enabled : item.enabled(), // Update enabled if provided
+            item.addedAt(),
+            Instant.now(), // updated_at
+            item.lastSyncedAt(),
+            item.deletedAt(),
+            item.version(),
+            item.lastPrice(),
+            item.lastTickTime()
+        );
+
+        watchlistRepo.save(updated);
+        log.info("Watchlist item updated: {} (lot_size={}, tick_size={}, enabled={})",
+            id, updated.lotSize(), updated.tickSize(), updated.enabled());
+        return updated;
     }
 
     public List<User> getAllUsers() {
@@ -1234,5 +1365,135 @@ public final class AdminService {
             rs.getBigDecimal("last_price"),
             rs.getTimestamp("last_tick_time") != null ? rs.getTimestamp("last_tick_time").toInstant() : null
         );
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // USER MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Update user details (display name, role).
+     */
+    public void updateUser(String userId, String displayName, String role) {
+        String sql = "UPDATE users SET display_name = ?, role = ?, updated_at = ?, version = version + 1 WHERE user_id = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, displayName);
+            stmt.setString(2, role);
+            stmt.setTimestamp(3, java.sql.Timestamp.from(Instant.now()));
+            stmt.setString(4, userId);
+
+            int updated = stmt.executeUpdate();
+            if (updated == 0) {
+                throw new IllegalArgumentException("User not found: " + userId);
+            }
+
+            log.info("Updated user: {} - displayName: {}, role: {}", userId, displayName, role);
+        } catch (Exception e) {
+            log.error("Failed to update user {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to update user", e);
+        }
+    }
+
+    /**
+     * Toggle user status between ACTIVE and SUSPENDED.
+     */
+    public String toggleUserStatus(String userId) {
+        String selectSql = "SELECT status FROM users WHERE user_id = ?";
+        String updateSql = "UPDATE users SET status = ?, updated_at = ?, version = version + 1 WHERE user_id = ?";
+
+        try (Connection conn = dataSource.getConnection()) {
+            String currentStatus;
+
+            // Get current status
+            try (PreparedStatement stmt = conn.prepareStatement(selectSql)) {
+                stmt.setString(1, userId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalArgumentException("User not found: " + userId);
+                    }
+                    currentStatus = rs.getString("status");
+                }
+            }
+
+            // Toggle status
+            String newStatus = "ACTIVE".equals(currentStatus) ? "SUSPENDED" : "ACTIVE";
+
+            // Update status
+            try (PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+                stmt.setString(1, newStatus);
+                stmt.setTimestamp(2, java.sql.Timestamp.from(Instant.now()));
+                stmt.setString(3, userId);
+                stmt.executeUpdate();
+            }
+
+            log.info("Toggled user {} status: {} -> {}", userId, currentStatus, newStatus);
+            return newStatus;
+
+        } catch (Exception e) {
+            log.error("Failed to toggle user {} status: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to toggle user status", e);
+        }
+    }
+
+    /**
+     * Soft delete user by setting deleted_at and status to DELETED.
+     */
+    public void deleteUser(String userId) {
+        String sql = "UPDATE users SET status = 'DELETED', deleted_at = ?, updated_at = ?, version = version + 1 WHERE user_id = ? AND deleted_at IS NULL";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            Instant now = Instant.now();
+            stmt.setTimestamp(1, java.sql.Timestamp.from(now));
+            stmt.setTimestamp(2, java.sql.Timestamp.from(now));
+            stmt.setString(3, userId);
+
+            int updated = stmt.executeUpdate();
+            if (updated == 0) {
+                throw new IllegalArgumentException("User not found or already deleted: " + userId);
+            }
+
+            log.info("Soft deleted user: {}", userId);
+        } catch (Exception e) {
+            log.error("Failed to delete user {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete user", e);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // USER STATUS VALIDATION
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Validate that a user is ACTIVE before allowing data creation.
+     * Throws IllegalStateException if user is SUSPENDED or DELETED.
+     */
+    public void validateUserIsActive(String userId) {
+        String sql = "SELECT status FROM users WHERE user_id = ?";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, userId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalArgumentException("User not found: " + userId);
+                }
+
+                String status = rs.getString("status");
+                if (!"ACTIVE".equals(status)) {
+                    throw new IllegalStateException(
+                        "Cannot create data for user with status: " + status + ". Only ACTIVE users can have data created."
+                    );
+                }
+            }
+
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to validate user status for {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to validate user status", e);
+        }
     }
 }

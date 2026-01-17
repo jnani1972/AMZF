@@ -20,6 +20,26 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
     }
 
     @Override
+    public List<Watchlist> findAll() {
+        String sql = "SELECT * FROM watchlist WHERE deleted_at IS NULL ORDER BY added_at";
+        List<Watchlist> watchlists = new ArrayList<>();
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    watchlists.add(mapRow(rs));
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error finding all watchlists: {}", e.getMessage(), e);
+        }
+
+        return watchlists;
+    }
+
+    @Override
     public List<Watchlist> findByUserBrokerId(String userBrokerId) {
         String sql = "SELECT * FROM watchlist WHERE user_broker_id = ? AND deleted_at IS NULL ORDER BY added_at";
         List<Watchlist> watchlists = new ArrayList<>();
@@ -67,6 +87,67 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         }
 
         return watchlists;
+    }
+
+    @Override
+    public java.util.Optional<Watchlist> findById(Long id) {
+        String sql = "SELECT * FROM watchlist WHERE id = ? AND deleted_at IS NULL";
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setLong(1, id);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return java.util.Optional.of(mapRow(rs));
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error finding watchlist by id: {}", e.getMessage(), e);
+        }
+
+        return java.util.Optional.empty();
+    }
+
+    @Override
+    public void save(Watchlist watchlist) {
+        String sql = """
+            UPDATE watchlist
+            SET lot_size = ?, tick_size = ?, enabled = ?, updated_at = NOW(), version = version + 1
+            WHERE id = ? AND deleted_at IS NULL
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            if (watchlist.lotSize() != null) {
+                ps.setInt(1, watchlist.lotSize());
+            } else {
+                ps.setNull(1, java.sql.Types.INTEGER);
+            }
+
+            if (watchlist.tickSize() != null) {
+                ps.setBigDecimal(2, watchlist.tickSize());
+            } else {
+                ps.setNull(2, java.sql.Types.DECIMAL);
+            }
+
+            ps.setBoolean(3, watchlist.enabled());
+            ps.setLong(4, watchlist.id());
+
+            int updated = ps.executeUpdate();
+            if (updated > 0) {
+                log.info("Watchlist entry updated: {} (lot_size={}, tick_size={}, enabled={})",
+                    watchlist.id(), watchlist.lotSize(), watchlist.tickSize(), watchlist.enabled());
+            } else {
+                log.warn("Watchlist entry not found or already deleted: {}", watchlist.id());
+            }
+
+        } catch (Exception e) {
+            log.error("Error updating watchlist: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to update watchlist", e);
+        }
     }
 
     // @Override
