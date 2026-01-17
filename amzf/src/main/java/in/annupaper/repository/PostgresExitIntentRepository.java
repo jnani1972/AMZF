@@ -554,4 +554,84 @@ public final class PostgresExitIntentRepository implements ExitIntentRepository 
             ps.setNull(index, Types.TIMESTAMP);
         }
     }
+
+    // ========================================================================
+    // MONITORING METHODS
+    // ========================================================================
+
+    @Override
+    public long countStuckExitIntents(int thresholdMinutes) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM exit_intents
+            WHERE status IN ('PENDING', 'APPROVED', 'PLACED')
+              AND created_at < NOW() - INTERVAL '1 minute' * ?
+              AND deleted_at IS NULL
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, thresholdMinutes);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to count stuck exit intents: {}", e.getMessage());
+            throw new RuntimeException("Failed to count stuck exit intents", e);
+        }
+        return 0;
+    }
+
+    @Override
+    public List<ExitIntent> findStuckExitIntents(int thresholdMinutes) {
+        String sql = """
+            SELECT * FROM exit_intents
+            WHERE status IN ('PENDING', 'APPROVED', 'PLACED')
+              AND created_at < NOW() - INTERVAL '1 minute' * ?
+              AND deleted_at IS NULL
+            ORDER BY created_at ASC
+            """;
+
+        List<ExitIntent> intents = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, thresholdMinutes);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    intents.add(mapRow(rs));
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to find stuck exit intents: {}", e.getMessage());
+            throw new RuntimeException("Failed to find stuck exit intents", e);
+        }
+        return intents;
+    }
+
+    @Override
+    public long countPendingExitIntents() {
+        String sql = """
+            SELECT COUNT(*)
+            FROM exit_intents
+            WHERE status IN ('PENDING', 'APPROVED', 'PLACED')
+              AND deleted_at IS NULL
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+        } catch (Exception e) {
+            log.error("Failed to count pending exit intents: {}", e.getMessage());
+            throw new RuntimeException("Failed to count pending exit intents", e);
+        }
+        return 0;
+    }
 }

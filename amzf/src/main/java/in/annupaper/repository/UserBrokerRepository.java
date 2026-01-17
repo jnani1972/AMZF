@@ -54,4 +54,36 @@ public interface UserBrokerRepository {
      * Update connection status.
      */
     void updateConnectionStatus(String userBrokerId, boolean connected, String errorMessage);
+
+    // ========================================================================
+    // MONITORING METHODS
+    // ========================================================================
+
+    /**
+     * Count expired broker sessions (session_expiry_at < NOW).
+     *
+     * @return Count of expired broker sessions
+     */
+    long countExpiredBrokerSessions();
+
+    /**
+     * Count broker sessions expiring soon (session_expiry_at < NOW + 1 hour).
+     *
+     * @return Count of broker sessions expiring within 1 hour
+     */
+    long countExpiringSoonBrokerSessions();
+
+    /**
+     * Find expired broker sessions for alerting.
+     *
+     * @return List of expired UserBrokers
+     */
+    java.util.List<UserBroker> findExpiredBrokerSessions();
+
+    /**
+     * Count active brokers (is_active = true, deleted_at IS NULL).
+     *
+     * @return Count of active brokers
+     */
+    long countActiveBrokers();
 }

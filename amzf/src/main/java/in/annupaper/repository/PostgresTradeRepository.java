@@ -995,4 +995,131 @@ public final class PostgresTradeRepository implements TradeRepository {
             throw new RuntimeException("Failed to update exit order placed", e);
         }
     }
+
+    // ========================================================================
+    // MONITORING METHODS
+    // ========================================================================
+
+    @Override
+    public long countOpenTrades() {
+        String sql = """
+            SELECT COUNT(*)
+            FROM trades
+            WHERE status = 'OPEN'
+              AND deleted_at IS NULL
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+        } catch (Exception e) {
+            log.error("Failed to count open trades: {}", e.getMessage());
+            throw new RuntimeException("Failed to count open trades", e);
+        }
+        return 0;
+    }
+
+    @Override
+    public long countClosedTradesToday() {
+        String sql = """
+            SELECT COUNT(*)
+            FROM trades
+            WHERE status = 'CLOSED'
+              AND exit_timestamp >= CURRENT_DATE
+              AND deleted_at IS NULL
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+        } catch (Exception e) {
+            log.error("Failed to count closed trades today: {}", e.getMessage());
+            throw new RuntimeException("Failed to count closed trades today", e);
+        }
+        return 0;
+    }
+
+    @Override
+    public java.util.Map<String, Object> getTradeHealthMetrics() {
+        String sql = """
+            SELECT
+                COUNT(*) as total_open_trades,
+                SUM(CASE WHEN direction = 'BUY' THEN entry_qty ELSE 0 END) as long_positions,
+                SUM(CASE WHEN direction = 'SELL' THEN entry_qty ELSE 0 END) as short_positions,
+                SUM(entry_qty * entry_price) as total_exposure_value,
+                AVG(EXTRACT(EPOCH FROM (NOW() - entry_timestamp)) / 3600) as avg_holding_hours
+            FROM trades
+            WHERE status = 'OPEN'
+              AND deleted_at IS NULL
+            """;
+
+        java.util.Map<String, Object> metrics = new java.util.HashMap<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                metrics.put("total_open_trades", rs.getInt("total_open_trades"));
+                metrics.put("long_positions", rs.getInt("long_positions"));
+                metrics.put("short_positions", rs.getInt("short_positions"));
+                metrics.put("total_exposure_value", rs.getBigDecimal("total_exposure_value"));
+                metrics.put("avg_holding_hours", rs.getDouble("avg_holding_hours"));
+            }
+        } catch (Exception e) {
+            log.error("Failed to get trade health metrics: {}", e.getMessage());
+            throw new RuntimeException("Failed to get trade health metrics", e);
+        }
+        return metrics;
+    }
+
+    @Override
+    public java.util.Map<String, Object> getDailyPerformanceMetrics() {
+        String sql = """
+            SELECT
+                COUNT(*) as trades_closed,
+                COUNT(CASE WHEN realized_pnl > 0 THEN 1 END) as winning_trades,
+                COUNT(CASE WHEN realized_pnl < 0 THEN 1 END) as losing_trades,
+                ROUND(100.0 * COUNT(CASE WHEN realized_pnl > 0 THEN 1 END) / NULLIF(COUNT(*), 0), 2) as win_rate_percent,
+                SUM(realized_pnl) as total_pnl,
+                AVG(realized_pnl) as avg_pnl_per_trade,
+                MAX(realized_pnl) as best_trade,
+                MIN(realized_pnl) as worst_trade
+            FROM trades
+            WHERE status = 'CLOSED'
+              AND exit_timestamp >= CURRENT_DATE
+              AND deleted_at IS NULL
+            """;
+
+        java.util.Map<String, Object> metrics = new java.util.HashMap<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                int tradesClosed = rs.getInt("trades_closed");
+                if (tradesClosed > 0) {
+                    metrics.put("trades_closed", tradesClosed);
+                    metrics.put("winning_trades", rs.getInt("winning_trades"));
+                    metrics.put("losing_trades", rs.getInt("losing_trades"));
+                    metrics.put("win_rate_percent", rs.getDouble("win_rate_percent"));
+                    metrics.put("total_pnl", rs.getBigDecimal("total_pnl"));
+                    metrics.put("avg_pnl_per_trade", rs.getBigDecimal("avg_pnl_per_trade"));
+                    metrics.put("best_trade", rs.getBigDecimal("best_trade"));
+                    metrics.put("worst_trade", rs.getBigDecimal("worst_trade"));
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to get daily performance metrics: {}", e.getMessage());
+            throw new RuntimeException("Failed to get daily performance metrics", e);
+        }
+        return metrics;
+    }
 }

@@ -144,4 +144,31 @@ public interface ExitIntentRepository {
      * @return New retry count
      */
     int incrementRetryCount(String exitIntentId);
+
+    // ========================================================================
+    // MONITORING METHODS
+    // ========================================================================
+
+    /**
+     * Count exit intents stuck in pending states beyond threshold.
+     *
+     * @param thresholdMinutes Number of minutes before considering stuck
+     * @return Count of stuck exit intents
+     */
+    long countStuckExitIntents(int thresholdMinutes);
+
+    /**
+     * Find exit intents stuck in pending states beyond threshold.
+     *
+     * @param thresholdMinutes Number of minutes before considering stuck
+     * @return List of stuck exit intents
+     */
+    List<ExitIntent> findStuckExitIntents(int thresholdMinutes);
+
+    /**
+     * Count pending exit intents (PENDING, APPROVED, PLACED).
+     *
+     * @return Count of pending exit intents
+     */
+    long countPendingExitIntents();
 }

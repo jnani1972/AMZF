@@ -154,4 +154,36 @@ public interface TradeRepository {
      * @param placedAt Timestamp when exit order was placed
      */
     void updateExitOrderPlaced(String tradeId, String exitOrderId, java.time.Instant placedAt);
+
+    // ========================================================================
+    // MONITORING METHODS
+    // ========================================================================
+
+    /**
+     * Count currently open trades.
+     *
+     * @return Count of open trades
+     */
+    long countOpenTrades();
+
+    /**
+     * Count trades closed today.
+     *
+     * @return Count of trades closed today
+     */
+    long countClosedTradesToday();
+
+    /**
+     * Get trade health metrics (open trades, exposure, positions).
+     *
+     * @return Map with trade health metrics
+     */
+    java.util.Map<String, Object> getTradeHealthMetrics();
+
+    /**
+     * Get daily performance metrics (P&L, win rate, etc.).
+     *
+     * @return Map with daily performance metrics
+     */
+    java.util.Map<String, Object> getDailyPerformanceMetrics();
 }

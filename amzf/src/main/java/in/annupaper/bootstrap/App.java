@@ -36,6 +36,8 @@ import in.annupaper.repository.TradeRepository;
 import in.annupaper.repository.UserBrokerRepository;
 import in.annupaper.repository.WatchlistRepository;
 import in.annupaper.service.admin.AdminService;
+import in.annupaper.application.monitoring.AlertService;
+import in.annupaper.application.monitoring.MonitoringService;
 import in.annupaper.service.candle.CandleFetcher;
 import in.annupaper.service.candle.CandleReconciler;
 import in.annupaper.service.candle.CandleStore;
@@ -168,6 +170,22 @@ public final class App {
         ExitSignalRepository exitSignalRepo = new PostgresExitSignalRepository(dataSource);
         in.annupaper.repository.ExitIntentRepository exitIntentRepo =
             new in.annupaper.repository.PostgresExitIntentRepository(dataSource);
+
+        // ═══════════════════════════════════════════════════════════════
+        // Monitoring Services (System Health & Alerting)
+        // ═══════════════════════════════════════════════════════════════
+        AlertService alertService = new AlertService();
+        MonitoringService monitoringService = new MonitoringService(
+            exitIntentRepo, tradeRepo, userBrokerRepo, alertService);
+        monitoringService.start();
+        log.info("✓ Monitoring service started (health checks running)");
+
+        // Add shutdown hook for graceful cleanup
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down monitoring service...");
+            monitoringService.stop();
+            log.info("✓ Monitoring service stopped");
+        }));
 
         // ═══════════════════════════════════════════════════════════════
         // ✅ STARTUP VALIDATION GATE (P0-A)

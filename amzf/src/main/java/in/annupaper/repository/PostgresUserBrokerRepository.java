@@ -522,4 +522,105 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
             status, enabled, createdAt, updatedAt, deletedAt, version
         );
     }
+
+    // ========================================================================
+    // MONITORING METHODS
+    // ========================================================================
+
+    @Override
+    public long countExpiredBrokerSessions() {
+        String sql = """
+            SELECT COUNT(*)
+            FROM user_brokers
+            WHERE enabled = true
+              AND deleted_at IS NULL
+              AND session_expiry_at < NOW()
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return 0L;
+        } catch (SQLException e) {
+            log.error("Failed to count expired broker sessions", e);
+            return 0L;
+        }
+    }
+
+    @Override
+    public long countExpiringSoonBrokerSessions() {
+        String sql = """
+            SELECT COUNT(*)
+            FROM user_brokers
+            WHERE enabled = true
+              AND deleted_at IS NULL
+              AND session_expiry_at > NOW()
+              AND session_expiry_at < NOW() + INTERVAL '1 hour'
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return 0L;
+        } catch (SQLException e) {
+            log.error("Failed to count expiring soon broker sessions", e);
+            return 0L;
+        }
+    }
+
+    @Override
+    public List<UserBroker> findExpiredBrokerSessions() {
+        String sql = """
+            SELECT *
+            FROM user_brokers
+            WHERE enabled = true
+              AND deleted_at IS NULL
+              AND session_expiry_at < NOW()
+            ORDER BY session_expiry_at ASC
+            """;
+
+        List<UserBroker> results = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                results.add(mapRow(rs));
+            }
+        } catch (SQLException e) {
+            log.error("Failed to find expired broker sessions", e);
+        }
+        return results;
+    }
+
+    @Override
+    public long countActiveBrokers() {
+        String sql = """
+            SELECT COUNT(*)
+            FROM user_brokers
+            WHERE enabled = true
+              AND deleted_at IS NULL
+            """;
+
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+            return 0L;
+        } catch (SQLException e) {
+            log.error("Failed to count active brokers", e);
+            return 0L;
+        }
+    }
 }
