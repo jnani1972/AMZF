@@ -26,7 +26,7 @@ echo "════════════════════════�
 echo ""
 
 # Check if JMeter is installed
-if [ ! -d "$JMETER_HOME" ]; then
+if [[ ! -d "$JMETER_HOME" ]]; then
     echo -e "${RED}ERROR: JMeter not found at $JMETER_HOME${NC}"
     echo ""
     echo "Please install JMeter:"
@@ -82,7 +82,7 @@ echo "  Test Summary"
 echo "═══════════════════════════════════════════════════════════════"
 
 # Parse results (simplified)
-if [ -f "$RESULTS_DIR/results.jtl" ]; then
+if [[ -f "$RESULTS_DIR/results.jtl" ]]; then
     TOTAL=$(grep -c "^[0-9]" "$RESULTS_DIR/results.jtl" || echo 0)
     SUCCESS=$(grep -c ",true," "$RESULTS_DIR/results.jtl" || echo 0)
     FAILURES=$((TOTAL - SUCCESS))
@@ -91,7 +91,7 @@ if [ -f "$RESULTS_DIR/results.jtl" ]; then
     echo "Successful: $SUCCESS"
     echo "Failed: $FAILURES"
 
-    if [ $TOTAL -gt 0 ]; then
+    if [[ $TOTAL -gt 0 ]]; then
         SUCCESS_RATE=$(awk "BEGIN {printf \"%.2f\", ($SUCCESS / $TOTAL) * 100}")
         echo "Success Rate: ${SUCCESS_RATE}%"
 
