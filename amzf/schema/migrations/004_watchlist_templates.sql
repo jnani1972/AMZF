@@ -88,30 +88,37 @@ INSERT INTO watchlist_templates (template_id, template_name, description, displa
 ('TPL_NIFTY100', 'Nifty100', 'Nifty 100 Index constituents', 4)
 ON CONFLICT (template_id) DO NOTHING;
 
--- Seed NIFTY50 symbols (sample - top 10)
-INSERT INTO watchlist_template_symbols (template_id, symbol, display_order) VALUES
-('TPL_NIFTY50', 'NSE:RELIANCE-EQ', 1),
-('TPL_NIFTY50', 'NSE:TCS-EQ', 2),
-('TPL_NIFTY50', 'NSE:HDFCBANK-EQ', 3),
-('TPL_NIFTY50', 'NSE:INFY-EQ', 4),
-('TPL_NIFTY50', 'NSE:ICICIBANK-EQ', 5),
-('TPL_NIFTY50', 'NSE:HINDUNILVR-EQ', 6),
-('TPL_NIFTY50', 'NSE:SBIN-EQ', 7),
-('TPL_NIFTY50', 'NSE:BHARTIARTL-EQ', 8),
-('TPL_NIFTY50', 'NSE:ITC-EQ', 9),
-('TPL_NIFTY50', 'NSE:KOTAKBANK-EQ', 10)
-ON CONFLICT (template_id, symbol) DO NOTHING;
+-- Seed template symbols using constants to avoid string duplication
+DO $$
+DECLARE
+    tpl_nifty50 CONSTANT TEXT := 'TPL_NIFTY50';
+    tpl_banking CONSTANT TEXT := 'TPL_BANKING';
+BEGIN
+    -- Seed NIFTY50 symbols (sample - top 10)
+    INSERT INTO watchlist_template_symbols (template_id, symbol, display_order) VALUES
+    (tpl_nifty50, 'NSE:RELIANCE-EQ', 1),
+    (tpl_nifty50, 'NSE:TCS-EQ', 2),
+    (tpl_nifty50, 'NSE:HDFCBANK-EQ', 3),
+    (tpl_nifty50, 'NSE:INFY-EQ', 4),
+    (tpl_nifty50, 'NSE:ICICIBANK-EQ', 5),
+    (tpl_nifty50, 'NSE:HINDUNILVR-EQ', 6),
+    (tpl_nifty50, 'NSE:SBIN-EQ', 7),
+    (tpl_nifty50, 'NSE:BHARTIARTL-EQ', 8),
+    (tpl_nifty50, 'NSE:ITC-EQ', 9),
+    (tpl_nifty50, 'NSE:KOTAKBANK-EQ', 10)
+    ON CONFLICT (template_id, symbol) DO NOTHING;
 
--- Seed Banking symbols (sample)
-INSERT INTO watchlist_template_symbols (template_id, symbol, display_order) VALUES
-('TPL_BANKING', 'NSE:HDFCBANK-EQ', 1),
-('TPL_BANKING', 'NSE:ICICIBANK-EQ', 2),
-('TPL_BANKING', 'NSE:SBIN-EQ', 3),
-('TPL_BANKING', 'NSE:KOTAKBANK-EQ', 4),
-('TPL_BANKING', 'NSE:AXISBANK-EQ', 5),
-('TPL_BANKING', 'NSE:INDUSINDBK-EQ', 6),
-('TPL_BANKING', 'NSE:BANKBARODA-EQ', 7),
-('TPL_BANKING', 'NSE:PNB-EQ', 8)
-ON CONFLICT (template_id, symbol) DO NOTHING;
+    -- Seed Banking symbols (sample)
+    INSERT INTO watchlist_template_symbols (template_id, symbol, display_order) VALUES
+    (tpl_banking, 'NSE:HDFCBANK-EQ', 1),
+    (tpl_banking, 'NSE:ICICIBANK-EQ', 2),
+    (tpl_banking, 'NSE:SBIN-EQ', 3),
+    (tpl_banking, 'NSE:KOTAKBANK-EQ', 4),
+    (tpl_banking, 'NSE:AXISBANK-EQ', 5),
+    (tpl_banking, 'NSE:INDUSINDBK-EQ', 6),
+    (tpl_banking, 'NSE:BANKBARODA-EQ', 7),
+    (tpl_banking, 'NSE:PNB-EQ', 8)
+    ON CONFLICT (template_id, symbol) DO NOTHING;
+END $$;
 
 COMMIT;
