@@ -140,21 +140,34 @@ public final class AdminService {
     }
 
     /**
-     * Update user broker role and/or enabled status.
+     * Update user broker (role, status, credentials).
      */
-    public UserBroker updateUserBroker(String userBrokerId, BrokerRole role, Boolean enabled) {
+    public UserBroker updateUserBroker(String userBrokerId, String role, Boolean enabled, JsonNode credentials) {
         Optional<UserBroker> ubOpt = userBrokerRepo.findById(userBrokerId);
         if (ubOpt.isEmpty()) {
             throw new IllegalArgumentException("User-broker not found: " + userBrokerId);
         }
 
         UserBroker ub = ubOpt.get();
+
+        // Merge credentials if provided
+        JsonNode newCredentials = ub.credentials();
+        if (credentials != null && credentials.isObject()) {
+            // Logic to merge or replace. For simplicity, we'll assume the input is the new
+            // set or partial update.
+            // But usually we just take what's given if it's a full update form.
+            // Let's create a new ObjectNode to ensure immutability if possible, or just use
+            // the new one.
+            // Given Record inputs, we just pass the new JsonNode.
+            newCredentials = credentials;
+        }
+
         UserBroker updated = new UserBroker(
                 ub.userBrokerId(),
                 ub.userId(),
                 ub.brokerId(),
-                role != null ? role : ub.role(), // Update role if provided
-                ub.credentials(),
+                role != null ? BrokerRole.valueOf(role) : ub.role(), // Update role if provided
+                newCredentials, // Update credentials
                 ub.connected(),
                 ub.lastConnected(),
                 ub.connectionError(),
@@ -176,7 +189,8 @@ public final class AdminService {
                 ub.version());
 
         userBrokerRepo.save(updated);
-        log.info("User-broker updated: {} (role={}, enabled={})", userBrokerId, updated.role(), updated.enabled());
+        log.info("User-broker updated: {} (role={}, enabled={}, credsUpdated={})",
+                userBrokerId, updated.role(), updated.enabled(), credentials != null);
         return updated;
     }
 

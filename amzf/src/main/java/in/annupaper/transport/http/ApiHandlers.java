@@ -1045,7 +1045,16 @@ public final class ApiHandlers {
                     enabled = json.get("enabled").asBoolean();
                 }
 
-                UserBroker updated = adminService.updateUserBroker(userBrokerId, role, enabled);
+                JsonNode credentials = null;
+                if (json.has("credentials")) {
+                    credentials = json.get("credentials");
+                }
+
+                UserBroker updated = adminService.updateUserBroker(
+                        userBrokerId,
+                        role != null ? role.name() : null,
+                        enabled,
+                        credentials);
 
                 ObjectNode response = MAPPER.createObjectNode();
                 response.put(JSON_SUCCESS, true);

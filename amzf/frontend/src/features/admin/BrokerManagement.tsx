@@ -9,12 +9,10 @@ import { Text } from '../../components/atoms/Text/Text';
 import { Card } from '../../components/atoms/Card/Card';
 import { Badge } from '../../components/atoms/Badge/Badge';
 import { Button } from '../../components/atoms/Button/Button';
-import { Input } from '../../components/atoms/Input/Input';
 import { Alert } from '../../components/atoms/Alert/Alert';
 import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
-import { BrokerStatusBadge } from '../../components/molecules/BrokerStatusBadge/BrokerStatusBadge';
-import { RefreshCw, Activity, PlusCircle, Trash2, CheckCircle, Database, Zap, ArrowUp, ArrowDown, ArrowUpDown, Edit2, Eye } from 'lucide-react';
+import { RefreshCw, Activity, PlusCircle, Trash2, CheckCircle, Database, ArrowUp, ArrowDown, ArrowUpDown, Edit2, Eye } from 'lucide-react';
 import { apiClient } from '../../lib/api';
 import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
 import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
@@ -102,22 +100,27 @@ export function BrokerManagement() {
     return <ArrowDown size={14} className="sort-icon sort-icon--active" />;
   };
 
+  // Create modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  // Create form state
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedBrokerId, setSelectedBrokerId] = useState('');
-  const [selectedBrokerRole, setSelectedBrokerRole] = useState<'DATA' | 'EXEC'>('DATA');
+  const [selectedBrokerRole, setSelectedBrokerRole] = useState<'DATA' | 'EXEC'>('EXEC');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editBroker, setEditBroker] = useState<any>(null);
+  const [editBroker, setEditBroker] = useState<any | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Credentials state
+  const [apiKey, setApiKey] = useState('');
+  const [apiSecret, setApiSecret] = useState('');
+  const [accessToken, setAccessToken] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
 
   // View modal state
   const [showViewModal, setShowViewModal] = useState(false);
-  const [viewBroker, setViewBroker] = useState<any>(null);
+  const [viewBroker, setViewBroker] = useState<any | null>(null);
 
   /**
    * Handle create user broker
@@ -147,15 +150,7 @@ export function BrokerManagement() {
     }
   };
 
-  /**
-   * Handle toggle broker
-   */
-  const handleToggle = async (userBrokerId: string) => {
-    const response = await apiClient.toggleUserBroker(userBrokerId);
-    if (response.success) {
-      refetch();
-    }
-  };
+
 
   /**
    * Handle delete broker
@@ -176,6 +171,14 @@ export function BrokerManagement() {
    */
   const openEditModal = (broker: any) => {
     setEditBroker({ ...broker });
+
+    // Unpack credentials if available
+    const creds = broker.credentials || {};
+    setApiKey(creds.apiKey || '');
+    setApiSecret(creds.apiSecret || '');
+    setAccessToken(creds.accessToken || '');
+    setTotpSecret(creds.totpSecret || '');
+
     setEditError(null);
     setShowEditModal(true);
   };
@@ -188,9 +191,17 @@ export function BrokerManagement() {
 
     if (!editBroker) return;
 
+    // Pack credentials
+    const credentials: any = {};
+    if (apiKey) credentials.apiKey = apiKey;
+    if (apiSecret) credentials.apiSecret = apiSecret;
+    if (accessToken) credentials.accessToken = accessToken;
+    if (totpSecret) credentials.totpSecret = totpSecret;
+
     const response = await apiClient.updateUserBroker(editBroker.userBrokerId, {
       role: editBroker.role,
       enabled: editBroker.enabled,
+      credentials, // Send updated credentials
     });
 
     if (response.success) {
@@ -604,15 +615,73 @@ export function BrokerManagement() {
                       </Button>
                     </div>
                   </div>
-                </div>
 
-                <div className="form-actions form-actions--stack-mobile">
-                  <Button variant="secondary" fullWidth onClick={() => setShowEditModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button variant="primary" fullWidth onClick={handleEdit}>
-                    Save Changes
-                  </Button>
+                  <div>
+                    <Text variant="label" className="mb-2">
+                      Credentials
+                    </Text>
+                    <div className="space-y-3 p-4 bg-muted/30 rounded-md border border-border">
+                      {/* API Key */}
+                      <div>
+                        <label className="text-xs font-medium text-muted mb-1 block">API Key</label>
+                        <input
+                          type="text"
+                          className="input input--sm w-full font-mono"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="Enter API Key"
+                        />
+                      </div>
+
+                      {/* API Secret */}
+                      <div>
+                        <label className="text-xs font-medium text-muted mb-1 block">API Secret / Cloud Key</label>
+                        <input
+                          type="password"
+                          className="input input--sm w-full font-mono"
+                          value={apiSecret}
+                          onChange={(e) => setApiSecret(e.target.value)}
+                          placeholder="Enter API Secret"
+                        />
+                      </div>
+
+                      {/* Access Token (Optional) */}
+                      <div>
+                        <div className="flex justify-between">
+                          <label className="text-xs font-medium text-muted mb-1 block">Access Token</label>
+                          <span className="text-[10px] text-muted-foreground">(Optional if using OAuth)</span>
+                        </div>
+                        <input
+                          type="password"
+                          className="input input--sm w-full font-mono"
+                          value={accessToken}
+                          onChange={(e) => setAccessToken(e.target.value)}
+                          placeholder="Enter Access Token"
+                        />
+                      </div>
+
+                      {/* TOTP Secret (Optional) */}
+                      <div>
+                        <label className="text-xs font-medium text-muted mb-1 block">TOTP Secret</label>
+                        <input
+                          type="password"
+                          className="input input--sm w-full font-mono"
+                          value={totpSecret}
+                          onChange={(e) => setTotpSecret(e.target.value)}
+                          placeholder="Enter TOTP Secret"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-actions space-x-3">
+                    <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="primary" onClick={handleEdit}>
+                      Save Changes
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
