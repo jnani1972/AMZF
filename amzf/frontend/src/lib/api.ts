@@ -17,12 +17,16 @@ import type {
   ApiResponse,
   TradeIntent,
   MTFConfig,
+  MtfGlobalConfig,
 } from '../types';
+
+import { API_ENDPOINTS } from '../constants/apiEndpoints';
+import { APP_CONFIG } from '../constants/config';
 
 /**
  * API Configuration
  */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
+const API_BASE_URL = APP_CONFIG.API.BASE_URL;
 
 /**
  * Auth Response
@@ -129,7 +133,7 @@ class ApiClient {
    * Login with email and password
    */
   async login(email: string, password: string): Promise<ApiResponse<AuthResponse>> {
-    const response = await this.request<AuthResponse>('/api/auth/login', {
+    const response = await this.request<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -149,7 +153,7 @@ class ApiClient {
     password: string,
     displayName: string
   ): Promise<ApiResponse<AuthResponse>> {
-    const response = await this.request<AuthResponse>('/api/auth/register', {
+    const response = await this.request<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, {
       method: 'POST',
       body: JSON.stringify({ email, password, displayName }),
     });
@@ -172,7 +176,7 @@ class ApiClient {
    * Bootstrap application data
    */
   async bootstrap(): Promise<ApiResponse<BootstrapData>> {
-    return this.request<BootstrapData>('/api/bootstrap');
+    return this.request<BootstrapData>(API_ENDPOINTS.BOOTSTRAP);
   }
 
   // ============================================================================
@@ -183,21 +187,21 @@ class ApiClient {
    * Get current user
    */
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    return this.request<User>('/api/user');
+    return this.request<User>(API_ENDPOINTS.USER.PROFILE);
   }
 
   /**
    * Get user portfolios
    */
   async getPortfolios(): Promise<ApiResponse<Portfolio[]>> {
-    return this.request<Portfolio[]>('/api/portfolios');
+    return this.request<Portfolio[]>(API_ENDPOINTS.USER.PORTFOLIOS);
   }
 
   /**
    * Get portfolio by ID
    */
   async getPortfolio(portfolioId: string): Promise<ApiResponse<Portfolio>> {
-    return this.request<Portfolio>(`/api/portfolios/${portfolioId}`);
+    return this.request<Portfolio>(`${API_ENDPOINTS.USER.PORTFOLIOS}/${portfolioId}`);
   }
 
   // ============================================================================
@@ -212,14 +216,14 @@ class ApiClient {
     if (afterSeq !== undefined) params.append('afterSeq', afterSeq.toString());
     params.append('limit', limit.toString());
 
-    return this.request<Signal[]>(`/api/signals?${params.toString()}`);
+    return this.request<Signal[]>(`${API_ENDPOINTS.MARKET.SIGNALS}?${params.toString()}`);
   }
 
   /**
    * Get signal by ID
    */
   async getSignal(signalId: string): Promise<ApiResponse<Signal>> {
-    return this.request<Signal>(`/api/signals/${signalId}`);
+    return this.request<Signal>(`${API_ENDPOINTS.MARKET.SIGNALS}/${signalId}`);
   }
 
   /**
@@ -230,7 +234,7 @@ class ApiClient {
     quantity: number,
     orderType: string
   ): Promise<ApiResponse<TradeIntent>> {
-    return this.request<TradeIntent>('/api/trade-intents', {
+    return this.request<TradeIntent>(API_ENDPOINTS.MARKET.TRADE_INTENTS, {
       method: 'POST',
       body: JSON.stringify({ signalId, quantity, orderType }),
     });
@@ -245,21 +249,21 @@ class ApiClient {
    */
   async getTrades(status?: string): Promise<ApiResponse<Trade[]>> {
     const params = status ? `?status=${status}` : '';
-    return this.request<Trade[]>(`/api/trades${params}`);
+    return this.request<Trade[]>(`${API_ENDPOINTS.MARKET.TRADES}${params}`);
   }
 
   /**
    * Get trade by ID
    */
   async getTrade(tradeId: string): Promise<ApiResponse<Trade>> {
-    return this.request<Trade>(`/api/trades/${tradeId}`);
+    return this.request<Trade>(`${API_ENDPOINTS.MARKET.TRADES}/${tradeId}`);
   }
 
   /**
    * Close trade
    */
   async closeTrade(tradeId: string): Promise<ApiResponse<Trade>> {
-    return this.request<Trade>(`/api/trades/${tradeId}/close`, {
+    return this.request<Trade>(`${API_ENDPOINTS.MARKET.TRADES}/${tradeId}/close`, {
       method: 'POST',
     });
   }
@@ -272,7 +276,7 @@ class ApiClient {
    * Place order
    */
   async placeOrder(order: OrderRequest): Promise<ApiResponse<OrderResponse>> {
-    return this.request<OrderResponse>('/api/orders', {
+    return this.request<OrderResponse>(API_ENDPOINTS.MARKET.ORDERS, {
       method: 'POST',
       body: JSON.stringify(order),
     });
@@ -283,14 +287,14 @@ class ApiClient {
    */
   async getOrders(status?: string): Promise<ApiResponse<OrderResponse[]>> {
     const params = status ? `?status=${status}` : '';
-    return this.request<OrderResponse[]>(`/api/orders${params}`);
+    return this.request<OrderResponse[]>(`${API_ENDPOINTS.MARKET.ORDERS}${params}`);
   }
 
   /**
    * Cancel order
    */
   async cancelOrder(orderId: string): Promise<ApiResponse<OrderResponse>> {
-    return this.request<OrderResponse>(`/api/orders/${orderId}/cancel`, {
+    return this.request<OrderResponse>(`${API_ENDPOINTS.MARKET.ORDERS}/${orderId}/cancel`, {
       method: 'POST',
     });
   }
@@ -303,21 +307,21 @@ class ApiClient {
    * Get market watch data
    */
   async getMarketWatch(): Promise<ApiResponse<MarketData[]>> {
-    return this.request<MarketData[]>('/api/market-watch');
+    return this.request<MarketData[]>(API_ENDPOINTS.MARKET.MARKET_WATCH);
   }
 
   /**
    * Get quote for symbol
    */
   async getQuote(symbol: string): Promise<ApiResponse<MarketData>> {
-    return this.request<MarketData>(`/api/quotes/${symbol}`);
+    return this.request<MarketData>(`${API_ENDPOINTS.MARKET.QUOTES}/${symbol}`);
   }
 
   /**
    * Search symbols
    */
   async searchSymbols(query: string): Promise<ApiResponse<string[]>> {
-    return this.request<string[]>(`/api/symbols/search?q=${encodeURIComponent(query)}`);
+    return this.request<string[]>(`${API_ENDPOINTS.MARKET.SYMBOL_SEARCH}?q=${encodeURIComponent(query)}`);
   }
 
   // ============================================================================
@@ -328,14 +332,14 @@ class ApiClient {
    * Get user watchlists
    */
   async getWatchlists(): Promise<ApiResponse<Watchlist[]>> {
-    return this.request<Watchlist[]>('/api/watchlists');
+    return this.request<Watchlist[]>(API_ENDPOINTS.WATCHLISTS.BASE);
   }
 
   /**
    * Create watchlist
    */
   async createWatchlist(name: string, symbols: string[]): Promise<ApiResponse<Watchlist>> {
-    return this.request<Watchlist>('/api/watchlists', {
+    return this.request<Watchlist>(API_ENDPOINTS.WATCHLISTS.BASE, {
       method: 'POST',
       body: JSON.stringify({ name, symbols }),
     });
@@ -349,7 +353,7 @@ class ApiClient {
     name: string,
     symbols: string[]
   ): Promise<ApiResponse<Watchlist>> {
-    return this.request<Watchlist>(`/api/watchlists/${watchlistId}`, {
+    return this.request<Watchlist>(`${API_ENDPOINTS.WATCHLISTS.BASE}/${watchlistId}`, {
       method: 'PUT',
       body: JSON.stringify({ name, symbols }),
     });
@@ -359,7 +363,7 @@ class ApiClient {
    * Delete watchlist
    */
   async deleteWatchlist(watchlistId: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/watchlists/${watchlistId}`, {
+    return this.request<void>(`${API_ENDPOINTS.WATCHLISTS.BASE}/${watchlistId}`, {
       method: 'DELETE',
     });
   }
@@ -372,14 +376,14 @@ class ApiClient {
    * Get user brokers
    */
   async getUserBrokers(): Promise<ApiResponse<UserBroker[]>> {
-    return this.request<UserBroker[]>('/api/user-brokers');
+    return this.request<UserBroker[]>(API_ENDPOINTS.BROKERS.USER_BROKERS);
   }
 
   /**
    * Connect broker (OAuth)
    */
   async connectBroker(brokerId: string): Promise<ApiResponse<{ authUrl: string }>> {
-    return this.request<{ authUrl: string }>(`/api/brokers/${brokerId}/connect`, {
+    return this.request<{ authUrl: string }>(API_ENDPOINTS.BROKERS.CONNECT(brokerId), {
       method: 'POST',
     });
   }
@@ -392,14 +396,14 @@ class ApiClient {
    * Get MTF configuration
    */
   async getMTFConfig(): Promise<ApiResponse<MTFConfig>> {
-    return this.request<MTFConfig>('/api/mtf-config');
+    return this.request<MTFConfig>(API_ENDPOINTS.MTF.CONFIG);
   }
 
   /**
    * Update MTF configuration
    */
   async updateMTFConfig(config: MTFConfig): Promise<ApiResponse<MTFConfig>> {
-    return this.request<MTFConfig>('/api/mtf-config', {
+    return this.request<MTFConfig>(API_ENDPOINTS.MTF.CONFIG, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
@@ -409,14 +413,14 @@ class ApiClient {
    * Get global MTF configuration (admin only)
    */
   async getGlobalMTFConfig(): Promise<ApiResponse<MtfGlobalConfig>> {
-    return this.request<MtfGlobalConfig>('/api/mtf-config/global');
+    return this.request<MtfGlobalConfig>(API_ENDPOINTS.MTF.GLOBAL_CONFIG);
   }
 
   /**
    * Update global MTF configuration (admin only)
    */
   async updateGlobalMTFConfig(config: Partial<MtfGlobalConfig>): Promise<ApiResponse<MtfGlobalConfig>> {
-    return this.request<MtfGlobalConfig>('/api/mtf-config/global', {
+    return this.request<MtfGlobalConfig>(API_ENDPOINTS.MTF.GLOBAL_CONFIG, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
@@ -430,7 +434,7 @@ class ApiClient {
    * Get all users (admin only)
    */
   async getAllUsers(): Promise<ApiResponse<User[]>> {
-    return this.request<User[]>('/api/admin/users');
+    return this.request<User[]>(API_ENDPOINTS.ADMIN.USERS);
   }
 
   /**
@@ -440,7 +444,7 @@ class ApiClient {
     userId: string,
     data: { displayName: string; role: string }
   ): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/admin/users/${userId}`, {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.USERS}/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -450,7 +454,7 @@ class ApiClient {
    * Toggle user status between ACTIVE and SUSPENDED (admin only)
    */
   async toggleUserStatus(userId: string, reason?: string): Promise<ApiResponse<{ status: string }>> {
-    return this.request<{ status: string }>(`/api/admin/users/${userId}/toggle`, {
+    return this.request<{ status: string }>(`${API_ENDPOINTS.ADMIN.USERS}/${userId}/toggle`, {
       method: 'POST',
       body: reason ? JSON.stringify({ reason }) : undefined,
     });
@@ -460,7 +464,7 @@ class ApiClient {
    * Delete user (admin only)
    */
   async deleteUser(userId: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/admin/users/${userId}`, {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.USERS}/${userId}`, {
       method: 'DELETE',
     });
   }
@@ -469,7 +473,7 @@ class ApiClient {
    * Get all user brokers (admin only)
    */
   async getAllUserBrokers(): Promise<ApiResponse<UserBroker[]>> {
-    return this.request<UserBroker[]>('/api/admin/user-brokers');
+    return this.request<UserBroker[]>(API_ENDPOINTS.ADMIN.USER_BROKERS);
   }
 
   /**
@@ -480,7 +484,7 @@ class ApiClient {
     brokerId: string;
     brokerRole: string;
   }): Promise<ApiResponse<UserBroker>> {
-    return this.request<UserBroker>('/api/admin/user-brokers', {
+    return this.request<UserBroker>(API_ENDPOINTS.ADMIN.USER_BROKERS, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -490,7 +494,7 @@ class ApiClient {
    * Delete user broker (admin only)
    */
   async deleteUserBroker(userBrokerId: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/admin/user-brokers/${userBrokerId}`, {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.USER_BROKERS}/${userBrokerId}`, {
       method: 'DELETE',
     });
   }
@@ -499,7 +503,7 @@ class ApiClient {
    * Toggle user broker active status (admin only)
    */
   async toggleUserBroker(userBrokerId: string): Promise<ApiResponse<UserBroker>> {
-    return this.request<UserBroker>(`/api/admin/user-brokers/${userBrokerId}/toggle`, {
+    return this.request<UserBroker>(`${API_ENDPOINTS.ADMIN.USER_BROKERS}/${userBrokerId}/toggle`, {
       method: 'POST',
     });
   }
@@ -509,14 +513,11 @@ class ApiClient {
    */
   async updateUserBroker(
     userBrokerId: string,
-    data: {
-      role?: string;
-      enabled?: boolean;
-    }
+    updates: { role?: string; enabled?: boolean; credentials?: any }
   ): Promise<ApiResponse<UserBroker>> {
-    return this.request<UserBroker>(`/api/admin/user-brokers/${userBrokerId}`, {
+    return this.request<UserBroker>(`${API_ENDPOINTS.ADMIN.USER_BROKERS}/${userBrokerId}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(updates),
     });
   }
 
@@ -524,7 +525,7 @@ class ApiClient {
    * Test broker connection (admin only)
    */
   async testBrokerConnection(userBrokerId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/admin/brokers/${userBrokerId}/test-connection`, {
+    return this.request<any>(`${API_ENDPOINTS.ADMIN.BROKERS}/${userBrokerId}/test-connection`, {
       method: 'POST',
     });
   }
@@ -533,7 +534,7 @@ class ApiClient {
    * Disconnect broker (admin only)
    */
   async disconnectBroker(userBrokerId: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/admin/brokers/${userBrokerId}/disconnect`, {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.BROKERS}/${userBrokerId}/disconnect`, {
       method: 'POST',
     });
   }
@@ -542,21 +543,21 @@ class ApiClient {
    * Get broker session info (admin only)
    */
   async getBrokerSession(userBrokerId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/admin/brokers/${userBrokerId}/session`);
+    return this.request<any>(`${API_ENDPOINTS.ADMIN.BROKERS}/${userBrokerId}/session`);
   }
 
   /**
    * Get OAuth URL for broker (admin only)
    */
   async getOAuthUrl(userBrokerId: string): Promise<ApiResponse<{ url: string }>> {
-    return this.request<{ url: string }>(`/api/admin/brokers/${userBrokerId}/oauth-url`);
+    return this.request<{ url: string }>(`${API_ENDPOINTS.ADMIN.BROKERS}/${userBrokerId}/oauth-url`);
   }
 
   /**
    * Get all portfolios (admin only)
    */
   async getAllPortfolios(): Promise<ApiResponse<Portfolio[]>> {
-    return this.request<Portfolio[]>('/api/admin/portfolios');
+    return this.request<Portfolio[]>(API_ENDPOINTS.ADMIN.PORTFOLIOS);
   }
 
   /**
@@ -567,7 +568,7 @@ class ApiClient {
     name: string;
     totalCapital: number;
   }): Promise<ApiResponse<Portfolio>> {
-    return this.request<Portfolio>('/api/admin/portfolios', {
+    return this.request<Portfolio>(API_ENDPOINTS.ADMIN.PORTFOLIOS, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -583,7 +584,7 @@ class ApiClient {
       capital?: number;
     }
   ): Promise<ApiResponse<Portfolio>> {
-    return this.request<Portfolio>(`/api/admin/portfolios/${portfolioId}`, {
+    return this.request<Portfolio>(`${API_ENDPOINTS.ADMIN.PORTFOLIOS}/${portfolioId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -593,7 +594,7 @@ class ApiClient {
    * Delete portfolio (admin only)
    */
   async deletePortfolio(portfolioId: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/admin/portfolios/${portfolioId}`, {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.PORTFOLIOS}/${portfolioId}`, {
       method: 'DELETE',
     });
   }
@@ -602,7 +603,7 @@ class ApiClient {
    * Get watchlist (admin only)
    */
   async getWatchlist(): Promise<ApiResponse<Watchlist[]>> {
-    return this.request<Watchlist[]>('/api/admin/watchlist');
+    return this.request<Watchlist[]>(API_ENDPOINTS.ADMIN.WATCHLIST);
   }
 
   /**
@@ -613,7 +614,7 @@ class ApiClient {
     symbol: string;
     lotSize?: number;
   }): Promise<ApiResponse<Watchlist>> {
-    return this.request<Watchlist>('/api/admin/watchlist', {
+    return this.request<Watchlist>(API_ENDPOINTS.ADMIN.WATCHLIST, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -623,7 +624,7 @@ class ApiClient {
    * Delete watchlist item (admin only)
    */
   async deleteWatchlistItem(id: string): Promise<ApiResponse<void>> {
-    return this.request<void>(`/api/admin/watchlist/${id}`, {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.WATCHLIST}/${id}`, {
       method: 'DELETE',
     });
   }
@@ -632,7 +633,7 @@ class ApiClient {
    * Toggle watchlist item (admin only)
    */
   async toggleWatchlistItem(id: string): Promise<ApiResponse<Watchlist>> {
-    return this.request<Watchlist>(`/api/admin/watchlist/${id}/toggle`, {
+    return this.request<Watchlist>(`${API_ENDPOINTS.ADMIN.WATCHLIST}/${id}/toggle`, {
       method: 'POST',
     });
   }
@@ -648,7 +649,7 @@ class ApiClient {
       enabled?: boolean;
     }
   ): Promise<ApiResponse<Watchlist>> {
-    return this.request<Watchlist>(`/api/admin/watchlist/${id}`, {
+    return this.request<Watchlist>(`${API_ENDPOINTS.ADMIN.WATCHLIST}/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });

@@ -5,7 +5,6 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MetricsGrid } from '../../components/organisms/MetricsGrid/MetricsGrid';
 import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
 import { Text } from '../../components/atoms/Text/Text';
 import { Card } from '../../components/atoms/Card/Card';
@@ -13,7 +12,7 @@ import { Button } from '../../components/atoms/Button/Button';
 import { Alert } from '../../components/atoms/Alert/Alert';
 import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { Badge } from '../../components/atoms/Badge/Badge';
-import { Users, Activity, DollarSign, TrendingUp, Settings as SettingsIcon, Filter, Briefcase, Server, Wifi, Database } from 'lucide-react';
+import { Users, Activity, TrendingUp, Filter, Briefcase, Server, Wifi, Database } from 'lucide-react';
 import { useAllUsers, useAllUserBrokers, useAllPortfolios } from '../../hooks/useApi';
 import { useWebSocket, useRealtimeEvents } from '../../hooks/useWebSocket';
 
@@ -28,7 +27,7 @@ export function AdminDashboard() {
   const { data: allBrokers, loading: brokersLoading } = useAllUserBrokers();
   const { data: allPortfolios, loading: portfoliosLoading, error: portfoliosError } = useAllPortfolios();
   const { connected: wsConnected } = useWebSocket();
-  const { events } = useRealtimeEvents();
+  useRealtimeEvents();
 
   // Filter state
   const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -233,9 +232,8 @@ export function AdminDashboard() {
                           <td className="text-right">
                             <div className="table-status">
                               <div
-                                className={`table-currency ${
-                                  portfolio.totalPnl >= 0 ? 'text-profit' : 'text-loss'
-                                }`}
+                                className={`table-currency ${portfolio.totalPnl >= 0 ? 'text-profit' : 'text-loss'
+                                  }`}
                               >
                                 {portfolio.totalPnl >= 0 ? '+' : ''}
                                 ₹{portfolio.totalPnl.toLocaleString('en-IN')}

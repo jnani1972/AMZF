@@ -246,7 +246,7 @@ export const SellWithIcon: Story = {
  */
 export const AllVariants: Story = {
   render: () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '300px' }}>
+    <div className="flex flex-col gap-4 min-w-[300px]">
       <Button variant="primary">Primary</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="buy">Buy</Button>
@@ -268,7 +268,7 @@ export const AllVariants: Story = {
  */
 export const AllSizes: Story = {
   render: () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="flex items-center gap-4">
       <Button size="sm">Small</Button>
       <Button size="md">Medium</Button>
       <Button size="lg">Large</Button>
@@ -288,7 +288,7 @@ export const AllSizes: Story = {
  */
 export const TradingButtons: Story = {
   render: () => (
-    <div style={{ display: 'flex', gap: '1rem' }}>
+    <div className="flex gap-4">
       <Button variant="buy" size="lg" iconLeft={<TrendingUp size={20} />}>
         Buy 100 @ ₹1,234.50
       </Button>

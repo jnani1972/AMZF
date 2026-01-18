@@ -18,7 +18,7 @@ import { UserPlus } from 'lucide-react';
  * Register page component
  */
 export function Register() {
-  const { register, loading: authLoading } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isAdminCreate = searchParams.get('adminCreate') === 'true';

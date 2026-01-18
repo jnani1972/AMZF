@@ -17,8 +17,7 @@ import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import { RefreshCw, Edit2, Trash2, Users, UserPlus, Activity, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import type { UserRole, UserStatus, User } from '../../types';
 import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
-import { SummaryCards, SummaryCardData } from '../../components/organisms/SummaryCards/SummaryCards';
-import { SlideModal } from '../../components/organisms/SlideModal/SlideModal';
+import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
 
 type SortKey = 'displayName' | 'email' | 'role' | 'status' | 'createdAt';
 type SortDirection = 'asc' | 'desc' | null;
@@ -472,7 +471,7 @@ export function UserManagement() {
             onClick={() => setShowEditModal(false)}
           />
           <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
-              <Card className="shadow-2xl border-2 border-primary">
+            <Card className="shadow-2xl border-2 border-primary">
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <Text variant="h3">Edit User</Text>
@@ -549,7 +548,7 @@ export function UserManagement() {
             onClick={() => setShowStatusModal(false)}
           />
           <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
-              <Card className="shadow-2xl border-2 border-yellow-500">
+            <Card className="shadow-2xl border-2 border-yellow-500">
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <Text variant="h3">
@@ -607,7 +606,7 @@ export function UserManagement() {
                     Cancel
                   </Button>
                   <Button
-                    variant={statusAction === 'suspend' ? 'error' : 'primary'}
+                    variant={statusAction === 'suspend' ? 'sell' : 'primary'}
                     fullWidth
                     onClick={handleStatusChange}
                   >
@@ -628,7 +627,7 @@ export function UserManagement() {
             onClick={() => setShowHistoryModal(false)}
           />
           <div className="modal-slide-right modal-slide-right--xl animate-slide-in-right">
-              <Card className="shadow-2xl border-2 border-blue-500">
+            <Card className="shadow-2xl border-2 border-blue-500">
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>

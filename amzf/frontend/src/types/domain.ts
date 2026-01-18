@@ -160,12 +160,15 @@ export interface Instrument {
 export type InstrumentType = 'EQUITY' | 'FUTURES' | 'OPTIONS' | 'CURRENCY';
 
 export interface Watchlist {
-  id: string;
-  userId: string;
-  name: string;
-  symbols: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  id?: string;
+  userId?: string;
+  symbol: string;
+  lotSize?: number;
+  tickSize?: number;
+  lastPrice?: number;
+  enabled?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface MarketData {
@@ -505,7 +508,9 @@ export type WsMessageType =
   | 'ORDER_UPDATE'
   | 'BROKER_STATUS'
   | 'SYSTEM_ALERT'
-  | 'HEARTBEAT';
+  | 'HEARTBEAT'
+  | 'PING'
+  | 'PONG';
 
 export interface WsSubscription {
   topic: string;

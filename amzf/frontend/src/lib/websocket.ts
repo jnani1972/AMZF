@@ -8,7 +8,12 @@ import type { WsMessage, WsMessageType, WsSubscription } from '../types';
 /**
  * WebSocket Configuration
  */
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:9090';
+import { APP_CONFIG } from '../constants/config';
+
+/**
+ * WebSocket Configuration
+ */
+const WS_BASE_URL = APP_CONFIG.WEBSOCKET.BASE_URL;
 
 /**
  * Connection State
@@ -33,9 +38,9 @@ class WebSocketClient {
   private url: string;
   private token: string | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
-  private reconnectDelay = 1000; // Start with 1 second
-  private maxReconnectDelay = 30000; // Max 30 seconds
+  private maxReconnectAttempts = APP_CONFIG.WEBSOCKET.RECONNECT.MAX_ATTEMPTS;
+  private reconnectDelay = APP_CONFIG.WEBSOCKET.RECONNECT.INITIAL_DELAY; // Start with 1 second
+  private maxReconnectDelay = APP_CONFIG.WEBSOCKET.RECONNECT.MAX_DELAY; // Max 30 seconds
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private heartbeatTimeout: NodeJS.Timeout | null = null;
@@ -104,7 +109,7 @@ class WebSocketClient {
       console.log('WebSocket connected');
       this.setConnectionState('connected');
       this.reconnectAttempts = 0;
-      this.reconnectDelay = 1000;
+      this.reconnectDelay = APP_CONFIG.WEBSOCKET.RECONNECT.INITIAL_DELAY;
       this.startHeartbeat();
       this.resubscribe();
     };
@@ -213,19 +218,13 @@ class WebSocketClient {
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.send({ type: 'PING', data: {} });
       }
-    }, 60000);
+    }, APP_CONFIG.WEBSOCKET.HEARTBEAT.INTERVAL);
 
     // Don't enforce heartbeat timeout - let browser handle connection health
     // The WebSocket will automatically close if the connection is broken
   }
 
-  /**
-   * Reset heartbeat timeout
-   */
-  private resetHeartbeatTimeout(): void {
-    // Disabled - we're not enforcing heartbeat responses
-    // The browser's WebSocket implementation will detect dead connections
-  }
+
 
   /**
    * Stop heartbeat mechanism

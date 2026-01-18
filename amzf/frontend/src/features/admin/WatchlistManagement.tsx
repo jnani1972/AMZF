@@ -16,7 +16,7 @@ import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import { RefreshCw, PlusCircle, Eye, Trash2, List, Users as UsersIcon, BarChart, ArrowUp, ArrowDown, ArrowUpDown, Edit2 } from 'lucide-react';
 import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
-import { SummaryCards, SummaryCardData } from '../../components/organisms/SummaryCards/SummaryCards';
+import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
 
 type SortKey = 'symbol' | 'userId' | 'lotSize' | 'tickSize' | 'lastPrice' | 'enabled';
 type SortDirection = 'asc' | 'desc' | null;
@@ -85,10 +85,10 @@ export function WatchlistManagement() {
     // First filter
     const filtered = watchlists
       ? watchlists.filter(
-          (w) =>
-            w.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            w.userId?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+        (w) =>
+          w.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          w.userId?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
       : [];
 
     // Then sort
@@ -162,16 +162,6 @@ export function WatchlistManagement() {
     }
 
     const response = await apiClient.deleteWatchlistItem(id);
-    if (response.success) {
-      refetch();
-    }
-  };
-
-  /**
-   * Handle toggle watchlist item
-   */
-  const handleToggle = async (id: string) => {
-    const response = await apiClient.toggleWatchlistItem(id);
     if (response.success) {
       refetch();
     }
