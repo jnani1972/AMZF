@@ -117,6 +117,9 @@ export function BrokerManagement() {
   const [apiSecret, setApiSecret] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [totpSecret, setTotpSecret] = useState('');
+  // Additional fields
+  const [brokerUserId, setBrokerUserId] = useState('');
+  const [postbackUrl, setPostbackUrl] = useState('');
 
   // View modal state
   const [showViewModal, setShowViewModal] = useState(false);
@@ -178,6 +181,8 @@ export function BrokerManagement() {
     setApiSecret(creds.apiSecret || '');
     setAccessToken(creds.accessToken || '');
     setTotpSecret(creds.totpSecret || '');
+    setBrokerUserId(creds.brokerUserId || '');
+    setPostbackUrl(creds.postbackUrl || '');
 
     setEditError(null);
     setShowEditModal(true);
@@ -197,6 +202,8 @@ export function BrokerManagement() {
     if (apiSecret) credentials.apiSecret = apiSecret;
     if (accessToken) credentials.accessToken = accessToken;
     if (totpSecret) credentials.totpSecret = totpSecret;
+    if (brokerUserId) credentials.brokerUserId = brokerUserId;
+    if (postbackUrl) credentials.postbackUrl = postbackUrl;
 
     const response = await apiClient.updateUserBroker(editBroker.userBrokerId, {
       role: editBroker.role,
@@ -642,6 +649,33 @@ export function BrokerManagement() {
                           value={apiSecret}
                           onChange={(e) => setApiSecret(e.target.value)}
                           placeholder="Enter API Secret"
+                        />
+                      </div>
+
+                      {/* Client ID / User ID */}
+                      <div>
+                        <label className="text-xs font-medium text-muted mb-1 block">Broker Client ID / User ID</label>
+                        <input
+                          type="text"
+                          className="input input--sm w-full font-mono"
+                          value={brokerUserId}
+                          onChange={(e) => setBrokerUserId(e.target.value)}
+                          placeholder="e.g. DA1234 (Zerodha)"
+                        />
+                      </div>
+
+                      {/* Postback URL */}
+                      <div>
+                        <div className="flex justify-between">
+                          <label className="text-xs font-medium text-muted mb-1 block">Postback / Redirect URL</label>
+                          <span className="text-[10px] text-muted-foreground">(Optional)</span>
+                        </div>
+                        <input
+                          type="text"
+                          className="input input--sm w-full font-mono"
+                          value={postbackUrl}
+                          onChange={(e) => setPostbackUrl(e.target.value)}
+                          placeholder="https://your-domain.com/api/callback"
                         />
                       </div>
 
