@@ -34,14 +34,6 @@ public final class AdminService {
     private final MarketDataCache marketDataCache;
     private final CandleFetcher candleFetcher;
 
-    // OLD: public AdminService(BrokerRepository brokerRepo,
-    // PortfolioRepository portfolioRepo,
-    // WatchlistRepository watchlistRepo,
-    // UserBrokerRepository userBrokerRepo,
-    // WatchlistTemplateRepository watchlistTemplateRepo,
-    // WatchlistSelectedRepository watchlistSelectedRepo,
-    // DataSource dataSource) {
-
     // FIX: Add MarketDataCache for in-memory LTP access
     // FIX: Add CandleFetcher for historical data fetching when symbols are added to
     // watchlist
@@ -286,16 +278,6 @@ public final class AdminService {
         portfolioRepo.delete(portfolioId);
         log.info("Portfolio deleted (soft): {}", portfolioId);
     }
-
-    // public void addWatchlistSymbol(String userBrokerId, String symbol) {
-    // Watchlist watchlist = new Watchlist(
-    // null, userBrokerId, symbol, true,
-    // Instant.now(), Instant.now(), null, 1
-    // );
-    //
-    // watchlistRepo.insert(watchlist);
-    // log.info("Watchlist symbol added: {} for {}", symbol, userBrokerId);
-    // }
 
     public void addWatchlistSymbol(String userBrokerId, String symbol) {
         // Strip -EQ suffix if present
@@ -663,8 +645,7 @@ public final class AdminService {
 
         WatchlistTemplate template = templateOpt.get();
         String selectedId = "SEL_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        // OLD: String name = template.templateName() + "-selected";
-        // FIX: Append selectedId suffix to ensure uniqueness (avoid duplicate key
+        // Append selectedId suffix to ensure uniqueness (avoid duplicate key
         // constraint)
         String name = template.templateName() + "-selected-" + selectedId;
 

@@ -202,17 +202,6 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
         }
     }
 
-    // @Override
-    // public void delete(String portfolioId) {
-    // String sql = "DELETE FROM portfolios WHERE portfolio_id = ?";
-    //
-    // try (Connection conn = dataSource.getConnection();
-    // PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    // ps.setString(1, portfolioId);
-    // ps.executeUpdate();
-    // log.info("Portfolio deleted: {}", portfolioId);
-    //
     // } catch (Exception e) {
     // log.error("Error deleting portfolio: {}", e.getMessage(), e);
     // throw new RuntimeException("Failed to delete portfolio", e);

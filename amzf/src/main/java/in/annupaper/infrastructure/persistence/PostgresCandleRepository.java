@@ -227,24 +227,6 @@ public final class PostgresCandleRepository implements CandleRepository {
         return false;
     }
 
-    // @Override
-    // public int deleteOlderThan(Instant cutoff) {
-    // String sql = "DELETE FROM candles WHERE ts < ?";
-    //
-    // try (Connection conn = dataSource.getConnection();
-    // PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    // ps.setTimestamp(1, Timestamp.from(cutoff));
-    // int deleted = ps.executeUpdate();
-    //
-    // log.info("Deleted {} old candles", deleted);
-    // return deleted;
-    //
-    // } catch (SQLException e) {
-    // log.error("Failed to delete old candles: {}", e.getMessage());
-    // throw new RuntimeException("Failed to delete old candles", e);
-    // }
-    // }
     @Override
     public int deleteOlderThan(Instant cutoff) {
         // Soft delete old candles

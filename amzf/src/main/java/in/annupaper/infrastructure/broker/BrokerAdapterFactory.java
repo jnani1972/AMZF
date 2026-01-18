@@ -96,15 +96,6 @@ public final class BrokerAdapterFactory {
      * Create a new adapter instance for a broker code.
      * For Fyers, creates adapter with session repository to load OAuth tokens.
      */
-    // public BrokerAdapter create(String brokerCode) {
-    // return switch (brokerCode.toUpperCase()) {
-    // case "ZERODHA", "KITE" -> new ZerodhaAdapter();
-    // case "FYERS" -> new FyersAdapter();
-    // case "DHAN" -> new DhanAdapter();
-    // default -> throw new IllegalArgumentException("Unknown broker: " +
-    // brokerCode);
-    // };
-    // }
     public BrokerAdapter create(String brokerCode, String userBrokerId) {
         BrokerAdapter adapter = switch (brokerCode.toUpperCase()) {
             case "ZERODHA", "KITE" -> new ZerodhaDataAdapter(sessionRepo, userBrokerId);
@@ -230,8 +221,7 @@ public final class BrokerAdapterFactory {
     /**
      * Get supported broker codes.
      */
-    // public static String[] getSupportedBrokers() {
-    // return new String[] { "ZERODHA", "FYERS", "DHAN" };
+
     // }
     public static String[] getSupportedBrokers() {
         return new String[] { "ZERODHA", "FYERS", "DHAN", "UPSTOX", "ALPACA" };

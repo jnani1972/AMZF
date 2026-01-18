@@ -5,7 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import in.annupaper.auth.AuthService;
 import in.annupaper.auth.JwtService;
 import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
-// import in.annupaper.infrastructure.broker.BrokerFactory;  // TODO: Uncomment when broker implementations complete
+
 import in.annupaper.domain.model.*;
 import in.annupaper.application.port.output.*;
 import in.annupaper.infrastructure.persistence.*;
@@ -84,10 +84,6 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Prometheus Metrics (Production Monitoring)
         // ═══════════════════════════════════════════════════════════════
-        // TODO: Uncomment when broker implementations complete
-        // in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics metrics =
-        // new in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics();
-        // log.info("✓ Prometheus metrics initialized");
 
         // ═══════════════════════════════════════════════════════════════
         // MTF Config Migration (runs on startup)
@@ -183,8 +179,6 @@ public final class App {
         BrokerAdapterFactory legacyBrokerFactory = new BrokerAdapterFactory(sessionRepo, userBrokerRepo);
 
         // ✅ Phase 2: New BrokerFactory for dual-broker architecture
-        // TODO: Uncomment when broker implementations are complete
-        // BrokerFactory brokerFactory = new BrokerFactory(sessionRepo, metrics);
 
         // ═══════════════════════════════════════════════════════════════
         // Token Refresh Watchdog (Auto-reload tokens on refresh)
@@ -274,10 +268,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // MTF Analysis Service (updated to use CandleStore)
         // ═══════════════════════════════════════════════════════════════
-        // MtfAnalysisService mtfService = new MtfAnalysisService((symbol, tfType) -> {
-        // // Stub: Generate mock candles// Fix imports in App.java
-        // return generateMockCandles(symbol, tfType);
-        // });
+
         new MtfAnalysisService((symbol, tfType) -> {
             // Use CandleStore to get candles (from memory or PostgreSQL)
             List<HistoricalCandle> candles = candleStore.getFromMemory(symbol, tfType);
@@ -462,19 +453,12 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Admin Service
         // ═══════════════════════════════════════════════════════════════
-        // Old: AdminService adminService = new AdminService(brokerRepo, portfolioRepo,
-        // watchlistRepo, userBrokerRepo, dataSource);
 
         // Watchlist Template repositories (Level 1 & Level 2)
         in.annupaper.application.port.output.WatchlistTemplateRepository watchlistTemplateRepo = new in.annupaper.infrastructure.persistence.PostgresWatchlistTemplateRepository(
                 (com.zaxxer.hikari.HikariDataSource) dataSource);
         in.annupaper.application.port.output.WatchlistSelectedRepository watchlistSelectedRepo = new in.annupaper.infrastructure.persistence.PostgresWatchlistSelectedRepository(
                 (com.zaxxer.hikari.HikariDataSource) dataSource);
-
-        // OLD: AdminService adminService = new AdminService(
-        // brokerRepo, portfolioRepo, watchlistRepo, userBrokerRepo,
-        // watchlistTemplateRepo, watchlistSelectedRepo, dataSource
-        // );
 
         // FIX: Add MarketDataCache for in-memory LTP access (Market Watch feature)
         // FIX: Add CandleFetcher for historical data fetching when symbols added to
@@ -608,16 +592,8 @@ public final class App {
             log.info("✓ Monitoring handler initialized");
 
             // Prometheus metrics endpoint
-            // TODO: Uncomment when broker implementations complete
-            // in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler
-            // metricsHandler =
-            // new
-            // in.annupaper.infrastructure.broker.metrics.PrometheusMetricsHandler(metrics.getRegistry());
-            // log.info("✓ Prometheus /metrics endpoint ready");
 
             RoutingHandler routes = Handlers.routing()
-                    // .get("/metrics", metricsHandler) // TODO: Uncomment when broker
-                    // implementations complete
                     .get("/api/health", api::health)
                     .post("/api/auth/login", exchange -> handleLogin(exchange, authService))
                     .post("/api/auth/register", exchange -> handleRegister(exchange, authService))
