@@ -535,8 +535,8 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
             SELECT COUNT(*)
             FROM user_brokers
             WHERE enabled = true
-              AND session_expiry_at < NOW()
               AND deleted_at IS NULL
+              AND session_expiry_at < NOW()
             """;
 
         try (Connection conn = dataSource.getConnection();
@@ -559,9 +559,9 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
             SELECT COUNT(*)
             FROM user_brokers
             WHERE enabled = true
+              AND deleted_at IS NULL
               AND session_expiry_at > NOW()
               AND session_expiry_at < NOW() + INTERVAL '1 hour'
-              AND deleted_at IS NULL
             """;
 
         try (Connection conn = dataSource.getConnection();
@@ -581,10 +581,11 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
     @Override
     public List<UserBroker> findExpiredBrokerSessions() {
         String sql = """
-            SELECT * FROM user_brokers
+            SELECT *
+            FROM user_brokers
             WHERE enabled = true
-              AND session_expiry_at < NOW()
               AND deleted_at IS NULL
+              AND session_expiry_at < NOW()
             ORDER BY session_expiry_at ASC
             """;
 

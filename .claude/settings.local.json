@@ -55,7 +55,13 @@
       "Bash(__NEW_LINE__ git status)",
       "Bash(psql:*)",
       "Bash(wc:*)",
-      "Bash(__NEW_LINE__ ain)"
+      "Bash(__NEW_LINE__ ain)",
+      "Bash(echo \"=== Checking database configuration ===\" grep -r \"DB_USER\\\\|DB_PASSWORD\\\\|DB_URL\" .env*)",
+      "Bash(env)",
+      "Bash(if [ $? -ne 0 ])",
+      "Bash(then)",
+      "Bash(fi)",
+      "Bash(sql/migrations/add_session_expiry_to_user_brokers.sql <<'SQL'\n-- Migration: Add session_expiry_at to user_brokers table\n-- Purpose: Enable monitoring of broker session expiry directly from user_brokers\n-- Date: 2026-01-18\n\n-- Add session_expiry_at column to user_brokers table\nALTER TABLE user_brokers \nADD COLUMN IF NOT EXISTS session_expiry_at TIMESTAMP WITH TIME ZONE;\n\n-- Create index for monitoring queries\nCREATE INDEX IF NOT EXISTS idx_user_brokers_session_expiry \nON user_brokers\\(session_expiry_at\\) \nWHERE deleted_at IS NULL AND enabled = true;\n\n-- Populate with data from user_broker_sessions \\(latest active session per user_broker\\)\nUPDATE user_brokers ub\nSET session_expiry_at = \\(\n    SELECT ubs.token_valid_till\n    FROM user_broker_sessions ubs\n    WHERE ubs.user_broker_id = ub.user_broker_id\n      AND ubs.deleted_at IS NULL\n      AND ubs.session_status = 'ACTIVE'\n    ORDER BY ubs.token_valid_till DESC\n    LIMIT 1\n\\)\nWHERE ub.deleted_at IS NULL;\n\n-- Verification query\nSELECT \n    COUNT\\(*\\) as total_brokers,\n    COUNT\\(session_expiry_at\\) as brokers_with_expiry,\n    COUNT\\(*\\) FILTER \\(WHERE session_expiry_at < NOW\\(\\)\\) as expired_sessions\nFROM user_brokers\nWHERE deleted_at IS NULL;\nSQL)"
     ]
   }
 }
