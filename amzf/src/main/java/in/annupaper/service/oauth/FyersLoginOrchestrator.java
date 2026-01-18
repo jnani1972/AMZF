@@ -1,9 +1,10 @@
 package in.annupaper.service.oauth;
 
-import in.annupaper.domain.broker.BrokerIds;
-import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.domain.repository.OAuthStateRepository;
-import in.annupaper.domain.repository.UserBrokerRepository;
+import in.annupaper.domain.model.UserBroker;
+import in.annupaper.application.port.output.OAuthStateRepository;
+import in.annupaper.application.port.output.UserBrokerRepository;
+import in.annupaper.domain.model.BrokerIds;
+import in.annupaper.service.oauth.BrokerOAuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,13 +29,13 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Flow:
  * 1. GET /api/brokers/:id/fyers/login-url
- *    → generates state, stores in DB
- *    → returns { loginUrl, state, redirectUri }
+ * → generates state, stores in DB
+ * → returns { loginUrl, state, redirectUri }
  * 2. (Optional) Server can auto-open browser via Desktop.browse()
  * 3. User logs in on FYERS page
  * 4. FYERS redirects to redirectUri with auth_code + state
  * 5. Frontend calls POST /api/fyers/oauth/exchange
- *    → validates state, exchanges token, reconnects
+ * → validates state, exchanges token, reconnects
  */
 public final class FyersLoginOrchestrator {
     private static final Logger log = LoggerFactory.getLogger(FyersLoginOrchestrator.class);
@@ -51,10 +52,9 @@ public final class FyersLoginOrchestrator {
     private final Map<String, Instant> lastLoginAttempt = new ConcurrentHashMap<>();
 
     public FyersLoginOrchestrator(
-        OAuthStateRepository stateRepo,
-        UserBrokerRepository userBrokerRepo,
-        String redirectUri
-    ) {
+            OAuthStateRepository stateRepo,
+            UserBrokerRepository userBrokerRepo,
+            String redirectUri) {
         this.stateRepo = stateRepo;
         this.userBrokerRepo = userBrokerRepo;
         this.redirectUri = redirectUri;
@@ -92,12 +92,11 @@ public final class FyersLoginOrchestrator {
 
         // Build FYERS auth URL
         String loginUrl = String.format(
-            "%s?client_id=%s&redirect_uri=%s&response_type=code&state=%s",
-            FYERS_AUTH_URL,
-            appId,
-            URLEncoder.encode(redirectUri, StandardCharsets.UTF_8),
-            URLEncoder.encode(state, StandardCharsets.UTF_8)
-        );
+                "%s?client_id=%s&redirect_uri=%s&response_type=code&state=%s",
+                FYERS_AUTH_URL,
+                appId,
+                URLEncoder.encode(redirectUri, StandardCharsets.UTF_8),
+                URLEncoder.encode(state, StandardCharsets.UTF_8));
 
         log.info("[FYERS LOGIN] Generated login URL for userBrokerId={}, state={}", userBrokerId, state);
 
@@ -116,7 +115,7 @@ public final class FyersLoginOrchestrator {
         // Check if login already in progress (unused, unexpired state exists)
         if (stateRepo.isLoginInProgress(userBrokerId)) {
             log.info("[FYERS LOGIN] Login already in progress for userBrokerId={} (unused OAuth state exists)",
-                userBrokerId);
+                    userBrokerId);
             return false;
         }
 
@@ -126,7 +125,7 @@ public final class FyersLoginOrchestrator {
             long secondsSince = Instant.now().getEpochSecond() - lastAttempt.getEpochSecond();
             if (secondsSince < BROWSER_THROTTLE_SECONDS) {
                 log.warn("[FYERS LOGIN] Browser open throttled for userBrokerId={} ({}s since last attempt)",
-                    userBrokerId, secondsSince);
+                        userBrokerId, secondsSince);
                 return false;
             }
         }
@@ -143,7 +142,7 @@ public final class FyersLoginOrchestrator {
                 return true;
             } catch (IOException e) {
                 log.error("[FYERS LOGIN] Failed to open browser for userBrokerId={}: {}",
-                    userBrokerId, e.getMessage());
+                        userBrokerId, e.getMessage());
                 log.error("[FYERS LOGIN] Please manually open: {}", response.loginUrl());
                 return false;
             }
@@ -171,9 +170,9 @@ public final class FyersLoginOrchestrator {
      * Response for login URL generation.
      */
     public record LoginUrlResponse(
-        String loginUrl,
-        String state,
-        String redirectUri,
-        String appId
-    ) {}
+            String loginUrl,
+            String state,
+            String redirectUri,
+            String appId) {
+    }
 }

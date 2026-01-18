@@ -1,10 +1,10 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.domain.trade.Direction;
-import in.annupaper.domain.trade.ExitReason;
-import in.annupaper.domain.signal.ExitSignal;
+import in.annupaper.domain.model.Direction;
+import in.annupaper.domain.model.ExitReason;
+import in.annupaper.domain.model.ExitSignal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +18,8 @@ import java.util.List;
 /**
  * PostgreSQL implementation of ExitSignalRepository.
  *
- * CRITICAL: Uses DB function generate_exit_episode() for AV-2 race-free episode generation.
+ * CRITICAL: Uses DB function generate_exit_episode() for AV-2 race-free episode
+ * generation.
  */
 public final class PostgresExitSignalRepository implements ExitSignalRepository {
     private static final Logger log = LoggerFactory.getLogger(PostgresExitSignalRepository.class);
@@ -32,12 +33,12 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
     @Override
     public ExitSignal findById(String exitSignalId) {
         String sql = """
-            SELECT * FROM exit_signals
-            WHERE exit_signal_id = ? AND deleted_at IS NULL
-            """;
+                SELECT * FROM exit_signals
+                WHERE exit_signal_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, exitSignalId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -55,14 +56,14 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
     @Override
     public List<ExitSignal> findByTradeId(String tradeId) {
         String sql = """
-            SELECT * FROM exit_signals
-            WHERE trade_id = ? AND deleted_at IS NULL
-            ORDER BY episode_id DESC
-            """;
+                SELECT * FROM exit_signals
+                WHERE trade_id = ? AND deleted_at IS NULL
+                ORDER BY episode_id DESC
+                """;
 
         List<ExitSignal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, tradeId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -78,19 +79,19 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
     }
 
     @Override
-    public List<ExitSignal> findByTradeAndReason(String tradeId, String exitReason) {
+    public List<ExitSignal> findByTradeAndReason(String tradeId, ExitReason exitReason) {
         String sql = """
-            SELECT * FROM exit_signals
-            WHERE trade_id = ? AND exit_reason = ? AND deleted_at IS NULL
-            ORDER BY episode_id DESC
-            """;
+                SELECT * FROM exit_signals
+                WHERE trade_id = ? AND exit_reason = ? AND deleted_at IS NULL
+                ORDER BY episode_id DESC
+                """;
 
         List<ExitSignal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, tradeId);
-            ps.setString(2, exitReason);
+            ps.setString(2, exitReason.name());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     signals.add(mapRow(rs));
@@ -98,26 +99,26 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
             }
         } catch (Exception e) {
             log.error("Failed to find exit signals for trade {} reason {}: {}",
-                tradeId, exitReason, e.getMessage());
+                    tradeId, exitReason, e.getMessage());
             throw new RuntimeException("Failed to find exit signals", e);
         }
         return signals;
     }
 
     @Override
-    public ExitSignal findLatestByTradeAndReason(String tradeId, String exitReason) {
+    public ExitSignal findLatestByTradeAndReason(String tradeId, ExitReason exitReason) {
         String sql = """
-            SELECT * FROM exit_signals
-            WHERE trade_id = ? AND exit_reason = ? AND deleted_at IS NULL
-            ORDER BY episode_id DESC
-            LIMIT 1
-            """;
+                SELECT * FROM exit_signals
+                WHERE trade_id = ? AND exit_reason = ? AND deleted_at IS NULL
+                ORDER BY episode_id DESC
+                LIMIT 1
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, tradeId);
-            ps.setString(2, exitReason);
+            ps.setString(2, exitReason.name());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return mapRow(rs);
@@ -125,34 +126,34 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
             }
         } catch (Exception e) {
             log.error("Failed to find latest exit signal for trade {} reason {}: {}",
-                tradeId, exitReason, e.getMessage());
+                    tradeId, exitReason, e.getMessage());
             throw new RuntimeException("Failed to find exit signal", e);
         }
         return null;
     }
 
     @Override
-    public int generateEpisode(String tradeId, String exitReason) {
+    public int generateEpisode(String tradeId, ExitReason exitReason) {
         // AV-2 FIX: Use DB function with pessimistic lock
         String sql = "SELECT generate_exit_episode(?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, tradeId);
-            ps.setString(2, exitReason);
+            ps.setString(2, exitReason.name());
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     int episode = rs.getInt(1);
                     log.debug("Generated exit episode: {} {} → episode {}",
-                        tradeId, exitReason, episode);
+                            tradeId, exitReason, episode);
                     return episode;
                 }
             }
         } catch (Exception e) {
             log.error("Failed to generate episode for trade {} reason {}: {}",
-                tradeId, exitReason, e.getMessage());
+                    tradeId, exitReason, e.getMessage());
             throw new RuntimeException("Failed to generate episode", e);
         }
 
@@ -162,23 +163,23 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
     @Override
     public void insert(ExitSignal exitSignal) {
         String sql = """
-            INSERT INTO exit_signals (
-                exit_signal_id, trade_id, signal_id, symbol, direction, exit_reason,
-                episode_id, exit_price_at_detection, brick_movement, favorable_movement,
-                highest_since_entry, lowest_since_entry, trailing_stop_price, trailing_active,
-                status, detected_at, confirmed_at, published_at, executed_at, cancelled_at,
-                last_rearm_at, created_at, updated_at, version
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?,
-                ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?,
-                ?, NOW(), NOW(), 1
-            )
-            """;
+                INSERT INTO exit_signals (
+                    exit_signal_id, trade_id, signal_id, symbol, direction, exit_reason,
+                    episode_id, exit_price_at_detection, brick_movement, favorable_movement,
+                    highest_since_entry, lowest_since_entry, trailing_stop_price, trailing_active,
+                    status, detected_at, confirmed_at, published_at, executed_at, cancelled_at,
+                    last_rearm_at, created_at, updated_at, version
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, NOW(), NOW(), 1
+                )
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, exitSignal.exitSignalId());
             ps.setString(2, exitSignal.tradeId());
@@ -186,25 +187,25 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
             ps.setString(4, exitSignal.symbol());
             ps.setString(5, exitSignal.direction().name());
             ps.setString(6, exitSignal.exitReason().name());
-            ps.setInt(7, 1);  // episode_id - should come from generateEpisode()
+            ps.setInt(7, 1); // episode_id - should come from generateEpisode()
             ps.setBigDecimal(8, exitSignal.exitPrice());
             setBigDecimalOrNull(ps, 9, exitSignal.brickMovement());
             setBigDecimalOrNull(ps, 10, exitSignal.favorableMovement());
-            setBigDecimalOrNull(ps, 11, null);  // highest_since_entry - not in current model
-            setBigDecimalOrNull(ps, 12, null);  // lowest_since_entry - not in current model
-            setBigDecimalOrNull(ps, 13, null);  // trailing_stop_price - not in current model
-            ps.setBoolean(14, false);  // trailing_active
-            ps.setString(15, "DETECTED");  // status
+            setBigDecimalOrNull(ps, 11, null); // highest_since_entry - not in current model
+            setBigDecimalOrNull(ps, 12, null); // lowest_since_entry - not in current model
+            setBigDecimalOrNull(ps, 13, null); // trailing_stop_price - not in current model
+            ps.setBoolean(14, false); // trailing_active
+            ps.setString(15, "DETECTED"); // status
             ps.setTimestamp(16, Timestamp.from(exitSignal.timestamp()));
-            ps.setNull(17, Types.TIMESTAMP);  // confirmed_at
-            ps.setNull(18, Types.TIMESTAMP);  // published_at
-            ps.setNull(19, Types.TIMESTAMP);  // executed_at
-            ps.setNull(20, Types.TIMESTAMP);  // cancelled_at
-            ps.setNull(21, Types.TIMESTAMP);  // last_rearm_at
+            ps.setNull(17, Types.TIMESTAMP); // confirmed_at
+            ps.setNull(18, Types.TIMESTAMP); // published_at
+            ps.setNull(19, Types.TIMESTAMP); // executed_at
+            ps.setNull(20, Types.TIMESTAMP); // cancelled_at
+            ps.setNull(21, Types.TIMESTAMP); // last_rearm_at
 
             ps.executeUpdate();
             log.info("Exit signal inserted: {} for trade {} ({})",
-                exitSignal.exitSignalId(), exitSignal.tradeId(), exitSignal.exitReason());
+                    exitSignal.exitSignalId(), exitSignal.tradeId(), exitSignal.exitReason());
 
         } catch (Exception e) {
             log.error("Failed to insert exit signal: {}", e.getMessage());
@@ -215,13 +216,13 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
     @Override
     public void updateStatus(String exitSignalId, String status) {
         String sql = """
-            UPDATE exit_signals
-            SET status = ?, updated_at = NOW()
-            WHERE exit_signal_id = ? AND deleted_at IS NULL
-            """;
+                UPDATE exit_signals
+                SET status = ?, updated_at = NOW()
+                WHERE exit_signal_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, status);
             ps.setString(2, exitSignalId);
@@ -239,13 +240,13 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
     @Override
     public void cancel(String exitSignalId) {
         String sql = """
-            UPDATE exit_signals
-            SET status = 'CANCELLED', cancelled_at = NOW(), updated_at = NOW()
-            WHERE exit_signal_id = ? AND deleted_at IS NULL
-            """;
+                UPDATE exit_signals
+                SET status = 'CANCELLED', cancelled_at = NOW(), updated_at = NOW()
+                WHERE exit_signal_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, exitSignalId);
 
@@ -261,17 +262,16 @@ public final class PostgresExitSignalRepository implements ExitSignalRepository 
 
     private ExitSignal mapRow(ResultSet rs) throws SQLException {
         return new ExitSignal(
-            rs.getString("exit_signal_id"),
-            rs.getString("trade_id"),
-            rs.getString("signal_id"),
-            rs.getString("symbol"),
-            Direction.valueOf(rs.getString("direction")),
-            ExitReason.valueOf(rs.getString("exit_reason")),
-            rs.getBigDecimal("exit_price_at_detection"),
-            rs.getBigDecimal("brick_movement"),
-            rs.getBigDecimal("favorable_movement"),
-            rs.getTimestamp("detected_at").toInstant()
-        );
+                rs.getString("exit_signal_id"),
+                rs.getString("trade_id"),
+                rs.getString("signal_id"),
+                rs.getString("symbol"),
+                Direction.valueOf(rs.getString("direction")),
+                ExitReason.valueOf(rs.getString("exit_reason")),
+                rs.getBigDecimal("exit_price_at_detection"),
+                rs.getBigDecimal("brick_movement"),
+                rs.getBigDecimal("favorable_movement"),
+                rs.getTimestamp("detected_at").toInstant());
     }
 
     private void setBigDecimalOrNull(PreparedStatement ps, int index, BigDecimal value) throws SQLException {

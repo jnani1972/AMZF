@@ -1,13 +1,11 @@
 package in.annupaper.integration;
 
-import in.annupaper.broker.BrokerAdapter;
-import in.annupaper.domain.trade.ExitIntentStatus;
-import in.annupaper.domain.trade.ExitIntent;
-import in.annupaper.domain.trade.Trade;
-import in.annupaper.repository.ExitIntentRepository;
-import in.annupaper.repository.TradeRepository;
-import in.annupaper.service.execution.ExitOrderExecutionService;
-import in.annupaper.service.execution.ExitOrderReconciler;
+import in.annupaper.domain.model.*;
+
+import in.annupaper.application.port.output.ExitIntentRepository;
+import in.annupaper.application.port.output.TradeRepository;
+import in.annupaper.application.service.ExitOrderExecutionService;
+import in.annupaper.application.service.ExitOrderReconciler;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -90,13 +87,12 @@ public class ExitOrderFlowIntegrationTest {
         testUserBrokerId = "test-user-broker-123";
 
         Trade testTrade = createTestTrade(
-            testTradeId,
-            "RELIANCE",
-            "BUY",
-            BigDecimal.valueOf(2400.00),
-            10,
-            "OPEN"
-        );
+                testTradeId,
+                "RELIANCE",
+                "BUY",
+                BigDecimal.valueOf(2400.00),
+                10,
+                "OPEN");
 
         // TODO: Insert trade into test DB
         // tradeRepo.insert(testTrade);
@@ -105,14 +101,13 @@ public class ExitOrderFlowIntegrationTest {
         // Create APPROVED exit intent
         testExitIntentId = UUID.randomUUID().toString();
         ExitIntent approvedIntent = createTestExitIntent(
-            testExitIntentId,
-            testTradeId,
-            testUserBrokerId,
-            ExitIntentStatus.APPROVED,
-            "TARGET_HIT",
-            BigDecimal.valueOf(2500.00),
-            10
-        );
+                testExitIntentId,
+                testTradeId,
+                testUserBrokerId,
+                ExitIntentStatus.APPROVED,
+                "TARGET_HIT",
+                BigDecimal.valueOf(2500.00),
+                10);
 
         // TODO: Insert exit intent into test DB
         // exitIntentRepo.insert(approvedIntent);
@@ -140,7 +135,8 @@ public class ExitOrderFlowIntegrationTest {
 
         // Execute exit intent
         log.info("→ Calling ExitOrderExecutionService.executeExitIntent()...");
-        // CompletableFuture<ExitIntent> future = exitOrderExecutionService.executeExitIntent(intent);
+        // CompletableFuture<ExitIntent> future =
+        // exitOrderExecutionService.executeExitIntent(intent);
         // ExitIntent result = future.get(10, TimeUnit.SECONDS);
 
         // Verify exit intent transitioned to PLACED
@@ -150,7 +146,7 @@ public class ExitOrderFlowIntegrationTest {
         // assertEquals(testBrokerOrderId, updated.brokerOrderId());
 
         log.info("✓ Exit intent placed: {} → PLACED with brokerOrderId={}",
-            testExitIntentId, testBrokerOrderId);
+                testExitIntentId, testBrokerOrderId);
     }
 
     @Test
@@ -162,8 +158,8 @@ public class ExitOrderFlowIntegrationTest {
         log.info("=".repeat(80));
 
         // Configure mock broker to return FILLED status
-        mockBroker.setOrderStatus(testBrokerOrderId, "COMPLETE",
-            BigDecimal.valueOf(2500.00), 10);
+        mockBroker.setBrokerOrderStatus(testBrokerOrderId, "COMPLETE",
+                BigDecimal.valueOf(2500.00), 10);
 
         // Trigger reconciliation
         log.info("→ Triggering ExitOrderReconciler...");
@@ -215,14 +211,13 @@ public class ExitOrderFlowIntegrationTest {
         // Create new APPROVED exit intent
         String rejectionTestIntentId = UUID.randomUUID().toString();
         ExitIntent intent = createTestExitIntent(
-            rejectionTestIntentId,
-            testTradeId,
-            testUserBrokerId,
-            ExitIntentStatus.APPROVED,
-            "STOP_LOSS",
-            BigDecimal.valueOf(2300.00),
-            10
-        );
+                rejectionTestIntentId,
+                testTradeId,
+                testUserBrokerId,
+                ExitIntentStatus.APPROVED,
+                "STOP_LOSS",
+                BigDecimal.valueOf(2300.00),
+                10);
 
         // TODO: Insert into test DB
         // exitIntentRepo.insert(intent);
@@ -232,12 +227,14 @@ public class ExitOrderFlowIntegrationTest {
 
         // Execute exit intent
         log.info("→ Calling ExitOrderExecutionService with rejection scenario...");
-        // CompletableFuture<ExitIntent> future = exitOrderExecutionService.executeExitIntent(intent);
+        // CompletableFuture<ExitIntent> future =
+        // exitOrderExecutionService.executeExitIntent(intent);
         // ExitIntent result = future.get(10, TimeUnit.SECONDS);
 
         // Verify exit intent marked as FAILED
         log.info("→ Verifying exit intent marked as FAILED...");
-        // ExitIntent updated = exitIntentRepo.findById(rejectionTestIntentId).orElseThrow();
+        // ExitIntent updated =
+        // exitIntentRepo.findById(rejectionTestIntentId).orElseThrow();
         // assertEquals(ExitIntentStatus.FAILED, updated.status());
         // assertNotNull(updated.errorCode());
 
@@ -257,14 +254,13 @@ public class ExitOrderFlowIntegrationTest {
         Instant oldTimestamp = Instant.now().minusSeconds(700); // 11 minutes ago
 
         ExitIntent placedIntent = createTestExitIntent(
-            timeoutTestIntentId,
-            testTradeId,
-            testUserBrokerId,
-            ExitIntentStatus.PLACED,
-            "TARGET_HIT",
-            BigDecimal.valueOf(2500.00),
-            10
-        );
+                timeoutTestIntentId,
+                testTradeId,
+                testUserBrokerId,
+                ExitIntentStatus.PLACED,
+                "TARGET_HIT",
+                BigDecimal.valueOf(2500.00),
+                10);
         // TODO: Set placedAt timestamp to oldTimestamp
 
         // TODO: Insert into test DB
@@ -276,7 +272,8 @@ public class ExitOrderFlowIntegrationTest {
 
         // Verify exit intent marked as FAILED with TIMEOUT
         log.info("→ Verifying timeout handling...");
-        // ExitIntent updated = exitIntentRepo.findById(timeoutTestIntentId).orElseThrow();
+        // ExitIntent updated =
+        // exitIntentRepo.findById(timeoutTestIntentId).orElseThrow();
         // assertEquals(ExitIntentStatus.FAILED, updated.status());
         // assertEquals("TIMEOUT", updated.errorCode());
 
@@ -296,14 +293,13 @@ public class ExitOrderFlowIntegrationTest {
         for (int i = 0; i < 10; i++) {
             String intentId = "rate-limit-test-" + i;
             ExitIntent intent = createTestExitIntent(
-                intentId,
-                testTradeId,
-                testUserBrokerId,
-                ExitIntentStatus.PLACED,
-                "TARGET_HIT",
-                BigDecimal.valueOf(2500.00),
-                10
-            );
+                    intentId,
+                    testTradeId,
+                    testUserBrokerId,
+                    ExitIntentStatus.PLACED,
+                    "TARGET_HIT",
+                    BigDecimal.valueOf(2500.00),
+                    10);
             // TODO: Insert into test DB
             // exitIntentRepo.insert(intent);
         }
@@ -316,8 +312,10 @@ public class ExitOrderFlowIntegrationTest {
 
         // Verify rate limiting metrics
         log.info("→ Verifying rate limiting metrics...");
-        // ExitOrderReconciler.ReconcileMetrics metrics = exitOrderReconciler.getMetrics();
-        // assertTrue(metrics.totalRateLimited() > 0, "Expected some intents to be rate-limited");
+        // ExitOrderReconciler.ReconcileMetrics metrics =
+        // exitOrderReconciler.getMetrics();
+        // assertTrue(metrics.totalRateLimited() > 0, "Expected some intents to be
+        // rate-limited");
 
         log.info("✓ Rate limiting working: {} intents rate-limited", 0); // metrics.totalRateLimited()
     }
@@ -336,81 +334,77 @@ public class ExitOrderFlowIntegrationTest {
     // =======================================================================
 
     private Trade createTestTrade(
-        String tradeId,
-        String symbol,
-        String direction,
-        BigDecimal entryPrice,
-        int qty,
-        String status
-    ) {
+            String tradeId,
+            String symbol,
+            String direction,
+            BigDecimal entryPrice,
+            int qty,
+            String status) {
         Instant now = Instant.now();
         return new Trade(
-            tradeId,
-            "test-portfolio",
-            "test-user",
-            "test-broker",
-            testUserBrokerId,
-            "test-signal-123",
-            "test-intent-123",
-            symbol,
-            direction,
-            1, // tradeNumber
-            entryPrice,
-            qty,
-            entryPrice.multiply(BigDecimal.valueOf(qty)),
-            now,
-            "MIS",
-            null, null, null, null, null,
-            null, null, null, null, null, null,
-            BigDecimal.valueOf(2300.00), // floor
-            BigDecimal.valueOf(2600.00), // ceiling
-            null, null,
-            null, null, null, BigDecimal.valueOf(2600.00), // exitPrimaryPrice
-            status,
-            entryPrice, null, null,
-            false, null, null,
-            null, null, null, null,
-            null, null, null,
-            "BROKER-ORDER-123", null, "test-intent-123",
-            now, now, now, null, 1
-        );
+                tradeId,
+                "test-portfolio",
+                "test-user",
+                "test-broker",
+                testUserBrokerId,
+                "test-signal-123",
+                "test-intent-123",
+                symbol,
+                direction,
+                1, // tradeNumber
+                entryPrice,
+                qty,
+                entryPrice.multiply(BigDecimal.valueOf(qty)),
+                now,
+                "MIS",
+                null, null, null, null, null,
+                null, null, null, null, null, null,
+                null, null,
+                null, null,
+                null, null, null, null,
+                status,
+                entryPrice, null, null,
+                false, null, null,
+                null, null, null, null,
+                null, null, null,
+                "BROKER-ORDER-123", null, "test-intent-123",
+                now, now, now, null, 1);
     }
 
     private ExitIntent createTestExitIntent(
-        String exitIntentId,
-        String tradeId,
-        String userBrokerId,
-        ExitIntentStatus status,
-        String exitReason,
-        BigDecimal limitPrice,
-        int qty
-    ) {
+            String exitIntentId,
+            String tradeId,
+            String userBrokerId,
+            ExitIntentStatus status,
+            String exitReason,
+            BigDecimal limitPrice,
+            int qty) {
         Instant now = Instant.now();
         return new ExitIntent(
-            exitIntentId,
-            "test-exit-signal-123",
-            tradeId,
-            userBrokerId,
-            exitReason,
-            1, // episodeId
-            status,
-            true, // validationPassed
-            List.of(), // validationErrors
-            qty,
-            "MARKET",
-            limitPrice,
-            "MIS",
-            null, // brokerOrderId (set after placement)
-            status == ExitIntentStatus.PLACED ? now : null, // placedAt
-            null, // filledAt
-            null, // cancelledAt
-            null, // errorCode
-            null, // errorMessage
-            0, // retryCount
-            now, // createdAt
-            now, // updatedAt
-            null, // deletedAt
-            1 // version
+                exitIntentId,
+                "test-exit-signal-123",
+                tradeId,
+                userBrokerId,
+                ExitReason.valueOf(exitReason),
+                1, // episodeId
+                status,
+                true, // validationPassed
+                List.of(), // validationErrors
+                qty,
+                "MARKET",
+                limitPrice,
+                "MIS",
+                null, // brokerOrderId
+                status == ExitIntentStatus.PLACED ? now : null,
+                null, // filledAt
+                null, // cancelledAt
+                null, // errorCode
+                null, // errorMessage
+                0, // retryCount
+                now, // createdAt
+                now, // updatedAt
+                null, // deletedAt
+                1 // version
         );
     }
 
@@ -421,7 +415,7 @@ public class ExitOrderFlowIntegrationTest {
         private boolean nextOrderSuccess = true;
         private String nextOrderId;
         private String nextOrderMessage;
-        private Map<String, OrderStatus> orderStatusMap = new java.util.HashMap<>();
+        private Map<String, BrokerOrderStatus> orderStatusMap = new java.util.HashMap<>();
 
         @Override
         public String getBrokerCode() {
@@ -434,34 +428,30 @@ public class ExitOrderFlowIntegrationTest {
             this.nextOrderMessage = message;
         }
 
-        public void setOrderStatus(String orderId, String status, BigDecimal avgPrice, int filledQty) {
-            orderStatusMap.put(orderId, new OrderStatus(
-                orderId, "RELIANCE", "NSE", "SELL", "MARKET", "MIS",
-                filledQty, filledQty, 0, avgPrice, avgPrice, null,
-                status, null, Instant.now().toString(), null, null
-            ));
+        public void setBrokerOrderStatus(String orderId, String status, BigDecimal avgPrice, int filledQty) {
+            orderStatusMap.put(orderId, new BrokerOrderStatus(
+                    orderId, "RELIANCE", "NSE", "SELL", "MARKET", "MIS",
+                    filledQty, filledQty, 0, avgPrice, avgPrice, null,
+                    status, null, Instant.now().toString(), null, null));
         }
 
         @Override
-        public CompletableFuture<OrderResult> placeOrder(OrderRequest request) {
-            OrderResult result = new OrderResult(
-                nextOrderSuccess,
-                nextOrderId,
-                nextOrderSuccess ? null : "BROKER_ERROR",
-                nextOrderMessage
-            );
+        public CompletableFuture<OrderResult> placeOrder(BrokerOrderRequest request) {
+            OrderResult result = OrderResult.ofSuccess(nextOrderId);
+            if (!nextOrderSuccess) {
+                result = OrderResult.ofFailure(nextOrderMessage, "BROKER_ERROR");
+            }
             return CompletableFuture.completedFuture(result);
         }
 
         @Override
-        public CompletableFuture<OrderStatus> getOrderStatus(String orderId) {
-            OrderStatus status = orderStatusMap.get(orderId);
+        public CompletableFuture<BrokerOrderStatus> getOrderStatus(String orderId) {
+            BrokerOrderStatus status = orderStatusMap.get(orderId);
             if (status == null) {
-                status = new OrderStatus(
-                    orderId, "RELIANCE", "NSE", "SELL", "MARKET", "MIS",
-                    0, 0, 0, null, null, null,
-                    "PENDING", null, Instant.now().toString(), null, null
-                );
+                status = new BrokerOrderStatus(
+                        orderId, "RELIANCE", "NSE", "SELL", "MARKET", "MIS",
+                        0, 0, 0, null, null, null,
+                        "PENDING", null, Instant.now().toString(), null, null);
             }
             return CompletableFuture.completedFuture(status);
         }
@@ -474,29 +464,27 @@ public class ExitOrderFlowIntegrationTest {
         @Override
         public CompletableFuture<BrokerAdapter.ConnectionResult> connect(BrokerAdapter.BrokerCredentials credentials) {
             return CompletableFuture.completedFuture(
-                new BrokerAdapter.ConnectionResult(true, "Connected", "mock-session-token", null)
-            );
+                    ConnectionResult.ofSuccess("mock-session-token"));
         }
 
         @Override
-        public void disconnect() {}
+        public void disconnect() {
+        }
 
         @Override
-        public CompletableFuture<BrokerAdapter.OrderResult> modifyOrder(String orderId, BrokerAdapter.OrderModifyRequest request) {
+        public CompletableFuture<OrderResult> modifyOrder(String orderId, OrderModifyRequest request) {
             return CompletableFuture.completedFuture(
-                new BrokerAdapter.OrderResult(false, null, "NOT_SUPPORTED", "Not implemented")
-            );
+                    OrderResult.ofFailure("Not implemented", "NOT_SUPPORTED"));
         }
 
         @Override
-        public CompletableFuture<BrokerAdapter.OrderResult> cancelOrder(String orderId) {
+        public CompletableFuture<OrderResult> cancelOrder(String orderId) {
             return CompletableFuture.completedFuture(
-                new BrokerAdapter.OrderResult(true, orderId, null, "Cancelled")
-            );
+                    OrderResult.ofSuccess(orderId));
         }
 
         @Override
-        public CompletableFuture<List<OrderStatus>> getOpenOrders() {
+        public CompletableFuture<List<BrokerOrderStatus>> getOpenOrders() {
             return CompletableFuture.completedFuture(List.of());
         }
 
@@ -521,20 +509,21 @@ public class ExitOrderFlowIntegrationTest {
         }
 
         @Override
-        public void subscribeTicks(List<String> symbols, BrokerAdapter.TickListener listener) {}
+        public void subscribeTicks(List<String> symbols, BrokerAdapter.TickListener listener) {
+        }
 
         @Override
-        public void unsubscribeTicks(List<String> symbols) {}
+        public void unsubscribeTicks(List<String> symbols) {
+        }
 
         @Override
-        public CompletableFuture<List<BrokerAdapter.HistoricalCandle>> getHistoricalCandles(
-            String symbol, int interval, long fromEpoch, long toEpoch
-        ) {
+        public CompletableFuture<List<HistoricalCandle>> getHistoricalCandles(
+                String symbol, TimeframeType timeframe, long fromEpoch, long toEpoch) {
             return CompletableFuture.completedFuture(List.of());
         }
 
         @Override
-        public CompletableFuture<List<BrokerAdapter.Instrument>> getInstruments() {
+        public CompletableFuture<List<BrokerInstrument>> getInstruments() {
             return CompletableFuture.completedFuture(List.of());
         }
     }

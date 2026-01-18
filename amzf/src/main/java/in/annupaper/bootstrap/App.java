@@ -6,67 +6,40 @@ import in.annupaper.auth.AuthService;
 import in.annupaper.auth.JwtService;
 import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 // import in.annupaper.infrastructure.broker.BrokerFactory;  // TODO: Uncomment when broker implementations complete
-import in.annupaper.domain.broker.BrokerIds;
-import in.annupaper.domain.common.EventType;
-import in.annupaper.domain.data.TimeframeType;
-import in.annupaper.domain.data.Candle;
-import in.annupaper.domain.data.Watchlist;
-import in.annupaper.domain.trade.Trade;
-import in.annupaper.domain.user.Portfolio;
-import in.annupaper.domain.repository.*;
-import in.annupaper.domain.repository.BrokerRepository;
-import in.annupaper.domain.repository.CandleRepository;
-import in.annupaper.domain.repository.PortfolioRepository;
-import in.annupaper.infrastructure.persistence.PostgresBrokerRepository;
-import in.annupaper.infrastructure.persistence.PostgresCandleRepository;
-import in.annupaper.infrastructure.persistence.PostgresPortfolioRepository;
-import in.annupaper.infrastructure.persistence.PostgresSignalRepository;
-import in.annupaper.infrastructure.persistence.PostgresSignalDeliveryRepository;
-import in.annupaper.infrastructure.persistence.PostgresExitSignalRepository;
-import in.annupaper.infrastructure.persistence.PostgresTradeEventRepository;
-import in.annupaper.infrastructure.persistence.PostgresTradeIntentRepository;
-import in.annupaper.infrastructure.persistence.PostgresTradeRepository;
-import in.annupaper.infrastructure.persistence.PostgresUserBrokerRepository;
-import in.annupaper.infrastructure.persistence.PostgresWatchlistRepository;
-import in.annupaper.domain.repository.SignalRepository;
-import in.annupaper.domain.repository.SignalDeliveryRepository;
-import in.annupaper.domain.repository.ExitSignalRepository;
-import in.annupaper.domain.repository.TradeEventRepository;
-import in.annupaper.domain.repository.TradeIntentRepository;
-import in.annupaper.domain.repository.TradeRepository;
-import in.annupaper.domain.repository.UserBrokerRepository;
-import in.annupaper.domain.repository.WatchlistRepository;
-import in.annupaper.service.admin.AdminService;
-import in.annupaper.application.monitoring.AlertService;
-import in.annupaper.application.monitoring.MonitoringService;
-import in.annupaper.service.candle.CandleFetcher;
-import in.annupaper.service.candle.CandleReconciler;
-import in.annupaper.service.candle.CandleStore;
-import in.annupaper.service.candle.TickCandleBuilder;
-import in.annupaper.service.core.EventService;
-import in.annupaper.service.MarketDataCache;
-import in.annupaper.service.execution.ExecutionOrchestrator;
-import in.annupaper.service.mtf.MtfAnalysisService;
-import in.annupaper.service.signal.BrickMovementTracker;
-import in.annupaper.service.signal.ExitSignalService;
-import in.annupaper.service.signal.SignalService;
-import in.annupaper.service.trade.ActiveTradeIndex;
-import in.annupaper.service.trade.TradeCoordinator;
-import in.annupaper.service.trade.TradeManagementService;
-import in.annupaper.service.trade.TradeManagementServiceImpl;
-import in.annupaper.service.signal.EntrySignalCoordinator;
-import in.annupaper.service.signal.ExitSignalCoordinator;
-import in.annupaper.service.signal.SignalDeliveryIndex;
-import in.annupaper.service.signal.SignalManagementService;
-import in.annupaper.service.signal.SignalManagementServiceImpl;
-import in.annupaper.service.validation.ValidationService;
-import in.annupaper.transport.http.ApiHandlers;
+import in.annupaper.domain.model.*;
+import in.annupaper.application.port.output.*;
+import in.annupaper.infrastructure.persistence.*;
 import in.annupaper.transport.ws.WsHub;
 import in.annupaper.util.Env;
+
+import in.annupaper.service.admin.AdminService;
+import in.annupaper.service.core.EventService;
+import in.annupaper.service.MarketDataCache;
+import in.annupaper.application.service.*;
+import in.annupaper.service.candle.CandleFetcher;
+import in.annupaper.service.candle.CandleStore;
+
+import in.annupaper.service.candle.TickCandleBuilder;
+import in.annupaper.service.candle.CandleReconciler;
+
+import in.annupaper.application.monitoring.AlertService;
+import in.annupaper.application.monitoring.MonitoringService;
+
+import in.annupaper.service.mtf.MtfAnalysisService;
+import in.annupaper.transport.http.ApiHandlers;
+import in.annupaper.transport.http.AdminConfigHandler;
+import in.annupaper.transport.http.MtfConfigHandler;
+import in.annupaper.transport.http.MonitoringHandler;
+import in.annupaper.application.port.input.TradeManagementService;
+import in.annupaper.application.port.input.SignalManagementService;
+
 import io.undertow.Handlers;
 import io.undertow.Undertow;
+
 import io.undertow.server.RoutingHandler;
+
 import io.undertow.util.Headers;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -162,15 +135,15 @@ public final class App {
         SignalRepository signalRepo = new PostgresSignalRepository(dataSource);
         TradeIntentRepository tradeIntentRepo = new PostgresTradeIntentRepository(dataSource);
         TradeRepository tradeRepo = new PostgresTradeRepository(dataSource);
-        in.annupaper.domain.repository.UserBrokerSessionRepository sessionRepo = new in.annupaper.infrastructure.persistence.PostgresUserBrokerSessionRepository(
+        in.annupaper.application.port.output.UserBrokerSessionRepository sessionRepo = new in.annupaper.infrastructure.persistence.PostgresUserBrokerSessionRepository(
                 dataSource);
-        in.annupaper.domain.repository.InstrumentRepository instrumentRepo = new in.annupaper.infrastructure.persistence.PostgresInstrumentRepository(
+        in.annupaper.application.port.output.InstrumentRepository instrumentRepo = new in.annupaper.infrastructure.persistence.PostgresInstrumentRepository(
                 dataSource);
-        in.annupaper.domain.repository.MtfConfigRepository mtfConfigRepo = new in.annupaper.infrastructure.persistence.PostgresMtfConfigRepository(
+        in.annupaper.application.port.output.MtfConfigRepository mtfConfigRepo = new in.annupaper.infrastructure.persistence.PostgresMtfConfigRepository(
                 dataSource);
         SignalDeliveryRepository signalDeliveryRepo = new PostgresSignalDeliveryRepository(dataSource);
         ExitSignalRepository exitSignalRepo = new PostgresExitSignalRepository(dataSource);
-        in.annupaper.domain.repository.ExitIntentRepository exitIntentRepo = new in.annupaper.infrastructure.persistence.PostgresExitIntentRepository(
+        in.annupaper.application.port.output.ExitIntentRepository exitIntentRepo = new in.annupaper.infrastructure.persistence.PostgresExitIntentRepository(
                 dataSource);
 
         // ═══════════════════════════════════════════════════════════════
@@ -178,7 +151,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         AlertService alertService = new AlertService();
         MonitoringService monitoringService = new MonitoringService(
-            exitIntentRepo, tradeRepo, userBrokerRepo, alertService);
+                exitIntentRepo, tradeRepo, userBrokerRepo, alertService);
         monitoringService.start();
         log.info("✓ Monitoring service started (health checks running)");
 
@@ -221,11 +194,11 @@ public final class App {
 
         // Get all active user_broker_ids to register listeners
         try {
-            java.util.List<in.annupaper.domain.broker.UserBroker> userBrokers = userBrokerRepo.findAll().stream()
+            java.util.List<in.annupaper.domain.model.UserBroker> userBrokers = userBrokerRepo.findAll().stream()
                     .filter(ub -> ub.deletedAt() == null)
                     .toList();
 
-            for (in.annupaper.domain.broker.UserBroker ub : userBrokers) {
+            for (in.annupaper.domain.model.UserBroker ub : userBrokers) {
                 tokenWatchdog.registerListener(ub.userBrokerId(),
                         (userBrokerId, newToken, sessionId) -> {
                             log.info("⚡ Token refresh event: userBrokerId={}, session={}",
@@ -246,7 +219,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         EventService eventService = new EventService(eventRepo, wsHub);
         in.annupaper.service.InstrumentService instrumentService = new in.annupaper.service.InstrumentService(
-                instrumentRepo, legacyBrokerFactory);
+                legacyBrokerFactory, instrumentRepo);
 
         // ═══════════════════════════════════════════════════════════════
         // Startup: Download instruments from all brokers
@@ -264,7 +237,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         CandleStore candleStore = new CandleStore(candleRepo);
         CandleFetcher candleFetcher = new CandleFetcher(legacyBrokerFactory, candleStore);
-        CandleReconciler candleReconciler = new CandleReconciler(candleFetcher, candleStore);
+        new CandleReconciler(candleFetcher, candleStore);
 
         // HistoryBackfiller dynamically fetches data broker adapter
         in.annupaper.service.candle.HistoryBackfiller historyBackfiller = new in.annupaper.service.candle.HistoryBackfiller(
@@ -276,11 +249,12 @@ public final class App {
         in.annupaper.service.candle.CandleAggregator candleAggregator = new in.annupaper.service.candle.CandleAggregator(
                 candleStore, eventService);
 
-        in.annupaper.service.candle.RecoveryManager recoveryManager = new in.annupaper.service.candle.RecoveryManager(
+        RecoveryManager recoveryManager = new RecoveryManager(
                 candleStore, historyBackfiller, candleAggregator);
 
         // MTF Backfill Service for ensuring sufficient historical candles
-        in.annupaper.service.candle.MtfBackfillService mtfBackfillService = new in.annupaper.service.candle.MtfBackfillService(
+        // MTF Backfill Service for ensuring sufficient historical candles
+        MtfBackfillService mtfBackfillService = new MtfBackfillService(
                 historyBackfiller, candleAggregator, watchlistRepo);
 
         // ═══════════════════════════════════════════════════════════════
@@ -301,12 +275,12 @@ public final class App {
         // MTF Analysis Service (updated to use CandleStore)
         // ═══════════════════════════════════════════════════════════════
         // MtfAnalysisService mtfService = new MtfAnalysisService((symbol, tfType) -> {
-        // // Stub: Generate mock candles (replace with real data from DATA broker)
+        // // Stub: Generate mock candles// Fix imports in App.java
         // return generateMockCandles(symbol, tfType);
         // });
-        MtfAnalysisService mtfService = new MtfAnalysisService((symbol, tfType) -> {
+        new MtfAnalysisService((symbol, tfType) -> {
             // Use CandleStore to get candles (from memory or PostgreSQL)
-            List<Candle> candles = candleStore.getFromMemory(symbol, tfType);
+            List<HistoricalCandle> candles = candleStore.getFromMemory(symbol, tfType);
             if (candles.isEmpty()) {
                 // Fallback to PostgreSQL
                 candles = candleStore.getFromPostgres(symbol, tfType, 100);
@@ -322,7 +296,7 @@ public final class App {
         // Validation and Execution Services
         // ═══════════════════════════════════════════════════════════════
         // Position Sizing Service (constitutional engine)
-        in.annupaper.service.signal.PositionSizingService positionSizingService = new in.annupaper.service.signal.PositionSizingService(
+        PositionSizingService positionSizingService = new PositionSizingService(
                 candleStore, portfolioRepo, tradeRepo, mtfConfigRepo);
 
         ValidationService validationService = new ValidationService(positionSizingService);
@@ -400,7 +374,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Validates execution readiness for exit signals (mirrors ValidationService for
         // entry)
-        in.annupaper.service.validation.ExitQualificationService exitQualificationService = new in.annupaper.service.validation.ExitQualificationService(
+        ExitQualificationService exitQualificationService = new ExitQualificationService(
                 exitIntentRepo);
 
         // ═══════════════════════════════════════════════════════════════
@@ -410,7 +384,7 @@ public final class App {
         // OrderExecutionService for exits)
         // Pattern: Read APPROVED intent → Place order → Mark PLACED/FAILED
         // ✅ P0 fix: Added tradeManagementService for single-writer enforcement
-        in.annupaper.service.execution.ExitOrderExecutionService exitOrderExecutionService = new in.annupaper.service.execution.ExitOrderExecutionService(
+        ExitOrderExecutionService exitOrderExecutionService = new ExitOrderExecutionService(
                 exitIntentRepo, tradeRepo, tradeManagementService, userBrokerRepo, legacyBrokerFactory, eventService);
 
         // ═══════════════════════════════════════════════════════════════
@@ -418,7 +392,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Scheduled task that processes approved exit intents every 5 seconds
         // Finds APPROVED exit intents and calls ExitOrderExecutionService
-        in.annupaper.service.execution.ExitOrderProcessor exitOrderProcessor = new in.annupaper.service.execution.ExitOrderProcessor(
+        ExitOrderProcessor exitOrderProcessor = new ExitOrderProcessor(
                 exitIntentRepo, exitOrderExecutionService);
         exitOrderProcessor.start(); // Starts background polling thread
 
@@ -449,7 +423,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Reconciles pending orders with broker reality every 30 seconds
         // See: COMPREHENSIVE_IMPLEMENTATION_PLAN.md Phase 1, P0-C
-        in.annupaper.service.execution.PendingOrderReconciler pendingOrderReconciler = new in.annupaper.service.execution.PendingOrderReconciler(
+        PendingOrderReconciler pendingOrderReconciler = new PendingOrderReconciler(
                 tradeRepo, userBrokerRepo, legacyBrokerFactory);
 
         // ═══════════════════════════════════════════════════════════════
@@ -459,7 +433,7 @@ public final class App {
         // Closes trades when exit orders fill
         // CLOSES ARCHITECTURE GAP: "Exit Order Reconciler Missing"
         // ✅ P0 fix: Added tradeManagementService for single-writer enforcement
-        in.annupaper.service.execution.ExitOrderReconciler exitOrderReconciler = new in.annupaper.service.execution.ExitOrderReconciler(
+        ExitOrderReconciler exitOrderReconciler = new ExitOrderReconciler(
                 exitIntentRepo, tradeRepo, tradeManagementService, userBrokerRepo, legacyBrokerFactory, eventService);
 
         // ═══════════════════════════════════════════════════════════════
@@ -471,7 +445,9 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Signal Generation with Confluence Analysis
         // ═══════════════════════════════════════════════════════════════
-        in.annupaper.service.signal.ConfluenceCalculator confluenceCalculator = new in.annupaper.service.signal.ConfluenceCalculator(
+        // Confluence Calculator (Trend + Signal)
+        // Confluence Calculator (Trend + Signal)
+        ConfluenceCalculator confluenceCalculator = new ConfluenceCalculator(
                 candleStore, mtfConfigRepo);
 
         SignalService signalService = new SignalService(
@@ -480,7 +456,7 @@ public final class App {
                 candleStore, portfolioRepo, signalManagementService);
 
         // MTF Signal Generator (scheduled signal analysis)
-        in.annupaper.service.signal.MtfSignalGenerator mtfSignalGenerator = new in.annupaper.service.signal.MtfSignalGenerator(
+        MtfSignalGenerator mtfSignalGenerator = new MtfSignalGenerator(
                 signalService, watchlistRepo, marketDataCache, userBrokerRepo);
 
         // ═══════════════════════════════════════════════════════════════
@@ -490,9 +466,9 @@ public final class App {
         // watchlistRepo, userBrokerRepo, dataSource);
 
         // Watchlist Template repositories (Level 1 & Level 2)
-        in.annupaper.domain.repository.WatchlistTemplateRepository watchlistTemplateRepo = new in.annupaper.infrastructure.persistence.PostgresWatchlistTemplateRepository(
+        in.annupaper.application.port.output.WatchlistTemplateRepository watchlistTemplateRepo = new in.annupaper.infrastructure.persistence.PostgresWatchlistTemplateRepository(
                 (com.zaxxer.hikari.HikariDataSource) dataSource);
-        in.annupaper.domain.repository.WatchlistSelectedRepository watchlistSelectedRepo = new in.annupaper.infrastructure.persistence.PostgresWatchlistSelectedRepository(
+        in.annupaper.application.port.output.WatchlistSelectedRepository watchlistSelectedRepo = new in.annupaper.infrastructure.persistence.PostgresWatchlistSelectedRepository(
                 (com.zaxxer.hikari.HikariDataSource) dataSource);
 
         // OLD: AdminService adminService = new AdminService(
@@ -514,7 +490,7 @@ public final class App {
         String oauthRedirectUri = "http://localhost:4000/admin/oauth-callback"; // Frontend callback route
 
         // OAuth state repository (DB-backed state for CSRF protection)
-        in.annupaper.domain.repository.OAuthStateRepository oauthStateRepo = new in.annupaper.domain.repository.OAuthStateRepository(
+        in.annupaper.application.port.output.OAuthStateRepository oauthStateRepo = new in.annupaper.application.port.output.OAuthStateRepository(
                 dataSource);
 
         // OAuth service (token exchange)
@@ -609,7 +585,7 @@ public final class App {
         // Trailing Stops Configuration Service
         // ═══════════════════════════════════════════════════════════════
         String configDir = Env.get("CONFIG_DIR", "./config");
-        in.annupaper.service.admin.TrailingStopsConfigService trailingStopsConfigService = new in.annupaper.service.admin.TrailingStopsConfigService(
+        TrailingStopsConfigService trailingStopsConfigService = new TrailingStopsConfigService(
                 configDir);
         log.info("✓ Trailing stops config service initialized: {}", configDir);
 
@@ -623,11 +599,11 @@ public final class App {
                     userBrokerRepo, brokerRepo, watchlistRepo, tickCandleBuilder, exitSignalService, recoveryManager,
                     mtfBackfillService,
                     signalRepo, tradeRepo);
-            in.annupaper.transport.http.MtfConfigHandler mtfConfigHandler = new in.annupaper.transport.http.MtfConfigHandler(
+            MtfConfigHandler mtfConfigHandler = new MtfConfigHandler(
                     mtfConfigService, tokenValidator);
-            in.annupaper.transport.http.AdminConfigHandler adminConfigHandler = new in.annupaper.transport.http.AdminConfigHandler(
+            AdminConfigHandler adminConfigHandler = new AdminConfigHandler(
                     trailingStopsConfigService);
-            in.annupaper.transport.http.MonitoringHandler monitoringHandler = new in.annupaper.transport.http.MonitoringHandler(
+            MonitoringHandler monitoringHandler = new MonitoringHandler(
                     dataSource);
             log.info("✓ Monitoring handler initialized");
 
@@ -863,12 +839,12 @@ public final class App {
         return new HikariDataSource(config);
     }
 
-    private static List<Candle> generateMockCandles(String symbol, TimeframeType tfType) {
-        List<Candle> candles = new ArrayList<>();
+    private static List<HistoricalCandle> generateMockCandles(String symbol, TimeframeType tfType) {
+        List<HistoricalCandle> candles = new ArrayList<>();
         Random random = new Random(symbol.hashCode());
         BigDecimal basePrice = new BigDecimal("1000");
         int count = tfType.getLookback();
-        long intervalMs = tfType.getCandleMinutes() * 60000L;
+        long intervalMs = tfType.getInterval() * 60000L;
         long startTime = System.currentTimeMillis() - (count * intervalMs);
 
         for (int i = 0; i < count; i++) {
@@ -877,8 +853,8 @@ public final class App {
             BigDecimal close = basePrice.multiply(BigDecimal.valueOf(1 + (random.nextDouble() - 0.5) * 0.04));
             BigDecimal high = open.max(close).multiply(BigDecimal.valueOf(1 + random.nextDouble() * 0.01));
             BigDecimal low = open.min(close).multiply(BigDecimal.valueOf(1 - random.nextDouble() * 0.01));
-            candles.add(Candle.of(symbol, tfType, Instant.ofEpochMilli(startTime + (i * intervalMs)),
-                    open.doubleValue(), high.doubleValue(), low.doubleValue(), close.doubleValue(),
+            candles.add(new HistoricalCandle(symbol, tfType, Instant.ofEpochMilli(startTime + (i * intervalMs)),
+                    open, high, low, close,
                     (long) (random.nextDouble() * 100000)));
             basePrice = close;
         }
@@ -909,9 +885,9 @@ public final class App {
     private static void reconcileHistoricalData(
             DataSource dataSource,
             in.annupaper.service.candle.CandleFetcher candleFetcher,
-            in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo,
-            in.annupaper.domain.repository.BrokerRepository brokerRepo,
-            in.annupaper.domain.repository.WatchlistRepository watchlistRepo) {
+            in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo,
+            in.annupaper.application.port.output.BrokerRepository brokerRepo,
+            in.annupaper.application.port.output.WatchlistRepository watchlistRepo) {
 
         log.info("[RECONCILIATION] ════════════════════════════════════════════════════════");
         log.info("[RECONCILIATION] Starting historical DAILY candles reconciliation");
@@ -919,14 +895,14 @@ public final class App {
 
         try {
             // Get data broker
-            java.util.Optional<in.annupaper.domain.broker.UserBroker> dataBrokerOpt = userBrokerRepo.findDataBroker();
+            java.util.Optional<in.annupaper.domain.model.UserBroker> dataBrokerOpt = userBrokerRepo.findDataBroker();
             if (dataBrokerOpt.isEmpty()) {
                 log.warn("[RECONCILIATION] No data broker configured, skipping reconciliation");
                 return;
             }
 
-            in.annupaper.domain.broker.UserBroker dataBroker = dataBrokerOpt.get();
-            java.util.Optional<in.annupaper.domain.broker.Broker> brokerOpt = brokerRepo
+            in.annupaper.domain.model.UserBroker dataBroker = dataBrokerOpt.get();
+            java.util.Optional<Broker> brokerOpt = brokerRepo
                     .findById(dataBroker.brokerId());
             if (brokerOpt.isEmpty()) {
                 log.warn("[RECONCILIATION] Broker not found: {}, skipping reconciliation", dataBroker.brokerId());
@@ -1034,15 +1010,15 @@ public final class App {
      */
     private static void setupTickStreamAndRecovery(
             boolean collectorMode,
-            in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo,
-            in.annupaper.domain.repository.BrokerRepository brokerRepo,
-            in.annupaper.domain.repository.WatchlistRepository watchlistRepo,
+            in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo,
+            in.annupaper.application.port.output.BrokerRepository brokerRepo,
+            in.annupaper.application.port.output.WatchlistRepository watchlistRepo,
             BrokerAdapterFactory legacyBrokerFactory,
             TickCandleBuilder tickCandleBuilder,
             ExitSignalService exitSignalService,
-            in.annupaper.service.candle.RecoveryManager recoveryManager,
-            in.annupaper.service.candle.MtfBackfillService mtfBackfillService,
-            in.annupaper.service.signal.MtfSignalGenerator mtfSignalGenerator) {
+            RecoveryManager recoveryManager,
+            MtfBackfillService mtfBackfillService,
+            MtfSignalGenerator mtfSignalGenerator) {
 
         log.info("[TICK STREAM] ════════════════════════════════════════════════════════");
         log.info("[TICK STREAM] Setting up tick stream subscription and recovery");
@@ -1050,14 +1026,14 @@ public final class App {
 
         try {
             // Get data broker
-            java.util.Optional<in.annupaper.domain.broker.UserBroker> dataBrokerOpt = userBrokerRepo.findDataBroker();
+            java.util.Optional<in.annupaper.domain.model.UserBroker> dataBrokerOpt = userBrokerRepo.findDataBroker();
             if (dataBrokerOpt.isEmpty()) {
                 log.warn("[TICK STREAM] No data broker configured, skipping tick subscription");
                 return;
             }
 
-            in.annupaper.domain.broker.UserBroker dataBroker = dataBrokerOpt.get();
-            java.util.Optional<in.annupaper.domain.broker.Broker> brokerOpt = brokerRepo
+            in.annupaper.domain.model.UserBroker dataBroker = dataBrokerOpt.get();
+            java.util.Optional<Broker> brokerOpt = brokerRepo
                     .findById(dataBroker.brokerId());
             if (brokerOpt.isEmpty()) {
                 log.warn("[TICK STREAM] Broker not found: {}, skipping", dataBroker.brokerId());
@@ -1068,7 +1044,7 @@ public final class App {
             String userBrokerId = dataBroker.userBrokerId();
 
             // Get broker adapter
-            in.annupaper.domain.broker.BrokerAdapter adapter = legacyBrokerFactory.getOrCreate(userBrokerId,
+            BrokerAdapter adapter = legacyBrokerFactory.getOrCreate(userBrokerId,
                     brokerCode);
             if (adapter == null || !adapter.isConnected()) {
                 log.warn("[TICK STREAM] Data broker not connected: {}", brokerCode);
@@ -1139,7 +1115,7 @@ public final class App {
                 log.info("[TICK STREAM] ════════════════════════════════════════════════════════");
 
                 try {
-                    java.util.List<in.annupaper.service.candle.MtfBackfillService.MtfBackfillResult> backfillResults = mtfBackfillService
+                    java.util.List<MtfBackfillService.MtfBackfillResult> backfillResults = mtfBackfillService
                             .backfillAllSymbols(userBrokerId);
 
                     int successCount = 0;
@@ -1227,7 +1203,7 @@ public final class App {
      * Analyzes all watchlist symbols for MTF confluence every minute during market
      * hours.
      */
-    private static void startMtfSignalScheduler(in.annupaper.service.signal.MtfSignalGenerator mtfSignalGenerator) {
+    private static void startMtfSignalScheduler(MtfSignalGenerator mtfSignalGenerator) {
         log.info("[MTF SCHEDULER] Starting signal generation scheduler (every 1 minute)");
 
         java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
@@ -1253,7 +1229,7 @@ public final class App {
      * Removes expired oauth_states rows to prevent table growth.
      */
     private static void startOAuthStateCleanupScheduler(
-            in.annupaper.domain.repository.OAuthStateRepository oauthStateRepo) {
+            in.annupaper.application.port.output.OAuthStateRepository oauthStateRepo) {
         java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors
                 .newSingleThreadScheduledExecutor(r -> {
                     Thread t = new Thread(r, "OAuthStateCleanup");
@@ -1291,15 +1267,15 @@ public final class App {
      * IMPORTANT: Runs AFTER server started (so callback endpoint is available)
      */
     private static void checkTokensAndAutoLogin(
-            in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo,
-            in.annupaper.domain.repository.UserBrokerSessionRepository sessionRepo,
+            in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo,
+            in.annupaper.application.port.output.UserBrokerSessionRepository sessionRepo,
             in.annupaper.infrastructure.broker.BrokerAdapterFactory legacyBrokerFactory,
             in.annupaper.service.oauth.FyersLoginOrchestrator fyersLoginOrchestrator) {
         log.info("[STARTUP AUTO-LOGIN] Checking token validity for all FYERS brokers...");
 
         try {
             // Get all FYERS user-broker combinations
-            java.util.List<in.annupaper.domain.broker.UserBroker> fyersBrokers = userBrokerRepo.findAll().stream()
+            java.util.List<in.annupaper.domain.model.UserBroker> fyersBrokers = userBrokerRepo.findAll().stream()
                     .filter(ub -> ub.deletedAt() == null)
                     .filter(ub -> BrokerIds.FYERS.equalsIgnoreCase(ub.brokerId()))
                     .toList();
@@ -1311,11 +1287,11 @@ public final class App {
 
             log.info("[STARTUP AUTO-LOGIN] Found {} FYERS broker(s) to check", fyersBrokers.size());
 
-            for (in.annupaper.domain.broker.UserBroker ub : fyersBrokers) {
+            for (in.annupaper.domain.model.UserBroker ub : fyersBrokers) {
                 String userBrokerId = ub.userBrokerId();
 
                 // Load latest session
-                java.util.Optional<in.annupaper.domain.broker.UserBrokerSession> sessionOpt = sessionRepo
+                java.util.Optional<UserBrokerSession> sessionOpt = sessionRepo
                         .findActiveSession(userBrokerId);
 
                 if (sessionOpt.isEmpty()) {
@@ -1326,7 +1302,7 @@ public final class App {
                     continue;
                 }
 
-                in.annupaper.domain.broker.UserBrokerSession session = sessionOpt.get();
+                UserBrokerSession session = sessionOpt.get();
 
                 // Check if token is missing or expires soon (< 60s)
                 java.time.Instant now = java.time.Instant.now();

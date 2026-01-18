@@ -1,8 +1,9 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.service.signal.SignalDeliveryIndex;
+import in.annupaper.domain.model.SignalDelivery;
+import in.annupaper.domain.model.DeliveryIndexEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,12 +30,12 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public SignalDelivery findById(String deliveryId) {
         String sql = """
-            SELECT * FROM signal_deliveries
-            WHERE delivery_id = ? AND deleted_at IS NULL
-            """;
+                SELECT * FROM signal_deliveries
+                WHERE delivery_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, deliveryId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -52,12 +53,12 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public SignalDelivery findBySignalAndUserBroker(String signalId, String userBrokerId) {
         String sql = """
-            SELECT * FROM signal_deliveries
-            WHERE signal_id = ? AND user_broker_id = ? AND deleted_at IS NULL
-            """;
+                SELECT * FROM signal_deliveries
+                WHERE signal_id = ? AND user_broker_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             ps.setString(2, userBrokerId);
@@ -68,7 +69,7 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
             }
         } catch (Exception e) {
             log.error("Failed to find delivery for signal {} and user-broker {}: {}",
-                signalId, userBrokerId, e.getMessage());
+                    signalId, userBrokerId, e.getMessage());
             throw new RuntimeException("Failed to find delivery", e);
         }
         return null;
@@ -77,12 +78,12 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public List<SignalDelivery> findByUserId(String userId, String status) {
         String sql = status != null
-            ? "SELECT * FROM signal_deliveries WHERE user_id = ? AND status = ? AND deleted_at IS NULL ORDER BY created_at DESC"
-            : "SELECT * FROM signal_deliveries WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC";
+                ? "SELECT * FROM signal_deliveries WHERE user_id = ? AND status = ? AND deleted_at IS NULL ORDER BY created_at DESC"
+                : "SELECT * FROM signal_deliveries WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC";
 
         List<SignalDelivery> deliveries = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, userId);
             if (status != null) {
@@ -104,14 +105,14 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public List<SignalDelivery> findBySignalId(String signalId) {
         String sql = """
-            SELECT * FROM signal_deliveries
-            WHERE signal_id = ? AND deleted_at IS NULL
-            ORDER BY created_at ASC
-            """;
+                SELECT * FROM signal_deliveries
+                WHERE signal_id = ? AND deleted_at IS NULL
+                ORDER BY created_at ASC
+                """;
 
         List<SignalDelivery> deliveries = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -127,25 +128,24 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     }
 
     @Override
-    public List<SignalDeliveryIndex.DeliveryIndexEntry> findAllActiveForIndex() {
+    public List<DeliveryIndexEntry> findAllActiveForIndex() {
         String sql = """
-            SELECT delivery_id, signal_id, user_broker_id
-            FROM signal_deliveries
-            WHERE status IN ('CREATED', 'DELIVERED')
-              AND deleted_at IS NULL
-            """;
+                SELECT delivery_id, signal_id, user_broker_id
+                FROM signal_deliveries
+                WHERE status IN ('CREATED', 'DELIVERED')
+                  AND deleted_at IS NULL
+                """;
 
-        List<SignalDeliveryIndex.DeliveryIndexEntry> entries = new ArrayList<>();
+        List<DeliveryIndexEntry> entries = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                entries.add(new SignalDeliveryIndex.DeliveryIndexEntry(
-                    rs.getString("delivery_id"),
-                    rs.getString("signal_id"),
-                    rs.getString("user_broker_id")
-                ));
+                entries.add(new DeliveryIndexEntry(
+                        rs.getString("delivery_id"),
+                        rs.getString("signal_id"),
+                        rs.getString("user_broker_id")));
             }
         } catch (Exception e) {
             log.error("Failed to fetch active deliveries for index: {}", e.getMessage());
@@ -157,16 +157,16 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public List<SignalDelivery> findPendingDeliveries() {
         String sql = """
-            SELECT * FROM signal_deliveries
-            WHERE status IN ('CREATED', 'DELIVERED')
-              AND deleted_at IS NULL
-            ORDER BY created_at ASC
-            """;
+                SELECT * FROM signal_deliveries
+                WHERE status IN ('CREATED', 'DELIVERED')
+                  AND deleted_at IS NULL
+                ORDER BY created_at ASC
+                """;
 
         List<SignalDelivery> deliveries = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 deliveries.add(mapRow(rs));
@@ -181,16 +181,16 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public void insert(SignalDelivery delivery) {
         String sql = """
-            INSERT INTO signal_deliveries (
-                delivery_id, signal_id, user_broker_id, user_id,
-                status, intent_id, rejection_reason, user_action,
-                created_at, delivered_at, consumed_at, user_action_at,
-                updated_at, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """;
+                INSERT INTO signal_deliveries (
+                    delivery_id, signal_id, user_broker_id, user_id,
+                    status, intent_id, rejection_reason, user_action,
+                    created_at, delivered_at, consumed_at, user_action_at,
+                    updated_at, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, delivery.deliveryId());
             ps.setString(2, delivery.signalId());
@@ -209,7 +209,7 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
 
             ps.executeUpdate();
             log.info("Delivery inserted: {} → {} for user-broker {}",
-                delivery.deliveryId(), delivery.signalId(), delivery.userBrokerId());
+                    delivery.deliveryId(), delivery.signalId(), delivery.userBrokerId());
 
         } catch (Exception e) {
             log.error("Failed to insert delivery: {}", e.getMessage());
@@ -223,7 +223,7 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
         String sql = "SELECT consume_delivery(?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, deliveryId);
             ps.setString(2, intentId);
@@ -250,13 +250,13 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public void updateStatus(String deliveryId, String status) {
         String sql = """
-            UPDATE signal_deliveries
-            SET status = ?, updated_at = NOW()
-            WHERE delivery_id = ? AND deleted_at IS NULL
-            """;
+                UPDATE signal_deliveries
+                SET status = ?, updated_at = NOW()
+                WHERE delivery_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, status);
             ps.setString(2, deliveryId);
@@ -274,15 +274,15 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public void expireAllForSignal(String signalId) {
         String sql = """
-            UPDATE signal_deliveries
-            SET status = 'EXPIRED', updated_at = NOW()
-            WHERE signal_id = ?
-              AND status IN ('CREATED', 'DELIVERED')
-              AND deleted_at IS NULL
-            """;
+                UPDATE signal_deliveries
+                SET status = 'EXPIRED', updated_at = NOW()
+                WHERE signal_id = ?
+                  AND status IN ('CREATED', 'DELIVERED')
+                  AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             int updated = ps.executeUpdate();
@@ -299,15 +299,15 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
     @Override
     public void cancelAllForSignal(String signalId) {
         String sql = """
-            UPDATE signal_deliveries
-            SET status = 'CANCELLED', updated_at = NOW()
-            WHERE signal_id = ?
-              AND status IN ('CREATED', 'DELIVERED')
-              AND deleted_at IS NULL
-            """;
+                UPDATE signal_deliveries
+                SET status = 'CANCELLED', updated_at = NOW()
+                WHERE signal_id = ?
+                  AND status IN ('CREATED', 'DELIVERED')
+                  AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             int updated = ps.executeUpdate();
@@ -328,22 +328,21 @@ public final class PostgresSignalDeliveryRepository implements SignalDeliveryRep
         Timestamp deletedTs = rs.getTimestamp("deleted_at");
 
         return new SignalDelivery(
-            rs.getString("delivery_id"),
-            rs.getString("signal_id"),
-            rs.getString("user_broker_id"),
-            rs.getString("user_id"),
-            rs.getString("status"),
-            rs.getString("intent_id"),
-            rs.getString("rejection_reason"),
-            rs.getString("user_action"),
-            rs.getTimestamp("created_at").toInstant(),
-            deliveredTs != null ? deliveredTs.toInstant() : null,
-            consumedTs != null ? consumedTs.toInstant() : null,
-            userActionTs != null ? userActionTs.toInstant() : null,
-            rs.getTimestamp("updated_at").toInstant(),
-            deletedTs != null ? deletedTs.toInstant() : null,
-            rs.getInt("version")
-        );
+                rs.getString("delivery_id"),
+                rs.getString("signal_id"),
+                rs.getString("user_broker_id"),
+                rs.getString("user_id"),
+                rs.getString("status"),
+                rs.getString("intent_id"),
+                rs.getString("rejection_reason"),
+                rs.getString("user_action"),
+                rs.getTimestamp("created_at").toInstant(),
+                deliveredTs != null ? deliveredTs.toInstant() : null,
+                consumedTs != null ? consumedTs.toInstant() : null,
+                userActionTs != null ? userActionTs.toInstant() : null,
+                rs.getTimestamp("updated_at").toInstant(),
+                deletedTs != null ? deletedTs.toInstant() : null,
+                rs.getInt("version"));
     }
 
     private void setTimestampOrNull(PreparedStatement ps, int index, Instant value) throws SQLException {

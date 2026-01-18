@@ -1,11 +1,10 @@
 package in.annupaper.feedrelay;
 
-import in.annupaper.domain.broker.BrokerAdapter.Tick;
-import in.annupaper.domain.broker.BrokerAdapter.TickListener;
+import in.annupaper.domain.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class RelayBroadcastTickListener implements TickListener {
+public final class RelayBroadcastTickListener implements BrokerAdapter.TickListener {
     private static final Logger log = LoggerFactory.getLogger(RelayBroadcastTickListener.class);
 
     private final TickRelayServer relay;
@@ -21,5 +20,10 @@ public final class RelayBroadcastTickListener implements TickListener {
         } catch (Exception e) {
             log.warn("[RELAY] Tick broadcast failed for symbol={}", tick.symbol(), e);
         }
+    }
+
+    @Override
+    public void onError(Throwable error) {
+        log.error("[RELAY] Tick listener error", error);
     }
 }

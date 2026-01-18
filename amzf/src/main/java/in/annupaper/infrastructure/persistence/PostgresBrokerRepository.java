@@ -1,10 +1,10 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import in.annupaper.domain.broker.Broker;
+import in.annupaper.domain.model.Broker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,32 +26,14 @@ public final class PostgresBrokerRepository implements BrokerRepository {
         this.dataSource = dataSource;
     }
 
-    // @Override
-    // public List<Broker> findAll() {
-    //     String sql = "SELECT * FROM brokers ORDER BY broker_code";
-    //     List<Broker> brokers = new ArrayList<>();
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql);
-    //          ResultSet rs = ps.executeQuery()) {
-    //
-    //         while (rs.next()) {
-    //             brokers.add(mapRow(rs));
-    //         }
-    //     } catch (Exception e) {
-    //         log.error("Error finding all brokers: {}", e.getMessage(), e);
-    //     }
-    //
-    //     return brokers;
-    // }
     @Override
     public List<Broker> findAll() {
         String sql = "SELECT * FROM brokers WHERE deleted_at IS NULL ORDER BY broker_code ASC";
         List<Broker> brokers = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 brokers.add(mapRow(rs));
@@ -63,32 +45,12 @@ public final class PostgresBrokerRepository implements BrokerRepository {
         return brokers;
     }
 
-    // @Override
-    // public Optional<Broker> findById(String brokerId) {
-    //     String sql = "SELECT * FROM brokers WHERE broker_id = ?";
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    //         ps.setString(1, brokerId);
-    //
-    //         try (ResultSet rs = ps.executeQuery()) {
-    //             if (rs.next()) {
-    //                 return Optional.of(mapRow(rs));
-    //             }
-    //         }
-    //     } catch (Exception e) {
-    //         log.error("Error finding broker by ID: {}", e.getMessage(), e);
-    //     }
-    //
-    //     return Optional.empty();
-    // }
     @Override
     public Optional<Broker> findById(String brokerId) {
         String sql = "SELECT * FROM brokers WHERE broker_id = ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, brokerId);
 
@@ -104,32 +66,12 @@ public final class PostgresBrokerRepository implements BrokerRepository {
         return Optional.empty();
     }
 
-    // @Override
-    // public Optional<Broker> findByCode(String brokerCode) {
-    //     String sql = "SELECT * FROM brokers WHERE broker_code = ?";
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    //         ps.setString(1, brokerCode);
-    //
-    //         try (ResultSet rs = ps.executeQuery()) {
-    //             if (rs.next()) {
-    //                 return Optional.of(mapRow(rs));
-    //             }
-    //         }
-    //     } catch (Exception e) {
-    //         log.error("Error finding broker by code: {}", e.getMessage(), e);
-    //     }
-    //
-    //     return Optional.empty();
-    // }
     @Override
     public Optional<Broker> findByCode(String brokerCode) {
         String sql = "SELECT * FROM brokers WHERE broker_code = ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, brokerCode);
 
@@ -145,56 +87,18 @@ public final class PostgresBrokerRepository implements BrokerRepository {
         return Optional.empty();
     }
 
-    // @Override
-    // public void insert(Broker broker) {
-    //     String sql = """
-    //         INSERT INTO brokers (
-    //             broker_id, broker_code, broker_name, adapter_class,
-    //             config, supported_exchanges, supported_products,
-    //             lot_sizes, margin_rules, rate_limits, status
-    //         ) VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?)
-    //         """;
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    //         ps.setString(1, broker.brokerId());
-    //         ps.setString(2, broker.brokerCode());
-    //         ps.setString(3, broker.brokerName());
-    //         ps.setString(4, broker.adapterClass());
-    //         ps.setString(5, broker.config() != null ? broker.config().toString() : "{}");
-    //
-    //         Array exchangesArr = conn.createArrayOf("TEXT", broker.supportedExchanges().toArray());
-    //         ps.setArray(6, exchangesArr);
-    //
-    //         Array productsArr = conn.createArrayOf("TEXT", broker.supportedProducts().toArray());
-    //         ps.setArray(7, productsArr);
-    //
-    //         ps.setString(8, broker.lotSizes() != null ? broker.lotSizes().toString() : "{}");
-    //         ps.setString(9, broker.marginRules() != null ? broker.marginRules().toString() : "{}");
-    //         ps.setString(10, broker.rateLimits() != null ? broker.rateLimits().toString() : "{}");
-    //         ps.setString(11, broker.status());
-    //
-    //         ps.executeUpdate();
-    //         log.info("Broker inserted: {}", broker.brokerId());
-    //
-    //     } catch (Exception e) {
-    //         log.error("Error inserting broker: {}", e.getMessage(), e);
-    //         throw new RuntimeException("Failed to insert broker", e);
-    //     }
-    // }
     @Override
     public void insert(Broker broker) {
         String sql = """
-            INSERT INTO brokers (
-                broker_id, broker_code, broker_name, adapter_class,
-                config, supported_exchanges, supported_products,
-                lot_sizes, margin_rules, rate_limits, status, version
-            ) VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, 1)
-            """;
+                INSERT INTO brokers (
+                    broker_id, broker_code, broker_name, adapter_class,
+                    config, supported_exchanges, supported_products,
+                    lot_sizes, margin_rules, rate_limits, status, version
+                ) VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, 1)
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, broker.brokerId());
             ps.setString(2, broker.brokerCode());
@@ -222,62 +126,18 @@ public final class PostgresBrokerRepository implements BrokerRepository {
         }
     }
 
-    // @Override
-    // public void update(Broker broker) {
-    //     String sql = """
-    //         UPDATE brokers SET
-    //             broker_name = ?,
-    //             adapter_class = ?,
-    //             config = ?::jsonb,
-    //             supported_exchanges = ?,
-    //             supported_products = ?,
-    //             lot_sizes = ?::jsonb,
-    //             margin_rules = ?::jsonb,
-    //             rate_limits = ?::jsonb,
-    //             status = ?,
-    //             updated_at = NOW()
-    //         WHERE broker_id = ?
-    //         """;
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    //         ps.setString(1, broker.brokerName());
-    //         ps.setString(2, broker.adapterClass());
-    //         ps.setString(3, broker.config() != null ? broker.config().toString() : "{}");
-    //
-    //         Array exchangesArr = conn.createArrayOf("TEXT", broker.supportedExchanges().toArray());
-    //         ps.setArray(4, exchangesArr);
-    //
-    //         Array productsArr = conn.createArrayOf("TEXT", broker.supportedProducts().toArray());
-    //         ps.setArray(5, productsArr);
-    //
-    //         ps.setString(6, broker.lotSizes() != null ? broker.lotSizes().toString() : "{}");
-    //         ps.setString(7, broker.marginRules() != null ? broker.marginRules().toString() : "{}");
-    //         ps.setString(8, broker.rateLimits() != null ? broker.rateLimits().toString() : "{}");
-    //         ps.setString(9, broker.status());
-    //         ps.setString(10, broker.brokerId());
-    //
-    //         ps.executeUpdate();
-    //         log.info("Broker updated: {}", broker.brokerId());
-    //
-    //     } catch (Exception e) {
-    //         log.error("Error updating broker: {}", e.getMessage(), e);
-    //         throw new RuntimeException("Failed to update broker", e);
-    //     }
-    // }
     @Override
     public void update(Broker broker) {
         // Immutable update: soft delete old version, insert new version
         String queryVersionSql = "SELECT version FROM brokers WHERE broker_id = ? AND deleted_at IS NULL";
         String softDeleteSql = "UPDATE brokers SET deleted_at = NOW() WHERE broker_id = ? AND version = ?";
         String insertSql = """
-            INSERT INTO brokers (
-                broker_id, broker_code, broker_name, adapter_class,
-                config, supported_exchanges, supported_products,
-                lot_sizes, margin_rules, rate_limits, status, version
-            ) VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
-            """;
+                INSERT INTO brokers (
+                    broker_id, broker_code, broker_name, adapter_class,
+                    config, supported_exchanges, supported_products,
+                    lot_sizes, margin_rules, rate_limits, status, version
+                ) VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
+                """;
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -344,13 +204,13 @@ public final class PostgresBrokerRepository implements BrokerRepository {
 
         Array exchangesArr = rs.getArray("supported_exchanges");
         List<String> supportedExchanges = exchangesArr != null
-            ? Arrays.asList((String[]) exchangesArr.getArray())
-            : List.of();
+                ? Arrays.asList((String[]) exchangesArr.getArray())
+                : List.of();
 
         Array productsArr = rs.getArray("supported_products");
         List<String> supportedProducts = productsArr != null
-            ? Arrays.asList((String[]) productsArr.getArray())
-            : List.of();
+                ? Arrays.asList((String[]) productsArr.getArray())
+                : List.of();
 
         String lotSizesJson = rs.getString("lot_sizes");
         JsonNode lotSizes = lotSizesJson != null ? MAPPER.readTree(lotSizesJson) : null;
@@ -374,10 +234,9 @@ public final class PostgresBrokerRepository implements BrokerRepository {
         int version = rs.getInt("version");
 
         return new Broker(
-            brokerId, brokerCode, brokerName, adapterClass,
-            config, supportedExchanges, supportedProducts,
-            lotSizes, marginRules, rateLimits,
-            status, createdAt, updatedAt, deletedAt, version
-        );
+                brokerId, brokerCode, brokerName, adapterClass,
+                config, supportedExchanges, supportedProducts,
+                lotSizes, marginRules, rateLimits,
+                status, createdAt, updatedAt, deletedAt, version);
     }
 }

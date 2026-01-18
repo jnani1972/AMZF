@@ -4,22 +4,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import in.annupaper.auth.JwtService;
-import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.domain.model.*;
 import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
-import in.annupaper.domain.broker.BrokerIds;
-import in.annupaper.domain.broker.Broker;
-import in.annupaper.domain.broker.BrokerRole;
-import in.annupaper.domain.user.Portfolio;
-import in.annupaper.domain.trade.TradeEvent;
-import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.domain.data.Watchlist;
-import in.annupaper.domain.broker.UserBrokerSession;
-import in.annupaper.domain.repository.TradeEventRepository;
+import in.annupaper.application.port.output.*;
 import in.annupaper.service.admin.AdminService;
 import in.annupaper.service.oauth.BrokerOAuthService;
+import in.annupaper.application.service.MtfBackfillService;
+import in.annupaper.application.service.RecoveryManager;
+import in.annupaper.application.service.ExitSignalService;
+
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +43,6 @@ public final class ApiHandlers {
     private static final String JSON_SUCCESS = "success";
     private static final String JSON_MESSAGE = "message";
     private static final String JSON_DATA = "data";
-    private static final String JSON_ERROR = "error";
 
     // Common Error Messages
     private static final String ERROR_UPDATE_USER_BROKER = "Failed to update user-broker";
@@ -69,15 +66,15 @@ public final class ApiHandlers {
     private final in.annupaper.service.InstrumentService instrumentService;
 
     // Tick stream dependencies for reconnection
-    private final in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo;
-    private final in.annupaper.domain.repository.BrokerRepository brokerRepo;
-    private final in.annupaper.domain.repository.WatchlistRepository watchlistRepo;
+    private final in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo;
+    private final in.annupaper.application.port.output.BrokerRepository brokerRepo;
+    private final in.annupaper.application.port.output.WatchlistRepository watchlistRepo;
     private final in.annupaper.service.candle.TickCandleBuilder tickCandleBuilder;
-    private final in.annupaper.service.signal.ExitSignalService exitSignalService;
-    private final in.annupaper.service.candle.RecoveryManager recoveryManager;
-    private final in.annupaper.service.candle.MtfBackfillService mtfBackfillService;
-    private final in.annupaper.domain.repository.SignalRepository signalRepo;
-    private final in.annupaper.domain.repository.TradeRepository tradeRepo;
+    private final ExitSignalService exitSignalService;
+    private final RecoveryManager recoveryManager;
+    private final MtfBackfillService mtfBackfillService;
+    private final in.annupaper.application.port.output.SignalRepository signalRepo;
+    private final in.annupaper.application.port.output.TradeRepository tradeRepo;
 
     // Old constructor
     // public ApiHandlers(TradeEventRepository eventRepo, Function<String, String>
@@ -90,15 +87,15 @@ public final class ApiHandlers {
             JwtService jwtService, AdminService adminService, BrokerOAuthService oauthService,
             in.annupaper.service.oauth.FyersLoginOrchestrator fyersLoginOrchestrator,
             BrokerAdapterFactory brokerFactory, in.annupaper.service.InstrumentService instrumentService,
-            in.annupaper.domain.repository.UserBrokerRepository userBrokerRepo,
-            in.annupaper.domain.repository.BrokerRepository brokerRepo,
-            in.annupaper.domain.repository.WatchlistRepository watchlistRepo,
+            in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo,
+            in.annupaper.application.port.output.BrokerRepository brokerRepo,
+            in.annupaper.application.port.output.WatchlistRepository watchlistRepo,
             in.annupaper.service.candle.TickCandleBuilder tickCandleBuilder,
-            in.annupaper.service.signal.ExitSignalService exitSignalService,
-            in.annupaper.service.candle.RecoveryManager recoveryManager,
-            in.annupaper.service.candle.MtfBackfillService mtfBackfillService,
-            in.annupaper.domain.repository.SignalRepository signalRepo,
-            in.annupaper.domain.repository.TradeRepository tradeRepo) {
+            ExitSignalService exitSignalService,
+            RecoveryManager recoveryManager,
+            MtfBackfillService mtfBackfillService,
+            in.annupaper.application.port.output.SignalRepository signalRepo,
+            in.annupaper.application.port.output.TradeRepository tradeRepo) {
         this.eventRepo = eventRepo;
         this.tokenValidator = tokenValidator;
         this.jwtService = jwtService;
@@ -131,15 +128,15 @@ public final class ApiHandlers {
             brokerFactory.remove(userBrokerId);
 
             // Get data broker details
-            java.util.Optional<in.annupaper.domain.broker.UserBroker> dataBrokerOpt = userBrokerRepo
+            java.util.Optional<in.annupaper.domain.model.UserBroker> dataBrokerOpt = userBrokerRepo
                     .findById(userBrokerId);
             if (dataBrokerOpt.isEmpty()) {
                 log.warn("[OAUTH] User broker {} not found, skipping reconnection", userBrokerId);
                 return;
             }
 
-            in.annupaper.domain.broker.UserBroker dataBroker = dataBrokerOpt.get();
-            java.util.Optional<in.annupaper.domain.broker.Broker> brokerOpt = brokerRepo
+            in.annupaper.domain.model.UserBroker dataBroker = dataBrokerOpt.get();
+            java.util.Optional<in.annupaper.domain.model.Broker> brokerOpt = brokerRepo
                     .findById(dataBroker.brokerId());
             if (brokerOpt.isEmpty()) {
                 log.warn("[OAUTH] Broker not found: {}, skipping reconnection", dataBroker.brokerId());
@@ -149,7 +146,7 @@ public final class ApiHandlers {
             String brokerCode = brokerOpt.get().brokerCode();
 
             // Create new adapter (will auto-connect using new session)
-            in.annupaper.domain.broker.BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
+            in.annupaper.domain.model.BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
             if (adapter == null || !adapter.isConnected()) {
                 log.warn("[OAUTH] Failed to reconnect data broker: {}", brokerCode);
                 return;
@@ -192,7 +189,7 @@ public final class ApiHandlers {
 
             // Backfill MTF candles for all symbols
             log.info("[OAUTH] Starting MTF backfill for all symbols...");
-            List<in.annupaper.service.candle.MtfBackfillService.MtfBackfillResult> backfillResults = mtfBackfillService
+            List<MtfBackfillService.MtfBackfillResult> backfillResults = mtfBackfillService
                     .backfillAllSymbols(userBrokerId);
 
             for (var result : backfillResults) {
@@ -516,7 +513,7 @@ public final class ApiHandlers {
             Map<String, Deque<String>> params = exchange.getQueryParameters();
             String statusFilter = params.containsKey("status") ? params.get("status").getFirst() : null;
 
-            List<in.annupaper.domain.signal.Signal> signals;
+            List<in.annupaper.domain.model.Signal> signals;
             if (statusFilter != null) {
                 signals = signalRepo.findByStatus(statusFilter);
             } else {
@@ -526,7 +523,7 @@ public final class ApiHandlers {
 
             ArrayNode signalsArray = MAPPER.createArrayNode();
 
-            for (in.annupaper.domain.signal.Signal s : signals) {
+            for (in.annupaper.domain.model.Signal s : signals) {
                 ObjectNode sNode = MAPPER.createObjectNode();
                 sNode.put("id", s.signalId());
                 sNode.put("symbol", s.symbol());
@@ -652,7 +649,7 @@ public final class ApiHandlers {
             Map<String, Deque<String>> params = exchange.getQueryParameters();
             String statusFilter = params.containsKey("status") ? params.get("status").getFirst() : null;
 
-            List<in.annupaper.domain.trade.Trade> trades;
+            List<in.annupaper.domain.model.Trade> trades;
             if (statusFilter != null) {
                 // Filter by user and status
                 trades = tradeRepo.findByUserId(userId).stream()
@@ -664,7 +661,7 @@ public final class ApiHandlers {
 
             ArrayNode tradesArray = MAPPER.createArrayNode();
 
-            for (in.annupaper.domain.trade.Trade t : trades) {
+            for (in.annupaper.domain.model.Trade t : trades) {
                 ObjectNode tNode = MAPPER.createObjectNode();
                 tNode.put("id", t.tradeId());
                 tNode.put("portfolioId", t.portfolioId());
@@ -1736,7 +1733,7 @@ public final class ApiHandlers {
             UserBroker userBroker = userBrokerOpt.get();
 
             // Get broker code from broker repository
-            in.annupaper.domain.broker.Broker broker = adminService.getBrokerById(userBroker.brokerId())
+            in.annupaper.domain.model.Broker broker = adminService.getBrokerById(userBroker.brokerId())
                     .orElseThrow(() -> new IllegalStateException("Broker not found: " + userBroker.brokerId()));
 
             // Create broker adapter
@@ -2376,7 +2373,7 @@ public final class ApiHandlers {
             var searchResults = instrumentService.search(query);
 
             ArrayNode results = MAPPER.createArrayNode();
-            for (var result : searchResults) {
+            for (InstrumentSearchResult result : searchResults) {
                 ObjectNode item = MAPPER.createObjectNode();
                 item.put("symbol", result.symbol());
                 item.put("name", result.name());

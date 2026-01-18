@@ -1,6 +1,6 @@
 package in.annupaper.infrastructure.broker.adapters;
 
-import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.domain.model.*;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -23,13 +24,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * anywhere while the VM maintains a stable connection from Mumbai region.
  *
  * Architecture:
- *   VM (Feed Collector) → FYERS WebSocket → broadcasts ticks
- *   Main App (this adapter) → connects to VM → receives ticks
+ * VM (Feed Collector) → FYERS WebSocket → broadcasts ticks
+ * Main App (this adapter) → connects to VM → receives ticks
  *
  * Usage:
- *   Set environment variables:
- *   - DATA_FEED_MODE=RELAY
- *   - RELAY_URL=ws://VM_IP:7071/ticks?token=SECRET
+ * Set environment variables:
+ * - DATA_FEED_MODE=RELAY
+ * - RELAY_URL=ws://VM_IP:7071/ticks?token=SECRET
  */
 public final class RelayWebSocketAdapter implements BrokerAdapter {
     private static final Logger log = LoggerFactory.getLogger(RelayWebSocketAdapter.class);
@@ -49,8 +50,8 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
         this.userBrokerId = userBrokerId;
         this.relayUrl = relayUrl;
         this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
 
         log.info("[RELAY ADAPTER] Created for userBrokerId={} (relay: {})", userBrokerId, maskUrl(relayUrl));
     }
@@ -67,52 +68,53 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
         CompletableFuture<ConnectionResult> result = new CompletableFuture<>();
 
         httpClient.newWebSocketBuilder()
-            .buildAsync(URI.create(relayUrl), new WebSocket.Listener() {
-                private final StringBuilder buf = new StringBuilder();
+                .buildAsync(URI.create(relayUrl), new WebSocket.Listener() {
+                    private final StringBuilder buf = new StringBuilder();
 
-                @Override
-                public void onOpen(WebSocket webSocket) {
-                    wsRef.set(webSocket);
-                    connected = true;
-                    lastTickAt = System.currentTimeMillis();
-                    log.info("[RELAY ADAPTER] ✅ Connected to feed collector");
-                    webSocket.request(1);
-                    result.complete(ConnectionResult.success("relay-connected"));
-                }
-
-                @Override
-                public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-                    buf.append(data);
-                    if (last) {
-                        String msg = buf.toString();
-                        buf.setLength(0);
-                        handleTickMessage(msg);
+                    @Override
+                    public void onOpen(WebSocket webSocket) {
+                        wsRef.set(webSocket);
+                        connected = true;
+                        lastTickAt = System.currentTimeMillis();
+                        log.info("[RELAY ADAPTER] ✅ Connected to feed collector");
+                        webSocket.request(1);
+                        result.complete(ConnectionResult.ofSuccess("relay-connected"));
                     }
-                    webSocket.request(1);
-                    return CompletableFuture.completedFuture(null);
-                }
 
-                @Override
-                public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                    connected = false;
-                    wsRef.set(null);
-                    log.warn("[RELAY ADAPTER] Disconnected: {} {}", statusCode, reason);
-                    if (!result.isDone()) {
-                        result.complete(ConnectionResult.failure("Disconnected during handshake", "DISCONNECTED"));
+                    @Override
+                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                        buf.append(data);
+                        if (last) {
+                            String msg = buf.toString();
+                            buf.setLength(0);
+                            handleTickMessage(msg);
+                        }
+                        webSocket.request(1);
+                        return CompletableFuture.completedFuture(null);
                     }
-                    return CompletableFuture.completedFuture(null);
-                }
 
-                @Override
-                public void onError(WebSocket webSocket, Throwable error) {
-                    connected = false;
-                    wsRef.set(null);
-                    log.error("[RELAY ADAPTER] WebSocket error", error);
-                    if (!result.isDone()) {
-                        result.complete(ConnectionResult.failure(error.getMessage(), "ERROR"));
+                    @Override
+                    public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                        connected = false;
+                        wsRef.set(null);
+                        log.warn("[RELAY ADAPTER] Disconnected: {} {}", statusCode, reason);
+                        if (!result.isDone()) {
+                            result.complete(
+                                    ConnectionResult.ofFailure("Disconnected during handshake", "DISCONNECTED"));
+                        }
+                        return CompletableFuture.completedFuture(null);
                     }
-                }
-            });
+
+                    @Override
+                    public void onError(WebSocket webSocket, Throwable error) {
+                        connected = false;
+                        wsRef.set(null);
+                        log.error("[RELAY ADAPTER] WebSocket error", error);
+                        if (!result.isDone()) {
+                            result.complete(ConnectionResult.ofFailure(error.getMessage(), "ERROR"));
+                        }
+                    }
+                });
 
         return result;
     }
@@ -124,7 +126,8 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
         if (ws != null) {
             try {
                 ws.sendClose(WebSocket.NORMAL_CLOSURE, "bye");
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         log.info("[RELAY ADAPTER] Disconnected");
     }
@@ -143,34 +146,31 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
     }
 
     @Override
-    public CompletableFuture<OrderResult> placeOrder(OrderRequest request) {
+    public CompletableFuture<OrderResult> placeOrder(BrokerOrderRequest request) {
         log.error("[RELAY ADAPTER] ❌ Order placement not supported (relay is read-only)");
         return CompletableFuture.completedFuture(
-            OrderResult.failure("Relay adapter is read-only", "NOT_SUPPORTED")
-        );
+                OrderResult.ofFailure("Relay adapter is read-only", "NOT_SUPPORTED"));
     }
 
     @Override
     public CompletableFuture<OrderResult> modifyOrder(String orderId, OrderModifyRequest request) {
         return CompletableFuture.completedFuture(
-            OrderResult.failure("Relay adapter is read-only", "NOT_SUPPORTED")
-        );
+                OrderResult.ofFailure("Relay adapter is read-only", "NOT_SUPPORTED"));
     }
 
     @Override
     public CompletableFuture<OrderResult> cancelOrder(String orderId) {
         return CompletableFuture.completedFuture(
-            OrderResult.failure("Relay adapter is read-only", "NOT_SUPPORTED")
-        );
+                OrderResult.ofFailure("Relay adapter is read-only", "NOT_SUPPORTED"));
     }
 
     @Override
-    public CompletableFuture<OrderStatus> getOrderStatus(String orderId) {
+    public CompletableFuture<BrokerOrderStatus> getOrderStatus(String orderId) {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<List<OrderStatus>> getOpenOrders() {
+    public CompletableFuture<List<BrokerOrderStatus>> getOpenOrders() {
         return CompletableFuture.completedFuture(List.of());
     }
 
@@ -213,13 +213,12 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
 
     @Override
     public CompletableFuture<List<HistoricalCandle>> getHistoricalCandles(
-        String symbol, int interval, long fromEpoch, long toEpoch
-    ) {
+            String symbol, TimeframeType timeframe, long fromEpoch, long toEpoch) {
         return CompletableFuture.completedFuture(List.of());
     }
 
     @Override
-    public CompletableFuture<List<Instrument>> getInstruments() {
+    public CompletableFuture<List<BrokerInstrument>> getInstruments() {
         return CompletableFuture.completedFuture(List.of());
     }
 
@@ -237,19 +236,19 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
             }
 
             Tick tick = new Tick(
-                symbol,
-                bd(o, "lastPrice"),
-                bd(o, "open"),
-                bd(o, "high"),
-                bd(o, "low"),
-                bd(o, "close"),
-                o.optLong("volume", 0L),
-                bd(o, "bid"),
-                bd(o, "ask"),
-                o.optInt("bidQty", 0),
-                o.optInt("askQty", 0),
-                o.optLong("timestamp", System.currentTimeMillis())
-            );
+                    symbol,
+                    bd(o, "lastPrice"),
+                    bd(o, "open"),
+                    bd(o, "high"),
+                    bd(o, "low"),
+                    bd(o, "close"),
+                    o.optLong("volume", 0L),
+                    bd(o, "bid"),
+                    bd(o, "ask"),
+                    o.optInt("bidQty", 0),
+                    o.optInt("askQty", 0),
+                    Instant.ofEpochMilli(o.optLong("timestamp", System.currentTimeMillis())),
+                    "RELAY");
 
             lastTickAt = System.currentTimeMillis();
 
@@ -273,9 +272,11 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
      * Parse BigDecimal from JSON (handles null and empty strings).
      */
     private static BigDecimal bd(JSONObject o, String key) {
-        if (!o.has(key)) return null;
+        if (!o.has(key))
+            return null;
         String v = o.optString(key, null);
-        if (v == null || v.isBlank()) return null;
+        if (v == null || v.isBlank())
+            return null;
         try {
             return new BigDecimal(v);
         } catch (NumberFormatException e) {
@@ -287,11 +288,14 @@ public final class RelayWebSocketAdapter implements BrokerAdapter {
      * Mask token in URL for logging.
      */
     private static String maskUrl(String url) {
-        if (url == null) return "null";
+        if (url == null)
+            return "null";
         int tokenIdx = url.indexOf("token=");
-        if (tokenIdx < 0) return url;
+        if (tokenIdx < 0)
+            return url;
         int endIdx = url.indexOf("&", tokenIdx);
-        if (endIdx < 0) endIdx = url.length();
+        if (endIdx < 0)
+            endIdx = url.length();
         return url.substring(0, tokenIdx + 6) + "***" + url.substring(endIdx);
     }
 }

@@ -1,6 +1,7 @@
 package in.annupaper.service.candle;
 
-import in.annupaper.domain.data.TimeframeType;
+import in.annupaper.domain.model.TimeframeType;
+import in.annupaper.service.candle.CandleStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,10 +31,9 @@ public final class CandleReconciler {
      * Fetches missing historical data for all symbols.
      */
     public void reconcile(
-        String userBrokerId,
-        String brokerCode,
-        List<String> watchlistSymbols
-    ) {
+            String userBrokerId,
+            String brokerCode,
+            List<String> watchlistSymbols) {
         if (watchlistSymbols == null || watchlistSymbols.isEmpty()) {
             log.info("No symbols in watchlist, skipping reconciliation");
             return;
@@ -70,19 +70,18 @@ public final class CandleReconciler {
         }
 
         log.info("Reconciliation complete: {}/{} symbols reconciled",
-                 reconciled, watchlistSymbols.size());
+                reconciled, watchlistSymbols.size());
     }
 
     /**
      * Reconcile a single symbol (all timeframes).
      */
     private void reconcileSymbol(
-        String userBrokerId,
-        String brokerCode,
-        String symbol,
-        Instant from,
-        Instant to
-    ) {
+            String userBrokerId,
+            String brokerCode,
+            String symbol,
+            Instant from,
+            Instant to) {
         log.info("Reconciling symbol: {}", symbol);
 
         // Fetch for all timeframes
@@ -91,7 +90,7 @@ public final class CandleReconciler {
                 candleFetcher.fetchHistorical(userBrokerId, brokerCode, symbol, tf, from, to).join();
             } catch (Exception e) {
                 log.error("Failed to fetch {} {} during reconciliation: {}",
-                          symbol, tf, e.getMessage());
+                        symbol, tf, e.getMessage());
             }
         }
     }
@@ -100,18 +99,17 @@ public final class CandleReconciler {
      * Reconcile with custom lookback period.
      */
     public void reconcile(
-        String userBrokerId,
-        String brokerCode,
-        List<String> watchlistSymbols,
-        int lookbackDays
-    ) {
+            String userBrokerId,
+            String brokerCode,
+            List<String> watchlistSymbols,
+            int lookbackDays) {
         if (watchlistSymbols == null || watchlistSymbols.isEmpty()) {
             log.info("No symbols in watchlist, skipping reconciliation");
             return;
         }
 
         log.info("Starting candle reconciliation for {} symbols (lookback: {} days)",
-                 watchlistSymbols.size(), lookbackDays);
+                watchlistSymbols.size(), lookbackDays);
 
         Instant to = Instant.now();
         Instant from = to.minus(lookbackDays, ChronoUnit.DAYS);

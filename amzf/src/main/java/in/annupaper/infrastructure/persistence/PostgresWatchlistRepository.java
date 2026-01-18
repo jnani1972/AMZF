@@ -1,8 +1,8 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.domain.data.Watchlist;
+import in.annupaper.domain.model.Watchlist;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +27,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         List<Watchlist> watchlists = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -47,7 +47,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         List<Watchlist> watchlists = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, userBrokerId);
 
@@ -66,16 +66,16 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
     @Override
     public List<Watchlist> findByUserId(String userId) {
         String sql = """
-            SELECT w.* FROM watchlist w
-            JOIN user_brokers ub ON w.user_broker_id = ub.user_broker_id AND ub.deleted_at IS NULL
-            WHERE ub.user_id = ?
-              AND w.deleted_at IS NULL
-            ORDER BY w.added_at ASC
-            """;
+                SELECT w.* FROM watchlist w
+                JOIN user_brokers ub ON w.user_broker_id = ub.user_broker_id AND ub.deleted_at IS NULL
+                WHERE ub.user_id = ?
+                  AND w.deleted_at IS NULL
+                ORDER BY w.added_at ASC
+                """;
         List<Watchlist> watchlists = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, userId);
 
@@ -96,7 +96,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         String sql = "SELECT * FROM watchlist WHERE id = ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setLong(1, id);
 
@@ -115,13 +115,13 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
     @Override
     public void save(Watchlist watchlist) {
         String sql = """
-            UPDATE watchlist
-            SET lot_size = ?, tick_size = ?, enabled = ?, updated_at = NOW(), version = version + 1
-            WHERE id = ? AND deleted_at IS NULL
-            """;
+                UPDATE watchlist
+                SET lot_size = ?, tick_size = ?, enabled = ?, updated_at = NOW(), version = version + 1
+                WHERE id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             if (watchlist.lotSize() != null) {
                 ps.setInt(1, watchlist.lotSize());
@@ -141,7 +141,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
             int updated = ps.executeUpdate();
             if (updated > 0) {
                 log.info("Watchlist entry updated: {} (lot_size={}, tick_size={}, enabled={})",
-                    watchlist.id(), watchlist.lotSize(), watchlist.tickSize(), watchlist.enabled());
+                        watchlist.id(), watchlist.lotSize(), watchlist.tickSize(), watchlist.enabled());
             } else {
                 log.warn("Watchlist entry not found or already deleted: {}", watchlist.id());
             }
@@ -152,29 +152,6 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         }
     }
 
-    // @Override
-    // public void insert(Watchlist watchlist) {
-    //     String sql = """
-    //         INSERT INTO watchlist (user_broker_id, symbol, enabled, version)
-    //         VALUES (?, ?, ?, 1)
-    //         """;
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    //         ps.setString(1, watchlist.userBrokerId());
-    //         ps.setString(2, watchlist.symbol());
-    //         ps.setBoolean(3, watchlist.enabled());
-    //
-    //         ps.executeUpdate();
-    //         log.info("Watchlist entry inserted: {} for {} version 1", watchlist.symbol(), watchlist.userBrokerId());
-    //
-    //     } catch (Exception e) {
-    //         log.error("Error inserting watchlist: {}", e.getMessage(), e);
-    //         throw new RuntimeException("Failed to insert watchlist", e);
-    //     }
-    // }
-
     @Override
     public void insert(Watchlist watchlist) {
         // Use ON CONFLICT to "resurrect" soft-deleted records instead of failing
@@ -182,22 +159,22 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         String cleanSymbol = watchlist.symbol().replace("-EQ", "");
 
         String sql = """
-            INSERT INTO watchlist (user_broker_id, symbol, lot_size, tick_size, is_custom, enabled, last_synced_at, version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-            ON CONFLICT (user_broker_id, symbol)
-            DO UPDATE SET
-                enabled = EXCLUDED.enabled,
-                is_custom = EXCLUDED.is_custom,
-                lot_size = EXCLUDED.lot_size,
-                tick_size = EXCLUDED.tick_size,
-                last_synced_at = EXCLUDED.last_synced_at,
-                deleted_at = NULL,
-                updated_at = NOW(),
-                version = watchlist.version + 1
-            """;
+                INSERT INTO watchlist (user_broker_id, symbol, lot_size, tick_size, is_custom, enabled, last_synced_at, version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT (user_broker_id, symbol)
+                DO UPDATE SET
+                    enabled = EXCLUDED.enabled,
+                    is_custom = EXCLUDED.is_custom,
+                    lot_size = EXCLUDED.lot_size,
+                    tick_size = EXCLUDED.tick_size,
+                    last_synced_at = EXCLUDED.last_synced_at,
+                    deleted_at = NULL,
+                    updated_at = NOW(),
+                    version = watchlist.version + 1
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, watchlist.userBrokerId());
             ps.setString(2, cleanSymbol);
@@ -217,7 +194,8 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
 
             ps.executeUpdate();
             log.info("Watchlist entry upserted: {} for {} (lot_size={}, tick_size={}, custom={}) version 1",
-                cleanSymbol, watchlist.userBrokerId(), watchlist.lotSize(), watchlist.tickSize(), watchlist.isCustom());
+                    cleanSymbol, watchlist.userBrokerId(), watchlist.lotSize(), watchlist.tickSize(),
+                    watchlist.isCustom());
 
         } catch (Exception e) {
             log.error("Error upserting watchlist: {}", e.getMessage(), e);
@@ -225,22 +203,6 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         }
     }
 
-    // @Override
-    // public void delete(Long id) {
-    //     String sql = "DELETE FROM watchlist WHERE id = ?";
-    //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
-    //
-    //         ps.setLong(1, id);
-    //         ps.executeUpdate();
-    //         log.info("Watchlist entry deleted: {}", id);
-    //
-    //     } catch (Exception e) {
-    //         log.error("Error deleting watchlist: {}", e.getMessage(), e);
-    //         throw new RuntimeException("Failed to delete watchlist", e);
-    //     }
-    // }
     @Override
     public void delete(Long id) {
         // Soft delete: mark as deleted
@@ -278,7 +240,7 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         String sql = "UPDATE watchlist SET enabled = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setBoolean(1, enabled);
             ps.setLong(2, id);
@@ -295,33 +257,14 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         }
     }
 
-
-    // private Watchlist mapRow(ResultSet rs) throws Exception {
-    //     Long id = rs.getLong("id");
-    //     String userBrokerId = rs.getString("user_broker_id");
-    //     String symbol = rs.getString("symbol");
-    //     boolean enabled = rs.getBoolean("enabled");
-    //
-    //     Timestamp addedTs = rs.getTimestamp("added_at");
-    //     Timestamp updatedTs = rs.getTimestamp("updated_at");
-    //     Instant addedAt = addedTs != null ? addedTs.toInstant() : Instant.now();
-    //     Instant updatedAt = updatedTs != null ? updatedTs.toInstant() : Instant.now();
-    //
-    //     Timestamp deletedTs = rs.getTimestamp("deleted_at");
-    //     Instant deletedAt = deletedTs != null ? deletedTs.toInstant() : null;
-    //
-    //     int version = rs.getInt("version");
-    //
-    //     return new Watchlist(id, userBrokerId, symbol, enabled, addedAt, updatedAt, deletedAt, version);
-    // }
-
     @Override
     public void updateLastPrice(String symbol, java.math.BigDecimal lastPrice, Instant lastTickTime) {
-        // Update last_price and last_tick_time for all watchlist entries with this symbol
+        // Update last_price and last_tick_time for all watchlist entries with this
+        // symbol
         String sql = "UPDATE watchlist SET last_price = ?, last_tick_time = ?, updated_at = NOW() WHERE symbol = ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setBigDecimal(1, lastPrice);
             ps.setTimestamp(2, lastTickTime != null ? Timestamp.from(lastTickTime) : null);
@@ -329,7 +272,8 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
 
             int updated = ps.executeUpdate();
             if (updated > 0) {
-                log.debug("Updated last price for symbol {} to {} at {} ({} entries)", symbol, lastPrice, lastTickTime, updated);
+                log.debug("Updated last price for symbol {} to {} at {} ({} entries)", symbol, lastPrice, lastTickTime,
+                        updated);
             }
 
         } catch (Exception e) {
@@ -370,7 +314,9 @@ public final class PostgresWatchlistRepository implements WatchlistRepository {
         Timestamp lastTickTs = rs.getTimestamp("last_tick_time");
         Instant lastTickTime = lastTickTs != null ? lastTickTs.toInstant() : null;
 
-        // OLD: return new Watchlist(id, userBrokerId, symbol, lotSize, tickSize, isCustom, enabled, addedAt, updatedAt, lastSyncedAt, deletedAt, version);
-        return new Watchlist(id, userBrokerId, symbol, lotSize, tickSize, isCustom, enabled, addedAt, updatedAt, lastSyncedAt, deletedAt, version, lastPrice, lastTickTime);
+        // OLD: return new Watchlist(id, userBrokerId, symbol, lotSize, tickSize,
+        // isCustom, enabled, addedAt, updatedAt, lastSyncedAt, deletedAt, version);
+        return new Watchlist(id, userBrokerId, symbol, lotSize, tickSize, isCustom, enabled, addedAt, updatedAt,
+                lastSyncedAt, deletedAt, version, lastPrice, lastTickTime);
     }
 }

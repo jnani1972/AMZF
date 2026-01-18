@@ -1,10 +1,10 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
 import com.zaxxer.hikari.HikariDataSource;
-import in.annupaper.domain.data.WatchlistTemplate;
-import in.annupaper.domain.data.WatchlistTemplateSymbol;
+import in.annupaper.domain.model.WatchlistTemplate;
+import in.annupaper.domain.model.WatchlistTemplateSymbol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,16 +29,16 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public List<WatchlistTemplate> findAllActive() {
         String sql = "SELECT template_id, template_name, description, display_order, enabled, " +
-                     "created_at, updated_at, deleted_at, version " +
-                     "FROM watchlist_templates " +
-                     "WHERE deleted_at IS NULL AND enabled = true " +
-                     "ORDER BY display_order ASC, template_name ASC";
+                "created_at, updated_at, deleted_at, version " +
+                "FROM watchlist_templates " +
+                "WHERE deleted_at IS NULL AND enabled = true " +
+                "ORDER BY display_order ASC, template_name ASC";
 
         List<WatchlistTemplate> templates = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 templates.add(mapTemplate(rs));
@@ -55,12 +55,12 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public Optional<WatchlistTemplate> findById(String templateId) {
         String sql = "SELECT template_id, template_name, description, display_order, enabled, " +
-                     "created_at, updated_at, deleted_at, version " +
-                     "FROM watchlist_templates " +
-                     "WHERE template_id = ?";
+                "created_at, updated_at, deleted_at, version " +
+                "FROM watchlist_templates " +
+                "WHERE template_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, templateId);
 
@@ -81,14 +81,14 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public List<WatchlistTemplateSymbol> findSymbolsByTemplateId(String templateId) {
         String sql = "SELECT id, template_id, symbol, display_order, created_at " +
-                     "FROM watchlist_template_symbols " +
-                     "WHERE template_id = ? " +
-                     "ORDER BY display_order ASC, symbol ASC";
+                "FROM watchlist_template_symbols " +
+                "WHERE template_id = ? " +
+                "ORDER BY display_order ASC, symbol ASC";
 
         List<WatchlistTemplateSymbol> symbols = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, templateId);
 
@@ -109,12 +109,12 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public void insert(WatchlistTemplate template) {
         String sql = "INSERT INTO watchlist_templates " +
-                     "(template_id, template_name, description, display_order, enabled, " +
-                     "created_at, updated_at, version) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "(template_id, template_name, description, display_order, enabled, " +
+                "created_at, updated_at, version) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, template.templateId());
             stmt.setString(2, template.templateName());
@@ -137,12 +137,12 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public void update(WatchlistTemplate template) {
         String sql = "UPDATE watchlist_templates SET " +
-                     "template_name = ?, description = ?, display_order = ?, enabled = ?, " +
-                     "updated_at = ?, version = version + 1 " +
-                     "WHERE template_id = ?";
+                "template_name = ?, description = ?, display_order = ?, enabled = ?, " +
+                "updated_at = ?, version = version + 1 " +
+                "WHERE template_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, template.templateName());
             stmt.setString(2, template.description());
@@ -163,10 +163,10 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public void delete(String templateId) {
         String sql = "UPDATE watchlist_templates SET deleted_at = ?, version = version + 1 " +
-                     "WHERE template_id = ?";
+                "WHERE template_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setTimestamp(1, Timestamp.from(Instant.now()));
             stmt.setString(2, templateId);
@@ -183,11 +183,11 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     @Override
     public void insertSymbol(WatchlistTemplateSymbol symbol) {
         String sql = "INSERT INTO watchlist_template_symbols " +
-                     "(template_id, symbol, display_order, created_at) " +
-                     "VALUES (?, ?, ?, ?)";
+                "(template_id, symbol, display_order, created_at) " +
+                "VALUES (?, ?, ?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, symbol.templateId());
             stmt.setString(2, symbol.symbol());
@@ -208,7 +208,7 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
         String sql = "DELETE FROM watchlist_template_symbols WHERE id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setLong(1, symbolId);
 
@@ -224,25 +224,23 @@ public class PostgresWatchlistTemplateRepository implements WatchlistTemplateRep
     private WatchlistTemplate mapTemplate(ResultSet rs) throws SQLException {
         Timestamp deletedAtTs = rs.getTimestamp("deleted_at");
         return new WatchlistTemplate(
-            rs.getString("template_id"),
-            rs.getString("template_name"),
-            rs.getString("description"),
-            rs.getInt("display_order"),
-            rs.getBoolean("enabled"),
-            rs.getTimestamp("created_at").toInstant(),
-            rs.getTimestamp("updated_at").toInstant(),
-            deletedAtTs != null ? deletedAtTs.toInstant() : null,
-            rs.getInt("version")
-        );
+                rs.getString("template_id"),
+                rs.getString("template_name"),
+                rs.getString("description"),
+                rs.getInt("display_order"),
+                rs.getBoolean("enabled"),
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant(),
+                deletedAtTs != null ? deletedAtTs.toInstant() : null,
+                rs.getInt("version"));
     }
 
     private WatchlistTemplateSymbol mapTemplateSymbol(ResultSet rs) throws SQLException {
         return new WatchlistTemplateSymbol(
-            rs.getLong("id"),
-            rs.getString("template_id"),
-            rs.getString("symbol"),
-            rs.getInt("display_order"),
-            rs.getTimestamp("created_at").toInstant()
-        );
+                rs.getLong("id"),
+                rs.getString("template_id"),
+                rs.getString("symbol"),
+                rs.getInt("display_order"),
+                rs.getTimestamp("created_at").toInstant());
     }
 }

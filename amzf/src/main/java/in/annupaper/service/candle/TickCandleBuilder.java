@@ -1,11 +1,12 @@
 package in.annupaper.service.candle;
 
-import in.annupaper.domain.broker.BrokerAdapter;
-import in.annupaper.domain.common.EventType;
-import in.annupaper.domain.data.TimeframeType;
-import in.annupaper.domain.data.Candle;
+import in.annupaper.domain.model.BrokerAdapter;
+import in.annupaper.domain.model.EventType;
+import in.annupaper.domain.model.TimeframeType;
+import in.annupaper.domain.model.HistoricalCandle;
+import in.annupaper.domain.model.Tick;
 import in.annupaper.service.core.EventService;
-import in.annupaper.domain.repository.WatchlistRepository;
+
 import in.annupaper.service.MarketDataCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,8 @@ import java.util.concurrent.locks.ReentrantLock;
  *
  * Pattern: tick-only candle builder with uptime gaps
  * - Only builds 1-minute candles (source of truth)
- * - 25-min and 125-min are aggregated from closed 1-min candles by CandleAggregator
+ * - 25-min and 125-min are aggregated from closed 1-min candles by
+ * CandleAggregator
  * - Detects gaps and triggers backfill via HistoryBackfiller
  * - Uses SessionClock for proper market session alignment
  */
@@ -65,12 +67,11 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
 
     // FIX: Use MarketDataCache instead of direct DB writes for better performance
     public TickCandleBuilder(
-        CandleStore candleStore,
-        EventService eventService,
-        MarketDataCache marketDataCache,
-        HistoryBackfiller historyBackfiller,
-        CandleAggregator candleAggregator
-    ) {
+            CandleStore candleStore,
+            EventService eventService,
+            MarketDataCache marketDataCache,
+            HistoryBackfiller historyBackfiller,
+            CandleAggregator candleAggregator) {
         this.candleStore = candleStore;
         this.eventService = eventService;
         this.marketDataCache = marketDataCache;
@@ -80,7 +81,8 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
 
     /**
      * Set watchdog manager for tick liveness tracking.
-     * Called from App.java after both TickCandleBuilder and WatchdogManager are created.
+     * Called from App.java after both TickCandleBuilder and WatchdogManager are
+     * created.
      */
     public void setWatchdogManager(in.annupaper.service.WatchdogManager watchdogManager) {
         this.watchdogManager = watchdogManager;
@@ -90,7 +92,7 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
      * Process incoming tick and update 1-minute candle.
      */
     @Override
-    public void onTick(BrokerAdapter.Tick tick) {
+    public void onTick(Tick tick) {
         totalTicks.incrementAndGet();
 
         // ✅ P0-D: Dedupe check BEFORE any processing
@@ -100,7 +102,7 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
         if (currentDedupeWindow.contains(dedupeKey) || previousDedupeWindow.contains(dedupeKey)) {
             duplicateTicks.incrementAndGet();
             log.trace("Duplicate tick detected: {} (key: {})", tick.symbol(), dedupeKey);
-            return;  // Skip duplicate
+            return; // Skip duplicate
         }
 
         // Add to current window
@@ -112,7 +114,7 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
         String symbol = tick.symbol();
         BigDecimal price = tick.lastPrice();
         long volume = tick.volume();
-        Instant timestamp = Instant.ofEpochMilli(tick.timestamp());
+        Instant timestamp = tick.timestamp();
 
         // Skip if outside market hours
         if (!SessionClock.isWithinSession(timestamp)) {
@@ -145,23 +147,23 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
      *
      * Primary key: symbol + exchangeTimestamp + lastPrice + volume
      * Fallback key (when exchange timestamp missing/invalid):
-     *   symbol + lastPrice + volume + systemTimeRoundedToSecond
+     * symbol + lastPrice + volume + systemTimeRoundedToSecond
      *
      * This ensures:
      * - Same tick from broker (with exchange timestamp) is deduplicated
      * - High-frequency ticks without exchange timestamp use fallback
      * - Bounded memory: keys are strings, not keeping full tick objects
      */
-    private String generateDedupeKey(BrokerAdapter.Tick tick) {
+    private String generateDedupeKey(Tick tick) {
         String symbol = tick.symbol();
-        long exchangeTimestamp = tick.timestamp();
+        Instant exchangeTimestamp = tick.timestamp();
         BigDecimal price = tick.lastPrice();
         long volume = tick.volume();
 
         // Primary dedupe key: use exchange timestamp if available
-        if (exchangeTimestamp > 0) {
+        if (exchangeTimestamp != null && exchangeTimestamp.toEpochMilli() > 0) {
             // Format: SYMBOL|exchangeTimestamp|price|volume
-            return String.format("%s|%d|%s|%d", symbol, exchangeTimestamp, price, volume);
+            return String.format("%s|%d|%s|%d", symbol, exchangeTimestamp.toEpochMilli(), price, volume);
         }
 
         // ✅ Fallback dedupe key: exchange timestamp missing
@@ -192,12 +194,12 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
         long secondsSinceLastSwap = ChronoUnit.SECONDS.between(lastWindowSwap, now);
 
         if (secondsSinceLastSwap < 60) {
-            return;  // Not time to rotate yet
+            return; // Not time to rotate yet
         }
 
         // Try to acquire lock (non-blocking)
         if (!windowSwapLock.tryLock()) {
-            return;  // Another thread is already swapping
+            return; // Another thread is already swapping
         }
 
         try {
@@ -221,7 +223,7 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
             lastWindowSwap = now;
 
             log.info("✅ Dedupe windows rotated: previous={} keys discarded, current={} keys moved to previous",
-                previousSize, currentSize);
+                    previousSize, currentSize);
 
         } finally {
             windowSwapLock.unlock();
@@ -232,11 +234,10 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
      * Update 1-minute candle from tick.
      */
     private void update1MinuteCandle(
-        String symbol,
-        BigDecimal price,
-        long volume,
-        Instant timestamp
-    ) {
+            String symbol,
+            BigDecimal price,
+            long volume,
+            Instant timestamp) {
         PartialCandle partial = partialCandles.get(symbol);
 
         // Get 1-minute candle start time using SessionClock
@@ -277,7 +278,7 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
         if (expectedNext.isBefore(currentCandleStart)) {
             long gapMinutes = ChronoUnit.MINUTES.between(expectedNext, currentCandleStart);
             log.info("Gap detected for {} 1-min: {} minutes (from {} to {})",
-                symbol, gapMinutes, expectedNext, currentCandleStart);
+                    symbol, gapMinutes, expectedNext, currentCandleStart);
 
             // Trigger backfill asynchronously to avoid blocking tick processing
             CompletableFuture.runAsync(() -> {
@@ -293,16 +294,15 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
      * Close and persist a completed 1-minute candle.
      */
     private void close1MinuteCandle(String symbol, PartialCandle partial) {
-        Candle candle = Candle.of(
-            symbol,
-            TimeframeType.MINUTE_1,
-            partial.startTime,
-            partial.open.doubleValue(),
-            partial.high.doubleValue(),
-            partial.low.doubleValue(),
-            partial.close.doubleValue(),
-            partial.volume
-        );
+        HistoricalCandle candle = new HistoricalCandle(
+                symbol,
+                TimeframeType.MINUTE_1,
+                partial.startTime,
+                partial.open,
+                partial.high,
+                partial.low,
+                partial.close,
+                partial.volume);
 
         // Store candle (in-memory + PostgreSQL)
         candleStore.addIntraday(candle);
@@ -352,7 +352,7 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
         Instant now = Instant.now();
 
         if (!SessionClock.isWithinSession(now)) {
-            return;  // Skip if outside market hours
+            return; // Skip if outside market hours
         }
 
         Instant currentMinuteBoundary = SessionClock.floorToMinute(now);
@@ -402,10 +402,15 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
      */
     public void clearDedupeWindows() {
         log.info("Clearing dedupe windows: current={} keys, previous={} keys",
-            currentDedupeWindow.size(), previousDedupeWindow.size());
+                currentDedupeWindow.size(), previousDedupeWindow.size());
 
         currentDedupeWindow.clear();
         previousDedupeWindow.clear();
+    }
+
+    @Override
+    public void onError(Throwable error) {
+        log.error("Error in tick candle builder stream: {}", error.getMessage(), error);
     }
 
     /**
@@ -419,7 +424,8 @@ public final class TickCandleBuilder implements BrokerAdapter.TickListener {
         BigDecimal close;
         long volume;
 
-        PartialCandle(Instant startTime, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close, long volume) {
+        PartialCandle(Instant startTime, BigDecimal open, BigDecimal high, BigDecimal low, BigDecimal close,
+                long volume) {
             this.startTime = startTime;
             this.open = open;
             this.high = high;

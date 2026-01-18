@@ -5,10 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import in.annupaper.domain.common.EventScope;
-import in.annupaper.domain.common.EventType;
-import in.annupaper.domain.trade.TradeEvent;
-import in.annupaper.domain.user.WsSession;
+import in.annupaper.domain.model.*;
 import io.undertow.websockets.WebSocketConnectionCallback;
 import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
 import io.undertow.websockets.core.*;
@@ -25,20 +22,21 @@ import java.util.function.Function;
 /**
  * Undertow-native WebSocket hub with:
  * - Token-based authentication (?token=xxx)
- * - User-scoped event delivery (GLOBAL to all, USER/USER_BROKER to specific users)
+ * - User-scoped event delivery (GLOBAL to all, USER/USER_BROKER to specific
+ * users)
  * - Topic subscriptions
  * - Batching (flush interval configurable)
  */
 public final class WsHub {
     private static final Logger log = LoggerFactory.getLogger(WsHub.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    
+
     // Channel -> Session
     private final ConcurrentMap<WebSocketChannel, WsSession> sessions = new ConcurrentHashMap<>();
-    
+
     // UserId -> Channels (for targeted delivery)
     private final ConcurrentMap<String, Set<WebSocketChannel>> userChannels = new ConcurrentHashMap<>();
-    
+
     // Batching queue
     private final BlockingQueue<TradeEvent> batchQueue = new LinkedBlockingQueue<>(100_000);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -46,26 +44,26 @@ public final class WsHub {
         t.setDaemon(true);
         return t;
     });
-    
+
     private final AtomicLong wsSeq = new AtomicLong(0);
     private volatile int flushMs = 100;
-    
+
     // Token validator: token -> userId (null if invalid)
     private final Function<String, String> tokenValidator;
-    
+
     public WsHub(Function<String, String> tokenValidator) {
         this.tokenValidator = tokenValidator;
     }
-    
+
     public void setFlushMs(int flushMs) {
         this.flushMs = Math.max(10, flushMs);
     }
-    
+
     public void start() {
         scheduler.scheduleAtFixedRate(this::flushBatch, flushMs, flushMs, TimeUnit.MILLISECONDS);
         log.info("WsHub started with {}ms batch flush interval", flushMs);
     }
-    
+
     public WebSocketProtocolHandshakeHandler websocketHandler() {
         return new WebSocketProtocolHandshakeHandler(new WebSocketConnectionCallback() {
             @Override
@@ -74,55 +72,59 @@ public final class WsHub {
                 String query = exchange.getQueryString();
                 String token = extractToken(query);
                 String userId = null;
-                
+
                 if (token != null) {
                     userId = tokenValidator.apply(token);
                 }
-                
+
                 if (userId == null) {
                     log.warn("WS connection rejected: invalid token from {}", channel.getSourceAddress());
                     sendError(channel, "Invalid or missing token");
-                    try { channel.close(); } catch (Exception ignored) {}
+                    try {
+                        channel.close();
+                    } catch (Exception ignored) {
+                    }
                     return;
                 }
-                
+
                 // Create authenticated session
                 String sessionId = UUID.randomUUID().toString();
                 WsSession session = new WsSession(sessionId, userId);
                 sessions.put(channel, session);
-                
+
                 // Track user channels
                 userChannels.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(channel);
-                
+
                 log.info("WS connected: {} (user={}, session={})", channel.getSourceAddress(), userId, sessionId);
-                
+
                 channel.getReceiveSetter().set(new AbstractReceiveListener() {
                     @Override
                     protected void onFullTextMessage(WebSocketChannel ch, BufferedTextMessage message) {
                         handleClientMessage(ch, message.getData());
                     }
-                    
+
                     @Override
                     protected void onCloseMessage(CloseMessage cm, WebSocketChannel ch) {
                         cleanup(ch);
                         super.onCloseMessage(cm, ch);
                     }
-                    
+
                     @Override
                     protected void onError(WebSocketChannel ch, Throwable error) {
                         log.warn("WS error: {}", error.toString());
                         cleanup(ch);
                     }
                 });
-                
+
                 channel.resumeReceives();
                 sendAck(channel, "connect", session);
             }
         });
     }
-    
+
     private String extractToken(String query) {
-        if (query == null) return null;
+        if (query == null)
+            return null;
         for (String param : query.split("&")) {
             if (param.startsWith("token=")) {
                 return param.substring(6);
@@ -130,23 +132,23 @@ public final class WsHub {
         }
         return null;
     }
-    
+
     private void handleClientMessage(WebSocketChannel channel, String raw) {
         WsSession session = sessions.get(channel);
         if (session == null) {
             sendError(channel, "Not authenticated");
             return;
         }
-        
+
         session.touch();
-        
+
         try {
             ClientMessage msg = MAPPER.readValue(raw, ClientMessage.class);
             if (msg.action == null) {
                 sendError(channel, "Missing 'action'");
                 return;
             }
-            
+
             switch (msg.action) {
                 case "subscribe" -> {
                     if (msg.topics != null) {
@@ -170,7 +172,8 @@ public final class WsHub {
                     ObjectNode payload = MAPPER.createObjectNode();
                     payload.put("nonce", msg.nonce == null ? "" : msg.nonce);
                     payload.put("pong", true);
-                    sendDirect(channel, new ServerMessage(EventType.PONG.name(), payload, Instant.now().toString(), nextWsSeq()));
+                    sendDirect(channel,
+                            new ServerMessage(EventType.PONG.name(), payload, Instant.now().toString(), nextWsSeq()));
                 }
                 default -> sendError(channel, "Unknown action: " + msg.action);
             }
@@ -178,7 +181,7 @@ public final class WsHub {
             sendError(channel, "Invalid JSON: " + e.getMessage());
         }
     }
-    
+
     private void sendAck(WebSocketChannel channel, String action, WsSession session) {
         ObjectNode payload = MAPPER.createObjectNode();
         payload.put("action", action);
@@ -188,17 +191,17 @@ public final class WsHub {
         payload.set("brokers", MAPPER.valueToTree(session.getUserBrokerIds()));
         sendDirect(channel, new ServerMessage(EventType.ACK.name(), payload, Instant.now().toString(), nextWsSeq()));
     }
-    
+
     private void sendError(WebSocketChannel channel, String error) {
         ObjectNode payload = MAPPER.createObjectNode();
         payload.put("error", error);
         sendDirect(channel, new ServerMessage(EventType.ERROR.name(), payload, Instant.now().toString(), nextWsSeq()));
     }
-    
+
     private long nextWsSeq() {
         return wsSeq.incrementAndGet();
     }
-    
+
     private void sendDirect(WebSocketChannel channel, ServerMessage msg) {
         try {
             String json = MAPPER.writeValueAsString(msg);
@@ -207,7 +210,7 @@ public final class WsHub {
             log.warn("Failed to serialize WS message: {}", e.toString());
         }
     }
-    
+
     private void cleanup(WebSocketChannel channel) {
         WsSession session = sessions.remove(channel);
         if (session != null) {
@@ -219,12 +222,15 @@ public final class WsHub {
                     userChannels.remove(userId);
                 }
             }
-            log.info("WS disconnected: {} (user={}, session={})", 
-                     channel.getSourceAddress(), userId, session.getSessionId());
+            log.info("WS disconnected: {} (user={}, session={})",
+                    channel.getSourceAddress(), userId, session.getSessionId());
         }
-        try { channel.close(); } catch (Exception ignored) {}
+        try {
+            channel.close();
+        } catch (Exception ignored) {
+        }
     }
-    
+
     /**
      * Publish event by enqueuing it for batching.
      * Events are filtered by scope during flush.
@@ -235,20 +241,21 @@ public final class WsHub {
             batchQueue.offer(e);
         }
     }
-    
+
     private void flushBatch() {
         try {
             List<TradeEvent> drained = new ArrayList<>(1024);
             batchQueue.drainTo(drained, 2000);
-            if (drained.isEmpty()) return;
-            
+            if (drained.isEmpty())
+                return;
+
             // Group events by target (optimization for scoped delivery)
             // For simplicity, we'll iterate and filter per channel
-            
+
             for (Map.Entry<WebSocketChannel, WsSession> entry : sessions.entrySet()) {
                 WebSocketChannel channel = entry.getKey();
                 WsSession session = entry.getValue();
-                
+
                 // Filter events for this session
                 List<ObjectNode> relevantEvents = new ArrayList<>();
                 for (TradeEvent e : drained) {
@@ -256,9 +263,10 @@ public final class WsHub {
                         relevantEvents.add(eventToJson(e));
                     }
                 }
-                
-                if (relevantEvents.isEmpty()) continue;
-                
+
+                if (relevantEvents.isEmpty())
+                    continue;
+
                 // Build BATCH message
                 ObjectNode payload = MAPPER.createObjectNode();
                 ArrayNode events = MAPPER.createArrayNode();
@@ -266,21 +274,20 @@ public final class WsHub {
                     events.add(ev);
                 }
                 payload.set("events", events);
-                
+
                 ServerMessage batchMsg = new ServerMessage(
-                    EventType.BATCH.name(),
-                    payload,
-                    Instant.now().toString(),
-                    nextWsSeq()
-                );
-                
+                        EventType.BATCH.name(),
+                        payload,
+                        Instant.now().toString(),
+                        nextWsSeq());
+
                 sendDirect(channel, batchMsg);
             }
         } catch (Exception e) {
             log.warn("WS flushBatch error: {}", e.toString());
         }
     }
-    
+
     private ObjectNode eventToJson(TradeEvent e) {
         ObjectNode obj = MAPPER.createObjectNode();
         obj.put("type", e.type().name());
@@ -288,43 +295,48 @@ public final class WsHub {
         obj.set("payload", e.payload());
         obj.put("ts", e.ts().toString());
         obj.put("seq", e.seq());
-        if (e.signalId() != null) obj.put("signalId", e.signalId());
-        if (e.intentId() != null) obj.put("intentId", e.intentId());
-        if (e.tradeId() != null) obj.put("tradeId", e.tradeId());
-        if (e.orderId() != null) obj.put("orderId", e.orderId());
+        if (e.signalId() != null)
+            obj.put("signalId", e.signalId());
+        if (e.intentId() != null)
+            obj.put("intentId", e.intentId());
+        if (e.tradeId() != null)
+            obj.put("tradeId", e.tradeId());
+        if (e.orderId() != null)
+            obj.put("orderId", e.orderId());
         return obj;
     }
-    
+
     /**
      * Get connected user count.
      */
     public int getUserCount() {
         return userChannels.size();
     }
-    
+
     /**
      * Get total connection count.
      */
     public int getConnectionCount() {
         return sessions.size();
     }
-    
+
     // Message models
     public static final class ClientMessage {
         public String action;
-        public List<String> topics;   // Event types to subscribe
-        public List<String> brokers;  // UserBroker IDs to filter
+        public List<String> topics; // Event types to subscribe
+        public List<String> brokers; // UserBroker IDs to filter
         public String nonce;
     }
-    
+
     public static final class ServerMessage {
         public String type;
         public JsonNode payload;
         public String ts;
         public long seq;
-        
-        public ServerMessage() {}
-        
+
+        public ServerMessage() {
+        }
+
         public ServerMessage(String type, JsonNode payload, String ts, long seq) {
             this.type = type;
             this.payload = payload;

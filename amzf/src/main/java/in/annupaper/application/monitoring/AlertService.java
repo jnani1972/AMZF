@@ -1,7 +1,7 @@
 package in.annupaper.application.monitoring;
 
-import in.annupaper.domain.monitoring.Alert;
-import in.annupaper.domain.monitoring.AlertLevel;
+import in.annupaper.domain.model.Alert;
+import in.annupaper.domain.model.AlertLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,7 +9,8 @@ import org.slf4j.LoggerFactory;
  * Alert notification service.
  *
  * Sends alerts to configured channels (logs, Slack, email, PagerDuty, etc.).
- * Currently logs to SLF4J - can be extended to integrate with external services.
+ * Currently logs to SLF4J - can be extended to integrate with external
+ * services.
  */
 public final class AlertService {
     private static final Logger log = LoggerFactory.getLogger(AlertService.class);
@@ -24,20 +25,20 @@ public final class AlertService {
         switch (alert.getLevel()) {
             case CRITICAL:
                 log.error("[ALERT-CRITICAL] {} - {}",
-                    alert.getAlertType(), alert.getMessage());
+                        alert.getAlertType(), alert.getMessage());
                 break;
             case HIGH:
                 log.warn("[ALERT-HIGH] {} - {}",
-                    alert.getAlertType(), alert.getMessage());
+                        alert.getAlertType(), alert.getMessage());
                 break;
             case MEDIUM:
                 log.warn("[ALERT-MEDIUM] {} - {}",
-                    alert.getAlertType(), alert.getMessage());
+                        alert.getAlertType(), alert.getMessage());
                 break;
             case LOW:
             case INFO:
                 log.info("[ALERT-INFO] {} - {}",
-                    alert.getAlertType(), alert.getMessage());
+                        alert.getAlertType(), alert.getMessage());
                 break;
         }
 
@@ -57,41 +58,41 @@ public final class AlertService {
      * Send CRITICAL level alert.
      *
      * @param alertType Alert type identifier
-     * @param message Alert message
+     * @param message   Alert message
      */
     public void sendCriticalAlert(String alertType, String message) {
         sendAlert(Alert.builder()
-            .alertType(alertType)
-            .level(AlertLevel.CRITICAL)
-            .message(message)
-            .build());
+                .alertType(alertType)
+                .level(AlertLevel.CRITICAL)
+                .message(message)
+                .build());
     }
 
     /**
      * Send HIGH level alert.
      *
      * @param alertType Alert type identifier
-     * @param message Alert message
+     * @param message   Alert message
      */
     public void sendHighAlert(String alertType, String message) {
         sendAlert(Alert.builder()
-            .alertType(alertType)
-            .level(AlertLevel.HIGH)
-            .message(message)
-            .build());
+                .alertType(alertType)
+                .level(AlertLevel.HIGH)
+                .message(message)
+                .build());
     }
 
     /**
      * Send INFO level alert.
      *
      * @param alertType Alert type identifier
-     * @param message Alert message
+     * @param message   Alert message
      */
     public void sendInfoAlert(String alertType, String message) {
         sendAlert(Alert.builder()
-            .alertType(alertType)
-            .level(AlertLevel.INFO)
-            .message(message)
-            .build());
+                .alertType(alertType)
+                .level(AlertLevel.INFO)
+                .message(message)
+                .build());
     }
 }

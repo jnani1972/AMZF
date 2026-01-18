@@ -1,19 +1,11 @@
 package in.annupaper.service;
 
-import in.annupaper.domain.broker.BrokerAdapter;
+import in.annupaper.domain.model.*;
 import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
-import in.annupaper.domain.broker.Broker;
-import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.domain.broker.UserBrokerSession;
-import in.annupaper.domain.data.TimeframeType;
-import in.annupaper.domain.data.Candle;
-import in.annupaper.domain.repository.BrokerRepository;
-import in.annupaper.domain.repository.UserBrokerRepository;
-import in.annupaper.domain.repository.UserBrokerSessionRepository;
-import in.annupaper.domain.repository.WatchlistRepository;
+import in.annupaper.application.port.output.*;
+import in.annupaper.application.port.input.*;
 import in.annupaper.service.candle.*;
-import in.annupaper.service.signal.ExitSignalService;
-import in.annupaper.service.signal.MtfSignalGenerator;
+import in.annupaper.application.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,19 +55,18 @@ public final class WatchdogManager {
     private int consecutiveFailures = 0;
 
     public WatchdogManager(
-        DataSource dataSource,
-        BrokerAdapterFactory brokerFactory,
-        UserBrokerRepository userBrokerRepo,
-        BrokerRepository brokerRepo,
-        WatchlistRepository watchlistRepo,
-        UserBrokerSessionRepository sessionRepo,
-        CandleStore candleStore,
-        TickCandleBuilder tickCandleBuilder,
-        ExitSignalService exitSignalService,
-        MtfSignalGenerator mtfSignalGenerator,
-        RecoveryManager recoveryManager,
-        MtfBackfillService mtfBackfillService
-    ) {
+            DataSource dataSource,
+            BrokerAdapterFactory brokerFactory,
+            UserBrokerRepository userBrokerRepo,
+            BrokerRepository brokerRepo,
+            WatchlistRepository watchlistRepo,
+            UserBrokerSessionRepository sessionRepo,
+            CandleStore candleStore,
+            TickCandleBuilder tickCandleBuilder,
+            ExitSignalService exitSignalService,
+            MtfSignalGenerator mtfSignalGenerator,
+            RecoveryManager recoveryManager,
+            MtfBackfillService mtfBackfillService) {
         this.dataSource = dataSource;
         this.brokerFactory = brokerFactory;
         this.userBrokerRepo = userBrokerRepo;
@@ -116,7 +107,8 @@ public final class WatchdogManager {
             // 1. Database health
             if (!checkDatabaseHealth()) {
                 issuesDetected++;
-                if (healDatabase()) issuesFixed++;
+                if (healDatabase())
+                    issuesFixed++;
             } else {
                 log.info("[WATCHDOG] ✓ Database connection healthy");
             }
@@ -124,7 +116,8 @@ public final class WatchdogManager {
             // 2. Data broker health
             if (!checkDataBrokerHealth()) {
                 issuesDetected++;
-                if (healDataBroker()) issuesFixed++;
+                if (healDataBroker())
+                    issuesFixed++;
             } else {
                 log.info("[WATCHDOG] ✓ Data broker connection healthy");
             }
@@ -132,7 +125,8 @@ public final class WatchdogManager {
             // 3. WebSocket health
             if (!checkWebSocketHealth()) {
                 issuesDetected++;
-                if (healWebSocket()) issuesFixed++;
+                if (healWebSocket())
+                    issuesFixed++;
             } else {
                 log.info("[WATCHDOG] ✓ WebSocket connection healthy");
             }
@@ -149,7 +143,8 @@ public final class WatchdogManager {
             if (isMarketOpen()) {
                 if (!checkTickStreamHealth()) {
                     issuesDetected++;
-                    if (healTickStream()) issuesFixed++;
+                    if (healTickStream())
+                        issuesFixed++;
                 } else {
                     log.info("[WATCHDOG] ✓ Tick stream healthy");
                 }
@@ -160,7 +155,8 @@ public final class WatchdogManager {
             // 6. Candle health
             if (!checkCandleHealth()) {
                 issuesDetected++;
-                if (healCandles()) issuesFixed++;
+                if (healCandles())
+                    issuesFixed++;
             } else {
                 log.info("[WATCHDOG] ✓ Candle generation healthy");
             }
@@ -173,7 +169,8 @@ public final class WatchdogManager {
             }
 
             log.info("[WATCHDOG] ════════════════════════════════════════════════════════");
-            log.info("[WATCHDOG] Health check complete: {} issues detected, {} auto-fixed", issuesDetected, issuesFixed);
+            log.info("[WATCHDOG] Health check complete: {} issues detected, {} auto-fixed", issuesDetected,
+                    issuesFixed);
             log.info("[WATCHDOG] Consecutive failures: {}", consecutiveFailures);
             log.info("[WATCHDOG] ════════════════════════════════════════════════════════");
 
@@ -305,8 +302,7 @@ public final class WatchdogManager {
 
             // Check if adapter is FyersAdapter (has WebSocket support)
             if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersAdapter) {
-                in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter =
-                    (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
+                in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter = (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
 
                 if (!fyersAdapter.isWebSocketConnected()) {
                     log.warn("[WATCHDOG] ✗ WebSocket disconnected");
@@ -344,20 +340,20 @@ public final class WatchdogManager {
 
             // Check if adapter is FyersAdapter (has WebSocket support)
             if (adapter instanceof in.annupaper.infrastructure.broker.adapters.FyersAdapter) {
-                in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter =
-                    (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
+                in.annupaper.infrastructure.broker.adapters.FyersAdapter fyersAdapter = (in.annupaper.infrastructure.broker.adapters.FyersAdapter) adapter;
 
                 fyersAdapter.reconnectWebSocket();
 
                 // Resubscribe after reconnection
                 List<String> symbols = watchlistRepo.findByUserBrokerId(userBrokerId).stream()
-                    .filter(w -> w.enabled())
-                    .map(w -> w.symbol())
-                    .distinct()
-                    .toList();
+                        .filter(w -> w.enabled())
+                        .map(w -> w.symbol())
+                        .distinct()
+                        .toList();
 
                 if (!symbols.isEmpty()) {
-                    log.info("[WATCHDOG] Resubscribing to ticks for {} symbols after WebSocket reconnect", symbols.size());
+                    log.info("[WATCHDOG] Resubscribing to ticks for {} symbols after WebSocket reconnect",
+                            symbols.size());
                     adapter.subscribeTicks(symbols, tickCandleBuilder);
                     adapter.subscribeTicks(symbols, exitSignalService);
                     adapter.subscribeTicks(symbols, mtfSignalGenerator);
@@ -480,10 +476,10 @@ public final class WatchdogManager {
 
             // Get watchlist symbols
             List<String> symbols = watchlistRepo.findByUserBrokerId(userBrokerId).stream()
-                .filter(w -> w.enabled())
-                .map(w -> w.symbol())
-                .distinct()
-                .toList();
+                    .filter(w -> w.enabled())
+                    .map(w -> w.symbol())
+                    .distinct()
+                    .toList();
 
             if (symbols.isEmpty()) {
                 log.warn("[WATCHDOG] No symbols to subscribe");
@@ -517,11 +513,11 @@ public final class WatchdogManager {
             }
 
             List<String> symbols = watchlistRepo.findByUserBrokerId(dataBrokerOpt.get().userBrokerId()).stream()
-                .filter(w -> w.enabled())
-                .map(w -> w.symbol())
-                .distinct()
-                .limit(3) // Check first 3 symbols as sample
-                .toList();
+                    .filter(w -> w.enabled())
+                    .map(w -> w.symbol())
+                    .distinct()
+                    .limit(3) // Check first 3 symbols as sample
+                    .toList();
 
             if (symbols.isEmpty()) {
                 return true;
@@ -532,14 +528,14 @@ public final class WatchdogManager {
 
             for (String symbol : symbols) {
                 // Check 1-min candles
-                Candle latest1Min = candleStore.getLatest(symbol, TimeframeType.MINUTE_1);
+                HistoricalCandle latest1Min = candleStore.getLatest(symbol, TimeframeType.MINUTE_1);
                 if (latest1Min == null || latest1Min.timestamp().isBefore(now.minus(10, ChronoUnit.MINUTES))) {
                     log.warn("[WATCHDOG] ✗ Stale 1-min candles for {}", symbol);
                     issueCount++;
                 }
 
                 // Check 125-min candles (MTF HTF)
-                Candle latest125Min = candleStore.getLatest(symbol, TimeframeType.MINUTE_125);
+                HistoricalCandle latest125Min = candleStore.getLatest(symbol, TimeframeType.MINUTE_125);
                 if (latest125Min == null) {
                     log.warn("[WATCHDOG] ✗ No 125-min candles for {}", symbol);
                     issueCount++;
@@ -569,10 +565,10 @@ public final class WatchdogManager {
             String userBrokerId = dataBrokerOpt.get().userBrokerId();
 
             List<String> symbols = watchlistRepo.findByUserBrokerId(userBrokerId).stream()
-                .filter(w -> w.enabled())
-                .map(w -> w.symbol())
-                .distinct()
-                .toList();
+                    .filter(w -> w.enabled())
+                    .map(w -> w.symbol())
+                    .distinct()
+                    .toList();
 
             if (symbols.isEmpty()) {
                 return false;
@@ -601,7 +597,7 @@ public final class WatchdogManager {
 
         // Market hours: 9:15 AM - 3:30 PM
         int currentMinutes = hour * 60 + minute;
-        int marketOpen = 9 * 60 + 15;   // 9:15 AM
+        int marketOpen = 9 * 60 + 15; // 9:15 AM
         int marketClose = 15 * 60 + 30; // 3:30 PM
 
         // Skip weekends
@@ -618,10 +614,9 @@ public final class WatchdogManager {
      */
     public String getHealthSummary() {
         return String.format(
-            "Watchdog Status: Last check=%s, Consecutive failures=%d, Ticks tracked=%d",
-            lastHealthCheck,
-            consecutiveFailures,
-            lastTickTimestamp.size()
-        );
+                "Watchdog Status: Last check=%s, Consecutive failures=%d, Ticks tracked=%d",
+                lastHealthCheck,
+                consecutiveFailures,
+                lastTickTimestamp.size());
     }
 }

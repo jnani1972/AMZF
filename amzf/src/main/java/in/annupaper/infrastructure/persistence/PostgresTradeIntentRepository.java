@@ -1,11 +1,11 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import in.annupaper.domain.trade.IntentStatus;
-import in.annupaper.domain.trade.TradeIntent;
+import in.annupaper.domain.model.IntentStatus;
+import in.annupaper.domain.model.TradeIntent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +18,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * PostgreSQL implementation of TradeIntentRepository with immutable audit trail.
+ * PostgreSQL implementation of TradeIntentRepository with immutable audit
+ * trail.
  */
 public final class PostgresTradeIntentRepository implements TradeIntentRepository {
     private static final Logger log = LoggerFactory.getLogger(PostgresTradeIntentRepository.class);
@@ -34,15 +35,15 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public List<TradeIntent> findAll() {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE deleted_at IS NULL
-            ORDER BY created_at DESC
-            """;
+                SELECT * FROM trade_intents
+                WHERE deleted_at IS NULL
+                ORDER BY created_at DESC
+                """;
 
         List<TradeIntent> intents = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 intents.add(mapRow(rs));
@@ -57,12 +58,12 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public Optional<TradeIntent> findById(String intentId) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE intent_id = ? AND deleted_at IS NULL
-            """;
+                SELECT * FROM trade_intents
+                WHERE intent_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, intentId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -80,14 +81,14 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public List<TradeIntent> findBySignalId(String signalId) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE signal_id = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            """;
+                SELECT * FROM trade_intents
+                WHERE signal_id = ? AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                """;
 
         List<TradeIntent> intents = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -105,14 +106,14 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public List<TradeIntent> findByUserId(String userId) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE user_id = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            """;
+                SELECT * FROM trade_intents
+                WHERE user_id = ? AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                """;
 
         List<TradeIntent> intents = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -130,14 +131,14 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public List<TradeIntent> findByUserBrokerId(String userBrokerId) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE user_broker_id = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            """;
+                SELECT * FROM trade_intents
+                WHERE user_broker_id = ? AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                """;
 
         List<TradeIntent> intents = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, userBrokerId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -155,14 +156,14 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public List<TradeIntent> findByStatus(IntentStatus status) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE status = ? AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            """;
+                SELECT * FROM trade_intents
+                WHERE status = ? AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                """;
 
         List<TradeIntent> intents = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, status.name());
             try (ResultSet rs = ps.executeQuery()) {
@@ -180,27 +181,27 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public void insert(TradeIntent intent) {
         String sql = """
-            INSERT INTO trade_intents (
-                intent_id, signal_id, user_id, broker_id, user_broker_id,
-                validation_passed, validation_errors,
-                calculated_qty, calculated_value, order_type, limit_price, product_type,
-                log_impact, portfolio_exposure_after,
-                status, order_id, trade_id,
-                created_at, validated_at, executed_at,
-                error_code, error_message, version
-            ) VALUES (
-                ?, ?, ?, ?, ?,
-                ?, ?::jsonb,
-                ?, ?, ?, ?, ?,
-                ?, ?,
-                ?, ?, ?,
-                ?, ?, ?,
-                ?, ?, 1
-            )
-            """;
+                INSERT INTO trade_intents (
+                    intent_id, signal_id, user_id, broker_id, user_broker_id,
+                    validation_passed, validation_errors,
+                    calculated_qty, calculated_value, order_type, limit_price, product_type,
+                    log_impact, portfolio_exposure_after,
+                    status, order_id, trade_id,
+                    created_at, validated_at, executed_at,
+                    error_code, error_message, version
+                ) VALUES (
+                    ?, ?, ?, ?, ?,
+                    ?, ?::jsonb,
+                    ?, ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, 1
+                )
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, intent.intentId());
             ps.setString(2, intent.signalId());
@@ -245,35 +246,35 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
         // Immutable update: soft delete old version, insert new version
 
         String queryVersionSql = """
-            SELECT version FROM trade_intents
-            WHERE intent_id = ? AND deleted_at IS NULL
-            """;
+                SELECT version FROM trade_intents
+                WHERE intent_id = ? AND deleted_at IS NULL
+                """;
 
         String softDeleteSql = """
-            UPDATE trade_intents
-            SET deleted_at = NOW()
-            WHERE intent_id = ? AND version = ?
-            """;
+                UPDATE trade_intents
+                SET deleted_at = NOW()
+                WHERE intent_id = ? AND version = ?
+                """;
 
         String insertSql = """
-            INSERT INTO trade_intents (
-                intent_id, signal_id, user_id, broker_id, user_broker_id,
-                validation_passed, validation_errors,
-                calculated_qty, calculated_value, order_type, limit_price, product_type,
-                log_impact, portfolio_exposure_after,
-                status, order_id, trade_id,
-                created_at, validated_at, executed_at,
-                error_code, error_message, version
-            ) VALUES (
-                ?, ?, ?, ?, ?,
-                ?, ?::jsonb,
-                ?, ?, ?, ?, ?,
-                ?, ?,
-                ?, ?, ?,
-                ?, ?, ?,
-                ?, ?, ?
-            )
-            """;
+                INSERT INTO trade_intents (
+                    intent_id, signal_id, user_id, broker_id, user_broker_id,
+                    validation_passed, validation_errors,
+                    calculated_qty, calculated_value, order_type, limit_price, product_type,
+                    log_impact, portfolio_exposure_after,
+                    status, order_id, trade_id,
+                    created_at, validated_at, executed_at,
+                    error_code, error_message, version
+                ) VALUES (
+                    ?, ?, ?, ?, ?,
+                    ?, ?::jsonb,
+                    ?, ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?
+                )
+                """;
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -337,7 +338,7 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
 
             conn.commit();
             log.info("Trade intent updated: {} version {} → {}",
-                     intent.intentId(), currentVersion, currentVersion + 1);
+                    intent.intentId(), currentVersion, currentVersion + 1);
 
         } catch (Exception e) {
             log.error("Failed to update trade intent: {}", e.getMessage());
@@ -350,15 +351,15 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
         // Soft delete: mark as deleted
 
         String queryVersionSql = """
-            SELECT version FROM trade_intents
-            WHERE intent_id = ? AND deleted_at IS NULL
-            """;
+                SELECT version FROM trade_intents
+                WHERE intent_id = ? AND deleted_at IS NULL
+                """;
 
         String softDeleteSql = """
-            UPDATE trade_intents
-            SET deleted_at = NOW()
-            WHERE intent_id = ? AND version = ?
-            """;
+                UPDATE trade_intents
+                SET deleted_at = NOW()
+                WHERE intent_id = ? AND version = ?
+                """;
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -397,14 +398,14 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public List<TradeIntent> findAllVersions(String intentId) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE intent_id = ?
-            ORDER BY version ASC
-            """;
+                SELECT * FROM trade_intents
+                WHERE intent_id = ?
+                ORDER BY version ASC
+                """;
 
         List<TradeIntent> intents = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, intentId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -422,12 +423,12 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
     @Override
     public Optional<TradeIntent> findByIdAndVersion(String intentId, int version) {
         String sql = """
-            SELECT * FROM trade_intents
-            WHERE intent_id = ? AND version = ?
-            """;
+                SELECT * FROM trade_intents
+                WHERE intent_id = ? AND version = ?
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, intentId);
             ps.setInt(2, version);
@@ -455,35 +456,35 @@ public final class PostgresTradeIntentRepository implements TradeIntentRepositor
 
         String errorsJson = rs.getString("validation_errors");
         List<TradeIntent.ValidationError> validationErrors = errorsJson != null
-            ? objectMapper.readValue(errorsJson, new TypeReference<List<TradeIntent.ValidationError>>() {})
-            : List.of();
+                ? objectMapper.readValue(errorsJson, new TypeReference<List<TradeIntent.ValidationError>>() {
+                })
+                : List.of();
 
         return new TradeIntent(
-            rs.getString("intent_id"),
-            rs.getString("signal_id"),
-            rs.getString("user_id"),
-            rs.getString("broker_id"),
-            rs.getString("user_broker_id"),
-            rs.getBoolean("validation_passed"),
-            validationErrors,
-            (Integer) rs.getObject("calculated_qty"),
-            rs.getBigDecimal("calculated_value"),
-            rs.getString("order_type"),
-            rs.getBigDecimal("limit_price"),
-            rs.getString("product_type"),
-            rs.getBigDecimal("log_impact"),
-            rs.getBigDecimal("portfolio_exposure_after"),
-            IntentStatus.valueOf(rs.getString("status")),
-            rs.getString("order_id"),
-            rs.getString("trade_id"),
-            rs.getTimestamp("created_at").toInstant(),
-            validatedAt,
-            executedAt,
-            rs.getString("error_code"),
-            rs.getString("error_message"),
-            deletedAt,
-            rs.getInt("version")
-        );
+                rs.getString("intent_id"),
+                rs.getString("signal_id"),
+                rs.getString("user_id"),
+                rs.getString("broker_id"),
+                rs.getString("user_broker_id"),
+                rs.getBoolean("validation_passed"),
+                validationErrors,
+                (Integer) rs.getObject("calculated_qty"),
+                rs.getBigDecimal("calculated_value"),
+                rs.getString("order_type"),
+                rs.getBigDecimal("limit_price"),
+                rs.getString("product_type"),
+                rs.getBigDecimal("log_impact"),
+                rs.getBigDecimal("portfolio_exposure_after"),
+                IntentStatus.valueOf(rs.getString("status")),
+                rs.getString("order_id"),
+                rs.getString("trade_id"),
+                rs.getTimestamp("created_at").toInstant(),
+                validatedAt,
+                executedAt,
+                rs.getString("error_code"),
+                rs.getString("error_message"),
+                deletedAt,
+                rs.getInt("version"));
     }
 
     private void setIntOrNull(PreparedStatement ps, int index, Integer value) throws SQLException {

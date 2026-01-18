@@ -1,7 +1,7 @@
 package in.annupaper.infrastructure.broker.adapters;
 
-import in.annupaper.domain.broker.BrokerAdapter;
-import in.annupaper.domain.broker.BrokerAdapter.*;
+import in.annupaper.domain.model.BrokerAdapter;
+import in.annupaper.domain.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,11 +71,10 @@ public final class FyersV3SdkAdapter implements BrokerAdapter {
      * @param sessionId    Session ID (for tracking token refreshes)
      */
     public FyersV3SdkAdapter(
-        String userBrokerId,
-        String appId,
-        String accessToken,
-        String sessionId
-    ) {
+            String userBrokerId,
+            String appId,
+            String accessToken,
+            String sessionId) {
         this.userBrokerId = userBrokerId;
         this.appId = appId;
         this.accessToken = accessToken;
@@ -136,7 +135,7 @@ public final class FyersV3SdkAdapter implements BrokerAdapter {
      */
     public void reloadToken(String newAccessToken, String newSessionId) {
         log.info("[FYERS SDK] ⚡ Token reload requested: session {} → {}",
-            this.sessionId, newSessionId);
+                this.sessionId, newSessionId);
 
         this.accessToken = newAccessToken;
         this.sessionId = newSessionId;
@@ -159,11 +158,10 @@ public final class FyersV3SdkAdapter implements BrokerAdapter {
         log.info("[FYERS SDK] Connect requested (SDK wrapper)");
         // SDK adapter auto-connects via initialize() method
         if (initialize()) {
-            return CompletableFuture.completedFuture(ConnectionResult.success(sessionId));
+            return CompletableFuture.completedFuture(ConnectionResult.ofSuccess(sessionId));
         } else {
             return CompletableFuture.completedFuture(
-                ConnectionResult.failure("SDK initialization failed", "SDK_INIT_FAILED")
-            );
+                    ConnectionResult.ofFailure("SDK initialization failed", "SDK_INIT_FAILED"));
         }
     }
 
@@ -232,41 +230,38 @@ public final class FyersV3SdkAdapter implements BrokerAdapter {
     }
 
     @Override
-    public CompletableFuture<OrderResult> placeOrder(OrderRequest request) {
+    public CompletableFuture<OrderResult> placeOrder(BrokerOrderRequest request) {
         log.info("[FYERS SDK] 📝 Placing order: {} {} {} @ {}",
-            request.transactionType(), request.quantity(), request.symbol(), request.price());
+                request.transactionType(), request.quantity(), request.symbol(), request.price());
 
         // TODO: Implement order placement via SDK
         log.error("[FYERS SDK] ❌ Order placement not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(
-            OrderResult.failure("SDK adapter skeleton only", "NOT_IMPLEMENTED")
-        );
+                OrderResult.ofFailure("SDK adapter skeleton only", "NOT_IMPLEMENTED"));
     }
 
     @Override
     public CompletableFuture<OrderResult> modifyOrder(String orderId, OrderModifyRequest request) {
         log.warn("[FYERS SDK] ⚠️ Order modification not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(
-            OrderResult.failure("SDK adapter skeleton only", "NOT_IMPLEMENTED")
-        );
+                OrderResult.ofFailure("SDK adapter skeleton only", "NOT_IMPLEMENTED"));
     }
 
     @Override
     public CompletableFuture<OrderResult> cancelOrder(String orderId) {
         log.warn("[FYERS SDK] ⚠️ Order cancellation not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(
-            OrderResult.failure("SDK adapter skeleton only", "NOT_IMPLEMENTED")
-        );
+                OrderResult.ofFailure("SDK adapter skeleton only", "NOT_IMPLEMENTED"));
     }
 
     @Override
-    public CompletableFuture<OrderStatus> getOrderStatus(String orderId) {
+    public CompletableFuture<BrokerOrderStatus> getOrderStatus(String orderId) {
         log.warn("[FYERS SDK] ⚠️ Order status not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<List<OrderStatus>> getOpenOrders() {
+    public CompletableFuture<List<BrokerOrderStatus>> getOpenOrders() {
         log.warn("[FYERS SDK] ⚠️ Open orders not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(Collections.emptyList());
     }
@@ -316,14 +311,13 @@ public final class FyersV3SdkAdapter implements BrokerAdapter {
 
     @Override
     public CompletableFuture<List<HistoricalCandle>> getHistoricalCandles(
-        String symbol, int interval, long fromEpoch, long toEpoch
-    ) {
+            String symbol, TimeframeType timeframe, long fromEpoch, long toEpoch) {
         log.warn("[FYERS SDK] ⚠️ Historical candles not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(Collections.emptyList());
     }
 
     @Override
-    public CompletableFuture<List<Instrument>> getInstruments() {
+    public CompletableFuture<List<BrokerInstrument>> getInstruments() {
         log.warn("[FYERS SDK] ⚠️ Instruments not yet implemented - skeleton only");
         return CompletableFuture.completedFuture(Collections.emptyList());
     }
@@ -359,23 +353,24 @@ public final class FyersV3SdkAdapter implements BrokerAdapter {
             // long timestamp = (long) tickData.get("timestamp");
             //
             // Tick tick = new Tick(
-            //     symbol,
-            //     ltp,  // lastPrice
-            //     BigDecimal.ZERO,  // open
-            //     BigDecimal.ZERO,  // high
-            //     BigDecimal.ZERO,  // low
-            //     BigDecimal.ZERO,  // close
-            //     0L,  // volume
-            //     BigDecimal.ZERO,  // bid
-            //     BigDecimal.ZERO,  // ask
-            //     0,  // bidQty
-            //     0,  // askQty
-            //     timestamp
+            // symbol,
+            // ltp, // lastPrice
+            // BigDecimal.ZERO, // open
+            // BigDecimal.ZERO, // high
+            // BigDecimal.ZERO, // low
+            // BigDecimal.ZERO, // close
+            // 0L, // volume
+            // BigDecimal.ZERO, // bid
+            // BigDecimal.ZERO, // ask
+            // 0, // bidQty
+            // 0, // askQty
+            // Instant.ofEpochMilli(timestamp),
+            // "FYERS"
             // );
             //
             // lastSuccessfulTick.set(System.currentTimeMillis());
             // if (tickListener != null) {
-            //     tickListener.onTick(tick);
+            // tickListener.onTick(tick);
             // }
 
             log.debug("[FYERS SDK] Tick received (parse not yet implemented)");

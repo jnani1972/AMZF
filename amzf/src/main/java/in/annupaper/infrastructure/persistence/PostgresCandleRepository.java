@@ -1,9 +1,9 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.domain.data.TimeframeType;
-import in.annupaper.domain.data.Candle;
+import in.annupaper.domain.model.TimeframeType;
+import in.annupaper.domain.model.HistoricalCandle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,24 +26,24 @@ public final class PostgresCandleRepository implements CandleRepository {
     }
 
     @Override
-    public void insert(Candle candle) {
+    public void insert(HistoricalCandle candle) {
         String sql = """
-            INSERT INTO candles (symbol, timeframe, ts, open, high, low, close, volume, version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ON CONFLICT (symbol, timeframe, ts)
-            DO UPDATE SET
-                open = EXCLUDED.open,
-                high = EXCLUDED.high,
-                low = EXCLUDED.low,
-                close = EXCLUDED.close,
-                volume = EXCLUDED.volume
-            """;
+                INSERT INTO candles (symbol, timeframe, ts, open, high, low, close, volume, version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT (symbol, timeframe, ts)
+                DO UPDATE SET
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, candle.symbol());
-            ps.setString(2, candle.timeframeType().name());
+            ps.setString(2, candle.timeframe().name());
             ps.setTimestamp(3, Timestamp.from(candle.timestamp()));
             ps.setBigDecimal(4, candle.open());
             ps.setBigDecimal(5, candle.high());
@@ -60,31 +60,31 @@ public final class PostgresCandleRepository implements CandleRepository {
     }
 
     @Override
-    public void insertBatch(List<Candle> candles) {
+    public void insertBatch(List<HistoricalCandle> candles) {
         if (candles == null || candles.isEmpty()) {
             return;
         }
 
         String sql = """
-            INSERT INTO candles (symbol, timeframe, ts, open, high, low, close, volume, version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-            ON CONFLICT (symbol, timeframe, ts)
-            DO UPDATE SET
-                open = EXCLUDED.open,
-                high = EXCLUDED.high,
-                low = EXCLUDED.low,
-                close = EXCLUDED.close,
-                volume = EXCLUDED.volume
-            """;
+                INSERT INTO candles (symbol, timeframe, ts, open, high, low, close, volume, version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT (symbol, timeframe, ts)
+                DO UPDATE SET
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             conn.setAutoCommit(false);
 
-            for (Candle candle : candles) {
+            for (HistoricalCandle candle : candles) {
                 ps.setString(1, candle.symbol());
-                ps.setString(2, candle.timeframeType().name());
+                ps.setString(2, candle.timeframe().name());
                 ps.setTimestamp(3, Timestamp.from(candle.timestamp()));
                 ps.setBigDecimal(4, candle.open());
                 ps.setBigDecimal(5, candle.high());
@@ -106,18 +106,19 @@ public final class PostgresCandleRepository implements CandleRepository {
     }
 
     @Override
-    public List<Candle> findBySymbolAndTimeframe(String symbol, TimeframeType timeframe, Instant from, Instant to) {
+    public List<HistoricalCandle> findBySymbolAndTimeframe(String symbol, TimeframeType timeframe, Instant from,
+            Instant to) {
         String sql = """
-            SELECT id, symbol, timeframe, ts, open, high, low, close, volume, created_at, deleted_at, version
-            FROM candles
-            WHERE symbol = ? AND timeframe = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL
-            ORDER BY ts ASC
-            """;
+                SELECT id, symbol, timeframe, ts, open, high, low, close, volume, created_at, deleted_at, version
+                FROM candles
+                WHERE symbol = ? AND timeframe = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL
+                ORDER BY ts ASC
+                """;
 
-        List<Candle> result = new ArrayList<>();
+        List<HistoricalCandle> result = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, timeframe.name());
@@ -138,17 +139,17 @@ public final class PostgresCandleRepository implements CandleRepository {
     }
 
     @Override
-    public Candle findLatest(String symbol, TimeframeType timeframe) {
+    public HistoricalCandle findLatest(String symbol, TimeframeType timeframe) {
         String sql = """
-            SELECT id, symbol, timeframe, ts, open, high, low, close, volume, created_at, deleted_at, version
-            FROM candles
-            WHERE symbol = ? AND timeframe = ? AND deleted_at IS NULL
-            ORDER BY ts DESC
-            LIMIT 1
-            """;
+                SELECT id, symbol, timeframe, ts, open, high, low, close, volume, created_at, deleted_at, version
+                FROM candles
+                WHERE symbol = ? AND timeframe = ? AND deleted_at IS NULL
+                ORDER BY ts DESC
+                LIMIT 1
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, timeframe.name());
@@ -167,19 +168,19 @@ public final class PostgresCandleRepository implements CandleRepository {
     }
 
     @Override
-    public List<Candle> findAll(String symbol, TimeframeType timeframe, int limit) {
+    public List<HistoricalCandle> findAll(String symbol, TimeframeType timeframe, int limit) {
         String sql = """
-            SELECT id, symbol, timeframe, ts, open, high, low, close, volume, created_at, deleted_at, version
-            FROM candles
-            WHERE symbol = ? AND timeframe = ? AND deleted_at IS NULL
-            ORDER BY ts DESC
-            LIMIT ?
-            """;
+                SELECT id, symbol, timeframe, ts, open, high, low, close, volume, created_at, deleted_at, version
+                FROM candles
+                WHERE symbol = ? AND timeframe = ? AND deleted_at IS NULL
+                ORDER BY ts DESC
+                LIMIT ?
+                """;
 
-        List<Candle> result = new ArrayList<>();
+        List<HistoricalCandle> result = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, timeframe.name());
@@ -201,14 +202,14 @@ public final class PostgresCandleRepository implements CandleRepository {
     @Override
     public boolean exists(String symbol, TimeframeType timeframe) {
         String sql = """
-            SELECT EXISTS(
-                SELECT 1 FROM candles
-                WHERE symbol = ? AND timeframe = ? AND deleted_at IS NULL
-            )
-            """;
+                SELECT EXISTS(
+                    SELECT 1 FROM candles
+                    WHERE symbol = ? AND timeframe = ? AND deleted_at IS NULL
+                )
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, timeframe.name());
@@ -228,21 +229,21 @@ public final class PostgresCandleRepository implements CandleRepository {
 
     // @Override
     // public int deleteOlderThan(Instant cutoff) {
-    //     String sql = "DELETE FROM candles WHERE ts < ?";
+    // String sql = "DELETE FROM candles WHERE ts < ?";
     //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
+    // try (Connection conn = dataSource.getConnection();
+    // PreparedStatement ps = conn.prepareStatement(sql)) {
     //
-    //         ps.setTimestamp(1, Timestamp.from(cutoff));
-    //         int deleted = ps.executeUpdate();
+    // ps.setTimestamp(1, Timestamp.from(cutoff));
+    // int deleted = ps.executeUpdate();
     //
-    //         log.info("Deleted {} old candles", deleted);
-    //         return deleted;
+    // log.info("Deleted {} old candles", deleted);
+    // return deleted;
     //
-    //     } catch (SQLException e) {
-    //         log.error("Failed to delete old candles: {}", e.getMessage());
-    //         throw new RuntimeException("Failed to delete old candles", e);
-    //     }
+    // } catch (SQLException e) {
+    // log.error("Failed to delete old candles: {}", e.getMessage());
+    // throw new RuntimeException("Failed to delete old candles", e);
+    // }
     // }
     @Override
     public int deleteOlderThan(Instant cutoff) {
@@ -250,7 +251,7 @@ public final class PostgresCandleRepository implements CandleRepository {
         String sql = "UPDATE candles SET deleted_at = NOW() WHERE ts < ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setTimestamp(1, Timestamp.from(cutoff));
             int deleted = ps.executeUpdate();
@@ -264,28 +265,17 @@ public final class PostgresCandleRepository implements CandleRepository {
         }
     }
 
-    private Candle mapRow(ResultSet rs) throws SQLException {
-        Long id = rs.getLong("id");
+    private HistoricalCandle mapRow(ResultSet rs) throws SQLException {
         String symbol = rs.getString("symbol");
         TimeframeType timeframe = TimeframeType.valueOf(rs.getString("timeframe"));
         Instant ts = rs.getTimestamp("ts").toInstant();
 
-        Timestamp createdTs = rs.getTimestamp("created_at");
-        Instant createdAt = createdTs != null ? createdTs.toInstant() : Instant.now();
-
-        Timestamp deletedTs = rs.getTimestamp("deleted_at");
-        Instant deletedAt = deletedTs != null ? deletedTs.toInstant() : null;
-
-        int version = rs.getInt("version");
-
-        return new Candle(
-            id, symbol, timeframe, ts,
-            rs.getBigDecimal("open"),
-            rs.getBigDecimal("high"),
-            rs.getBigDecimal("low"),
-            rs.getBigDecimal("close"),
-            rs.getLong("volume"),
-            createdAt, deletedAt, version
-        );
+        return new HistoricalCandle(
+                symbol, timeframe, ts,
+                rs.getBigDecimal("open"),
+                rs.getBigDecimal("high"),
+                rs.getBigDecimal("low"),
+                rs.getBigDecimal("close"),
+                rs.getLong("volume"));
     }
 }

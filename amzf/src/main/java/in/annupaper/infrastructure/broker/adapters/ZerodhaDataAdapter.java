@@ -1,8 +1,7 @@
 package in.annupaper.infrastructure.broker.adapters;
 
-import in.annupaper.domain.broker.BrokerAdapter;
-import in.annupaper.domain.broker.UserBrokerSession;
-import in.annupaper.domain.repository.UserBrokerSessionRepository;
+import in.annupaper.domain.model.*;
+import in.annupaper.application.port.output.UserBrokerSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -32,7 +31,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * - Kite Connect REST API v3 for historical data
  * - Kite Ticker WebSocket for real-time market data
  *
- * This adapter is designed for DATA-only mode. For execution, use a separate EXEC broker.
+ * This adapter is designed for DATA-only mode. For execution, use a separate
+ * EXEC broker.
  *
  * API Docs: https://kite.trade/docs/connect/v3/
  * WebSocket Protocol: https://kite.trade/docs/connect/v3/websocket/
@@ -44,14 +44,14 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     private static final String WS_URL = "wss://ws.kite.trade";
 
     // Kite Ticker binary packet modes
-    private static final int MODE_LTP = 1;      // Last price only
-    private static final int MODE_QUOTE = 2;    // LTP + OHLC + volume
-    private static final int MODE_FULL = 3;     // All fields including depth
+    private static final int MODE_LTP = 1; // Last price only
+    private static final int MODE_QUOTE = 2; // LTP + OHLC + volume
+    private static final int MODE_FULL = 3; // All fields including depth
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
-        .connectTimeout(java.time.Duration.ofSeconds(10))
-        .build();
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .build();
 
     private final UserBrokerSessionRepository sessionRepo;
     private String userBrokerId;
@@ -72,7 +72,10 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     private final Map<Long, String> tokenToSymbol = new ConcurrentHashMap<>();
 
     // WebSocket connection state
-    private enum WsState { DISCONNECTED, CONNECTING, CONNECTED, RECONNECT_REQUIRED }
+    private enum WsState {
+        DISCONNECTED, CONNECTING, CONNECTED, RECONNECT_REQUIRED
+    }
+
     private volatile WsState wsState = WsState.DISCONNECTED;
 
     // Retry state
@@ -124,7 +127,7 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
             this.apiKey = credentials.apiKey();
 
             if (apiKey == null || apiKey.isEmpty()) {
-                return ConnectionResult.failure("Invalid API key", "INVALID_API_KEY");
+                return ConnectionResult.ofFailure("Invalid API key", "INVALID_API_KEY");
             }
 
             // Load access token from session repository
@@ -134,21 +137,24 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                 Optional<UserBrokerSession> sessionOpt = sessionRepo.findActiveSession(userBrokerId);
 
                 if (sessionOpt.isEmpty()) {
-                    log.error("[ZERODHA] No active session found for userBrokerId={}. Please connect via OAuth.", userBrokerId);
-                    return ConnectionResult.failure("No active session. Please connect via OAuth.", "NO_ACTIVE_SESSION");
+                    log.error("[ZERODHA] No active session found for userBrokerId={}. Please connect via OAuth.",
+                            userBrokerId);
+                    return ConnectionResult.ofFailure("No active session. Please connect via OAuth.",
+                            "NO_ACTIVE_SESSION");
                 }
 
                 UserBrokerSession session = sessionOpt.get();
 
                 if (!session.isActive()) {
                     log.error("[ZERODHA] Session {} is not active or expired (status={}, validTill={})",
-                             session.sessionId(), session.sessionStatus(), session.tokenValidTill());
-                    return ConnectionResult.failure("Session expired. Please reconnect via OAuth.", "SESSION_EXPIRED");
+                            session.sessionId(), session.sessionStatus(), session.tokenValidTill());
+                    return ConnectionResult.ofFailure("Session expired. Please reconnect via OAuth.",
+                            "SESSION_EXPIRED");
                 }
 
                 this.accessToken = session.accessToken();
                 log.info("[ZERODHA] Loaded access token from session {} (valid till {})",
-                         session.sessionId(), session.tokenValidTill());
+                        session.sessionId(), session.tokenValidTill());
             } else {
                 // Fallback: Load from credentials
                 log.warn("[ZERODHA] No session repository configured. Loading access token from credentials.");
@@ -157,17 +163,18 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
 
             if (accessToken == null || accessToken.isEmpty()) {
                 log.error("[ZERODHA] No access token available. Please connect via OAuth.");
-                return ConnectionResult.failure("Access token required. Please connect via OAuth.", "NO_ACCESS_TOKEN");
+                return ConnectionResult.ofFailure("Access token required. Please connect via OAuth.",
+                        "NO_ACCESS_TOKEN");
             }
 
             // Validate access token by fetching profile
             try {
                 HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(BASE_URL + "/user/profile"))
-                    .header("X-Kite-Version", "3")
-                    .header("Authorization", "token " + apiKey + ":" + accessToken)
-                    .GET()
-                    .build();
+                        .uri(URI.create(BASE_URL + "/user/profile"))
+                        .header("X-Kite-Version", "3")
+                        .header("Authorization", "token " + apiKey + ":" + accessToken)
+                        .GET()
+                        .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -181,18 +188,18 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                         // Load instrument master in background
                         CompletableFuture.runAsync(this::loadInstrumentMaster);
 
-                        return ConnectionResult.success(sessionToken);
+                        return ConnectionResult.ofSuccess(sessionToken);
                     } else {
                         log.error("[ZERODHA] Profile API failed: {}", responseJson);
-                        return ConnectionResult.failure("Authentication failed", "AUTH_FAILED");
+                        return ConnectionResult.ofFailure("Authentication failed", "AUTH_FAILED");
                     }
                 } else {
                     log.error("[ZERODHA] Profile API HTTP {}: {}", response.statusCode(), response.body());
-                    return ConnectionResult.failure("HTTP error " + response.statusCode(), "HTTP_ERROR");
+                    return ConnectionResult.ofFailure("HTTP error " + response.statusCode(), "HTTP_ERROR");
                 }
             } catch (Exception e) {
                 log.error("[ZERODHA] Connection error: {}", e.getMessage());
-                return ConnectionResult.failure(e.getMessage(), "CONNECTION_ERROR");
+                return ConnectionResult.ofFailure(e.getMessage(), "CONNECTION_ERROR");
             }
         });
     }
@@ -205,11 +212,11 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
             log.info("[ZERODHA] Loading instrument master...");
 
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "/instruments"))
-                .header("X-Kite-Version", "3")
-                .header("Authorization", "token " + apiKey + ":" + accessToken)
-                .GET()
-                .build();
+                    .uri(URI.create(BASE_URL + "/instruments"))
+                    .header("X-Kite-Version", "3")
+                    .header("Authorization", "token " + apiKey + ":" + accessToken)
+                    .GET()
+                    .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -308,7 +315,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
         if (lastTick > 0) {
             long silenceDuration = System.currentTimeMillis() - lastTick;
             if (silenceDuration > MAX_TICK_SILENCE_MS && !forceReadOnly) {
-                log.error("[ZERODHA] ⚠️  STALE FEED DETECTED: No ticks for {}ms. Forcing READ-ONLY mode.", silenceDuration);
+                log.error("[ZERODHA] ⚠️  STALE FEED DETECTED: No ticks for {}ms. Forcing READ-ONLY mode.",
+                        silenceDuration);
                 forceReadOnly = true;
             } else if (silenceDuration <= MAX_TICK_SILENCE_MS && forceReadOnly) {
                 log.info("[ZERODHA] ✅ Feed recovered. Clearing READ-ONLY mode.");
@@ -356,7 +364,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
 
     @Override
     public void subscribeTicks(List<String> symbols, TickListener listener) {
-        log.info("[ZERODHA] Subscribing {} to ticks for {} symbols", listener.getClass().getSimpleName(), symbols.size());
+        log.info("[ZERODHA] Subscribing {} to ticks for {} symbols", listener.getClass().getSimpleName(),
+                symbols.size());
 
         // Register listeners first
         for (String symbol : symbols) {
@@ -364,8 +373,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
         }
 
         log.info("[ZERODHA] Total tick listeners: {} symbols with {} max listeners per symbol",
-            tickListeners.size(),
-            tickListeners.values().stream().mapToInt(List::size).max().orElse(0));
+                tickListeners.size(),
+                tickListeners.values().stream().mapToInt(List::size).max().orElse(0));
 
         // Start connection loop if not already running
         if (wsState == WsState.DISCONNECTED) {
@@ -377,7 +386,9 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
         if (wsState == WsState.CONNECTED && wsRef.get() != null) {
             sendSubscribeMessage(symbols);
         } else {
-            log.warn("[ZERODHA] WebSocket not connected (state={}). Subscription will be sent when connection establishes.", wsState);
+            log.warn(
+                    "[ZERODHA] WebSocket not connected (state={}). Subscription will be sent when connection establishes.",
+                    wsState);
         }
     }
 
@@ -419,7 +430,7 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
             // Set mode to QUOTE (LTP + OHLC + volume)
             ObjectNode modeMsg = objectMapper.createObjectNode();
             modeMsg.put("a", "mode");
-            modeMsg.put("v", objectMapper.valueToTree(new Object[] {MODE_QUOTE, tokens}));
+            modeMsg.set("v", objectMapper.valueToTree(new Object[] { MODE_QUOTE, tokens }));
 
             String modeMessage = objectMapper.writeValueAsString(modeMsg);
             safeSend(modeMessage);
@@ -490,7 +501,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                 long backoffMs = calculateBackoff();
 
                 if (failures >= 10) {
-                    log.error("[ZERODHA] ⚠️  CIRCUIT BREAKER: {} consecutive failures. Pausing for 5 minutes.", failures);
+                    log.error("[ZERODHA] ⚠️  CIRCUIT BREAKER: {} consecutive failures. Pausing for 5 minutes.",
+                            failures);
                     backoffMs = 300_000; // 5 minutes
                 }
 
@@ -541,53 +553,53 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
             log.info("[ZERODHA] WebSocket URL: wss://ws.kite.trade?api_key={}***", apiKey.substring(0, 4));
 
             CompletableFuture<WebSocket> wsFuture = httpClient.newWebSocketBuilder()
-                .buildAsync(URI.create(wsUrlWithToken), new WebSocket.Listener() {
-                    private final ByteBuffer binaryBuffer = ByteBuffer.allocate(65536);
+                    .buildAsync(URI.create(wsUrlWithToken), new WebSocket.Listener() {
+                        private final ByteBuffer binaryBuffer = ByteBuffer.allocate(65536);
 
-                    @Override
-                    public void onOpen(WebSocket webSocket) {
-                        log.info("[ZERODHA] ✅ WebSocket handshake successful");
-                        wsRef.set(webSocket);
-                        lastHttpStatus = null;
-                        lastErrorMessage = null;
-                        consecutiveFailures.set(0);
-                        webSocket.request(1);
-                        WebSocket.Listener.super.onOpen(webSocket);
-                    }
-
-                    @Override
-                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-                        // Text messages are for control (acks, errors)
-                        if (last) {
-                            log.debug("[ZERODHA] Control message: {}", data);
+                        @Override
+                        public void onOpen(WebSocket webSocket) {
+                            log.info("[ZERODHA] ✅ WebSocket handshake successful");
+                            wsRef.set(webSocket);
+                            lastHttpStatus = null;
+                            lastErrorMessage = null;
+                            consecutiveFailures.set(0);
+                            webSocket.request(1);
+                            WebSocket.Listener.super.onOpen(webSocket);
                         }
-                        return WebSocket.Listener.super.onText(webSocket, data, last);
-                    }
 
-                    @Override
-                    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
-                        // Kite Ticker sends tick data as binary packets
-                        binaryBuffer.put(data);
-                        if (last) {
-                            binaryBuffer.flip();
-                            processBinaryTickData(binaryBuffer);
-                            binaryBuffer.clear();
+                        @Override
+                        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                            // Text messages are for control (acks, errors)
+                            if (last) {
+                                log.debug("[ZERODHA] Control message: {}", data);
+                            }
+                            return WebSocket.Listener.super.onText(webSocket, data, last);
                         }
-                        return WebSocket.Listener.super.onBinary(webSocket, data, last);
-                    }
 
-                    @Override
-                    public void onError(WebSocket webSocket, Throwable error) {
-                        log.error("[ZERODHA] WebSocket error: {}", error.getMessage());
-                        WebSocket.Listener.super.onError(webSocket, error);
-                    }
+                        @Override
+                        public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
+                            // Kite Ticker sends tick data as binary packets
+                            binaryBuffer.put(data);
+                            if (last) {
+                                binaryBuffer.flip();
+                                processBinaryTickData(binaryBuffer);
+                                binaryBuffer.clear();
+                            }
+                            return WebSocket.Listener.super.onBinary(webSocket, data, last);
+                        }
 
-                    @Override
-                    public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                        log.info("[ZERODHA] WebSocket closed: {} - {}", statusCode, reason);
-                        return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
-                    }
-                });
+                        @Override
+                        public void onError(WebSocket webSocket, Throwable error) {
+                            log.error("[ZERODHA] WebSocket error: {}", error.getMessage());
+                            WebSocket.Listener.super.onError(webSocket, error);
+                        }
+
+                        @Override
+                        public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                            log.info("[ZERODHA] WebSocket closed: {} - {}", statusCode, reason);
+                            return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+                        }
+                    });
 
             WebSocket ws = wsFuture.get(10, TimeUnit.SECONDS);
             lastConnectAttempt.set(System.currentTimeMillis());
@@ -608,9 +620,9 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
      * Binary packet format (QUOTE mode):
      * - 4 bytes: number of packets
      * - For each packet:
-     *   - 2 bytes: packet length
-     *   - 4 bytes: instrument_token
-     *   - Rest: tick data fields
+     * - 2 bytes: packet length
+     * - 4 bytes: instrument_token
+     * - Rest: tick data fields
      */
     private void processBinaryTickData(ByteBuffer buffer) {
         try {
@@ -619,10 +631,12 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
             int numPackets = buffer.getShort() & 0xFFFF;
 
             for (int i = 0; i < numPackets; i++) {
-                if (buffer.remaining() < 2) break;
+                if (buffer.remaining() < 2)
+                    break;
 
                 int packetLength = buffer.getShort() & 0xFFFF;
-                if (buffer.remaining() < packetLength) break;
+                if (buffer.remaining() < packetLength)
+                    break;
 
                 long instrumentToken = buffer.getInt() & 0xFFFFFFFFL;
 
@@ -643,7 +657,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
 
                 if (mode == MODE_LTP || mode == MODE_QUOTE || mode == MODE_FULL) {
                     // Last price (4 bytes)
-                    lastPrice = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    lastPrice = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
+                            RoundingMode.HALF_UP);
                 }
 
                 if (mode == MODE_QUOTE || mode == MODE_FULL) {
@@ -654,10 +669,14 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                     long buyQty = buffer.getInt() & 0xFFFFFFFFL;
                     long sellQty = buffer.getInt() & 0xFFFFFFFFL;
 
-                    open = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    high = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    low = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    close = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    open = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
+                            RoundingMode.HALF_UP);
+                    high = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
+                            RoundingMode.HALF_UP);
+                    low = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
+                            RoundingMode.HALF_UP);
+                    close = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
+                            RoundingMode.HALF_UP);
                 }
 
                 // Skip remaining fields for MODE_FULL
@@ -674,18 +693,17 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                         lastSuccessfulTick.set(System.currentTimeMillis());
 
                         Tick tick = new Tick(
-                            symbol,
-                            lastPrice,
-                            open != null ? open : lastPrice,
-                            high != null ? high : lastPrice,
-                            low != null ? low : lastPrice,
-                            close != null ? close : lastPrice,
-                            volume,
-                            lastPrice, lastPrice,
-                            0, 0,
-                            timestamp
-                        );
-
+                                symbol,
+                                lastPrice,
+                                open != null ? open : lastPrice,
+                                high != null ? high : lastPrice,
+                                low != null ? low : lastPrice,
+                                close != null ? close : lastPrice,
+                                volume,
+                                lastPrice, lastPrice,
+                                0, 0,
+                                Instant.ofEpochMilli(timestamp),
+                                "ZERODHA");
                         for (TickListener listener : listeners) {
                             try {
                                 listener.onTick(tick);
@@ -707,35 +725,31 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     // ============================================
 
     @Override
-    public CompletableFuture<OrderResult> placeOrder(OrderRequest request) {
+    public CompletableFuture<OrderResult> placeOrder(BrokerOrderRequest request) {
         return CompletableFuture.completedFuture(
-            OrderResult.failure("Order placement not supported in DATA-only adapter", "NOT_SUPPORTED")
-        );
+                OrderResult.ofFailure("Order placement not supported in DATA-only adapter", "NOT_SUPPORTED"));
     }
 
     @Override
     public CompletableFuture<OrderResult> modifyOrder(String orderId, OrderModifyRequest request) {
         return CompletableFuture.completedFuture(
-            OrderResult.failure("Order modification not supported in DATA-only adapter", "NOT_SUPPORTED")
-        );
+                OrderResult.ofFailure("Order modification not supported in DATA-only adapter", "NOT_SUPPORTED"));
     }
 
     @Override
     public CompletableFuture<OrderResult> cancelOrder(String orderId) {
         return CompletableFuture.completedFuture(
-            OrderResult.failure("Order cancellation not supported in DATA-only adapter", "NOT_SUPPORTED")
-        );
+                OrderResult.ofFailure("Order cancellation not supported in DATA-only adapter", "NOT_SUPPORTED"));
     }
 
     @Override
-    public CompletableFuture<OrderStatus> getOrderStatus(String orderId) {
+    public CompletableFuture<BrokerOrderStatus> getOrderStatus(String orderId) {
         return CompletableFuture.failedFuture(
-            new UnsupportedOperationException("Order status not supported in DATA-only adapter")
-        );
+                new UnsupportedOperationException("Order status not supported in DATA-only adapter"));
     }
 
     @Override
-    public CompletableFuture<List<OrderStatus>> getOpenOrders() {
+    public CompletableFuture<List<BrokerOrderStatus>> getOpenOrders() {
         return CompletableFuture.completedFuture(List.of());
     }
 
@@ -752,8 +766,7 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     @Override
     public CompletableFuture<AccountFunds> getFunds() {
         return CompletableFuture.completedFuture(
-            new AccountFunds(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
-        );
+                new AccountFunds(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
     }
 
     @Override
@@ -763,18 +776,18 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
 
     @Override
     public CompletableFuture<List<HistoricalCandle>> getHistoricalCandles(
-        String symbol,
-        int interval,
-        long fromEpoch,
-        long toEpoch
-    ) {
+            String symbol,
+            TimeframeType timeframe,
+            long fromEpoch,
+            long toEpoch) {
         return CompletableFuture.supplyAsync(() -> {
             if (!connected) {
                 throw new RuntimeException("Not connected");
             }
 
-            log.info("[ZERODHA] Fetching historical candles: {} interval={} from={} to={}",
-                     symbol, interval, fromEpoch, toEpoch);
+            int interval = timeframe.getInterval();
+            log.info("[ZERODHA] Fetching historical candles: {} timeframe={} (interval={}) from={} to={}",
+                    symbol, timeframe, interval, fromEpoch, toEpoch);
 
             // TODO: Implement Kite historical data API
             // For now, return empty list
@@ -784,27 +797,27 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     }
 
     @Override
-    public CompletableFuture<List<Instrument>> getInstruments() {
+    public CompletableFuture<List<BrokerInstrument>> getInstruments() {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 log.info("[ZERODHA] Fetching instruments list");
                 loadInstrumentMaster();
 
-                // Convert cached instruments to Instrument records
-                List<Instrument> instruments = new ArrayList<>();
+                // Convert cached instruments to BrokerInstrument records
+                List<BrokerInstrument> instruments = new ArrayList<>();
                 symbolToToken.forEach((symbol, token) -> {
-                    instruments.add(new Instrument(
-                        "NSE",                          // exchange
-                        "NSE:" + symbol + "-EQ",        // tradingSymbol
-                        symbol,                          // name
-                        "EQ",                           // instrumentType
-                        "EQUITY",                       // segment
-                        token.toString(),               // token
-                        1,                              // lotSize
-                        BigDecimal.valueOf(0.05),       // tickSize
-                        null,                           // expiryDate (null for equity)
-                        BigDecimal.ZERO,                // strikePrice (0 for equity)
-                        null                            // optionType (null for equity)
+                    instruments.add(new BrokerInstrument(
+                            "NSE", // exchange
+                            "NSE:" + symbol + "-EQ", // tradingSymbol
+                            symbol, // name
+                            "EQ", // instrumentType
+                            "EQUITY", // segment
+                            token.toString(), // token
+                            1, // lotSize
+                            BigDecimal.valueOf(0.05), // tickSize
+                            null, // expiryDate (null for equity)
+                            BigDecimal.ZERO, // strikePrice (0 for equity)
+                            null // optionType (null for equity)
                     ));
                 });
 
@@ -818,7 +831,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     }
 
     private String maskKey(String key) {
-        if (key == null || key.length() < 8) return "***";
+        if (key == null || key.length() < 8)
+            return "***";
         return key.substring(0, 4) + "****" + key.substring(key.length() - 4);
     }
 }

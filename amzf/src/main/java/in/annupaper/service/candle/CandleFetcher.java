@@ -1,9 +1,9 @@
 package in.annupaper.service.candle;
 
-import in.annupaper.domain.broker.BrokerAdapter;
 import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
-import in.annupaper.domain.data.TimeframeType;
-import in.annupaper.domain.data.Candle;
+import in.annupaper.domain.model.TimeframeType;
+import in.annupaper.domain.model.HistoricalCandle;
+import in.annupaper.domain.model.BrokerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,17 +30,16 @@ public final class CandleFetcher {
      * Fetch historical candles for a symbol and timeframe.
      */
     public CompletableFuture<Void> fetchHistorical(
-        String userBrokerId,
-        String brokerCode,
-        String symbol,
-        TimeframeType timeframe,
-        Instant from,
-        Instant to
-    ) {
+            String userBrokerId,
+            String brokerCode,
+            String symbol,
+            TimeframeType timeframe,
+            Instant from,
+            Instant to) {
         return CompletableFuture.runAsync(() -> {
             try {
                 log.info("Fetching historical candles: {} {} from {} to {}",
-                         symbol, timeframe, from, to);
+                        symbol, timeframe, from, to);
 
                 // Get broker adapter
                 BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
@@ -49,38 +48,19 @@ public final class CandleFetcher {
                     return;
                 }
 
-                // Map timeframe to interval minutes
-                int intervalMinutes = mapTimeframeToInterval(timeframe);
-
                 // Fetch from broker
-                List<BrokerAdapter.HistoricalCandle> historicalCandles = adapter
-                    .getHistoricalCandles(symbol, intervalMinutes, from.getEpochSecond(), to.getEpochSecond())
-                    .get();
-
-                // Convert to domain candles
-                List<Candle> candles = new ArrayList<>();
-                for (BrokerAdapter.HistoricalCandle hc : historicalCandles) {
-                    Candle candle = Candle.of(
-                        symbol,
-                        timeframe,
-                        Instant.ofEpochSecond(hc.timestamp()),
-                        hc.open().doubleValue(),
-                        hc.high().doubleValue(),
-                        hc.low().doubleValue(),
-                        hc.close().doubleValue(),
-                        hc.volume()
-                    );
-                    candles.add(candle);
-                }
+                List<HistoricalCandle> historicalCandles = adapter
+                        .getHistoricalCandles(symbol, timeframe, from.getEpochSecond(), to.getEpochSecond())
+                        .get();
 
                 // Store in batch
-                candleStore.addBatch(candles);
+                candleStore.addBatch(historicalCandles);
 
-                log.info("Fetched and stored {} candles for {} {}", candles.size(), symbol, timeframe);
+                log.info("Fetched and stored {} candles for {} {}", historicalCandles.size(), symbol, timeframe);
 
             } catch (Exception e) {
                 log.error("Failed to fetch historical candles for {} {}: {}",
-                          symbol, timeframe, e.getMessage());
+                        symbol, timeframe, e.getMessage());
             }
         });
     }
@@ -89,12 +69,11 @@ public final class CandleFetcher {
      * Fetch historical candles for multiple symbols.
      */
     public void fetchForWatchlist(
-        String userBrokerId,
-        String brokerCode,
-        List<String> symbols,
-        Instant from,
-        Instant to
-    ) {
+            String userBrokerId,
+            String brokerCode,
+            List<String> symbols,
+            Instant from,
+            Instant to) {
         log.info("Fetching historical candles for {} symbols", symbols.size());
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -113,15 +92,4 @@ public final class CandleFetcher {
         log.info("Completed fetching historical candles for {} symbols", symbols.size());
     }
 
-    /**
-     * Map timeframe type to interval minutes.
-     */
-    private int mapTimeframeToInterval(TimeframeType timeframe) {
-        return switch (timeframe) {
-            case DAILY -> 1440; // 24 hours in minutes (broker API daily interval)
-            case LTF, MINUTE_1 -> 1;
-            case ITF, MINUTE_25 -> 25;
-            case HTF, MINUTE_125 -> 125;
-        };
-    }
 }

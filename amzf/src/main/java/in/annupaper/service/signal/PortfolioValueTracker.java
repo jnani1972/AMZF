@@ -1,7 +1,7 @@
 package in.annupaper.service.signal;
 
-import in.annupaper.domain.user.Portfolio;
-import in.annupaper.domain.trade.Trade;
+import in.annupaper.domain.model.Portfolio;
+import in.annupaper.domain.model.Trade;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -36,16 +36,15 @@ public final class PortfolioValueTracker {
      *
      * Current Value = Available Capital + Market Value of Open Positions
      *
-     * @param portfolio Portfolio with capital allocation
-     * @param openTrades All open trades
+     * @param portfolio     Portfolio with capital allocation
+     * @param openTrades    All open trades
      * @param currentPrices Map of symbol → current price
      * @return Current portfolio value
      */
     public static BigDecimal calculateCurrentValue(
-        Portfolio portfolio,
-        List<Trade> openTrades,
-        Map<String, BigDecimal> currentPrices
-    ) {
+            Portfolio portfolio,
+            List<Trade> openTrades,
+            Map<String, BigDecimal> currentPrices) {
         if (portfolio == null) {
             return ZERO;
         }
@@ -73,18 +72,17 @@ public final class PortfolioValueTracker {
      *
      * Useful when only one symbol is being analyzed.
      *
-     * @param portfolio Portfolio with capital allocation
-     * @param openTrades All open trades
-     * @param symbol Symbol being analyzed
+     * @param portfolio    Portfolio with capital allocation
+     * @param openTrades   All open trades
+     * @param symbol       Symbol being analyzed
      * @param currentPrice Current price for the symbol
      * @return Current portfolio value
      */
     public static BigDecimal calculateCurrentValueForSymbol(
-        Portfolio portfolio,
-        List<Trade> openTrades,
-        String symbol,
-        BigDecimal currentPrice
-    ) {
+            Portfolio portfolio,
+            List<Trade> openTrades,
+            String symbol,
+            BigDecimal currentPrice) {
         if (portfolio == null) {
             return ZERO;
         }
@@ -116,7 +114,7 @@ public final class PortfolioValueTracker {
      * Returns negative value (e.g., -0.05 for 5% drawdown).
      *
      * @param currentValue Current portfolio value
-     * @param peakValue Peak portfolio value
+     * @param peakValue    Peak portfolio value
      * @return Drawdown as negative percentage (e.g., -0.05 for 5% down)
      */
     public static BigDecimal calculateDrawdown(BigDecimal currentValue, BigDecimal peakValue) {
@@ -138,7 +136,7 @@ public final class PortfolioValueTracker {
      * Update peak portfolio value if current exceeds peak.
      *
      * @param currentValue Current portfolio value
-     * @param currentPeak Current peak value
+     * @param currentPeak  Current peak value
      * @return New peak value (max of current and peak)
      */
     public static BigDecimal updatePeak(BigDecimal currentValue, BigDecimal currentPeak) {
@@ -154,14 +152,13 @@ public final class PortfolioValueTracker {
     /**
      * Calculate total market value of open positions.
      *
-     * @param openTrades All open trades
+     * @param openTrades    All open trades
      * @param currentPrices Map of symbol → current price
      * @return Total market value
      */
     public static BigDecimal calculatePositionsMarketValue(
-        List<Trade> openTrades,
-        Map<String, BigDecimal> currentPrices
-    ) {
+            List<Trade> openTrades,
+            Map<String, BigDecimal> currentPrices) {
         if (openTrades == null || openTrades.isEmpty()) {
             return ZERO;
         }
@@ -184,14 +181,13 @@ public final class PortfolioValueTracker {
      *
      * PnL = Market Value - Cost Basis
      *
-     * @param openTrades All open trades
+     * @param openTrades    All open trades
      * @param currentPrices Map of symbol → current price
      * @return Unrealized PnL (positive = profit, negative = loss)
      */
     public static BigDecimal calculateUnrealizedPnL(
-        List<Trade> openTrades,
-        Map<String, BigDecimal> currentPrices
-    ) {
+            List<Trade> openTrades,
+            Map<String, BigDecimal> currentPrices) {
         if (openTrades == null || openTrades.isEmpty()) {
             return ZERO;
         }
@@ -221,7 +217,7 @@ public final class PortfolioValueTracker {
      *
      * Return% = (current - initial) / initial
      *
-     * @param currentValue Current portfolio value
+     * @param currentValue   Current portfolio value
      * @param initialCapital Initial capital
      * @return Return percentage (e.g., 0.10 for 10% gain)
      */
@@ -238,14 +234,14 @@ public final class PortfolioValueTracker {
      * Result of portfolio value calculation with diagnostics.
      */
     public record PortfolioValueResult(
-        BigDecimal currentValue,        // Current portfolio value
-        BigDecimal peakValue,           // Peak portfolio value
-        BigDecimal availableCapital,    // Available (unreserved) capital
-        BigDecimal positionsMarketValue, // Market value of open positions
-        BigDecimal unrealizedPnL,       // Unrealized profit/loss
-        BigDecimal drawdown,            // Drawdown from peak (negative)
-        BigDecimal portfolioReturn,     // Return from initial capital
-        int openPositionCount           // Number of open positions
+            BigDecimal currentValue, // Current portfolio value
+            BigDecimal peakValue, // Peak portfolio value
+            BigDecimal availableCapital, // Available (unreserved) capital
+            BigDecimal positionsMarketValue, // Market value of open positions
+            BigDecimal unrealizedPnL, // Unrealized profit/loss
+            BigDecimal drawdown, // Drawdown from peak (negative)
+            BigDecimal portfolioReturn, // Return from initial capital
+            int openPositionCount // Number of open positions
     ) {
         /**
          * Check if portfolio is in drawdown.
@@ -273,32 +269,30 @@ public final class PortfolioValueTracker {
          */
         public String getSummary() {
             return String.format(
-                "Portfolio: Value=$%.2f (Peak=$%.2f), DD=%.2f%%, Return=%.2f%%, Positions=%d, PnL=$%.2f",
-                currentValue.doubleValue(),
-                peakValue.doubleValue(),
-                getDrawdownPercent().doubleValue(),
-                getReturnPercent().doubleValue(),
-                openPositionCount,
-                unrealizedPnL.doubleValue()
-            );
+                    "Portfolio: Value=$%.2f (Peak=$%.2f), DD=%.2f%%, Return=%.2f%%, Positions=%d, PnL=$%.2f",
+                    currentValue.doubleValue(),
+                    peakValue.doubleValue(),
+                    getDrawdownPercent().doubleValue(),
+                    getReturnPercent().doubleValue(),
+                    openPositionCount,
+                    unrealizedPnL.doubleValue());
         }
     }
 
     /**
      * Calculate complete portfolio value analysis.
      *
-     * @param portfolio Portfolio with capital allocation
-     * @param openTrades All open trades
+     * @param portfolio     Portfolio with capital allocation
+     * @param openTrades    All open trades
      * @param currentPrices Map of symbol → current price
-     * @param peakValue Current peak value (will be updated if exceeded)
+     * @param peakValue     Current peak value (will be updated if exceeded)
      * @return PortfolioValueResult with all metrics
      */
     public static PortfolioValueResult calculateFull(
-        Portfolio portfolio,
-        List<Trade> openTrades,
-        Map<String, BigDecimal> currentPrices,
-        BigDecimal peakValue
-    ) {
+            Portfolio portfolio,
+            List<Trade> openTrades,
+            Map<String, BigDecimal> currentPrices,
+            BigDecimal peakValue) {
         BigDecimal availableCapital = portfolio != null ? portfolio.availableCapital() : ZERO;
         BigDecimal positionsMarketValue = calculatePositionsMarketValue(openTrades, currentPrices);
         BigDecimal currentValue = availableCapital.add(positionsMarketValue);
@@ -317,14 +311,13 @@ public final class PortfolioValueTracker {
         int openPositionCount = openTrades != null ? openTrades.size() : 0;
 
         return new PortfolioValueResult(
-            currentValue,
-            updatedPeak,
-            availableCapital,
-            positionsMarketValue,
-            unrealizedPnL,
-            drawdown,
-            portfolioReturn,
-            openPositionCount
-        );
+                currentValue,
+                updatedPeak,
+                availableCapital,
+                positionsMarketValue,
+                unrealizedPnL,
+                drawdown,
+                portfolioReturn,
+                openPositionCount);
     }
 }

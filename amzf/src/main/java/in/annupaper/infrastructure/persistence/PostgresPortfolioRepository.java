@@ -1,8 +1,8 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.domain.user.Portfolio;
+import in.annupaper.domain.model.Portfolio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +29,7 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
         List<Portfolio> portfolios = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, userId);
 
@@ -50,7 +50,7 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
         String sql = "SELECT * FROM portfolios WHERE portfolio_id = ? AND deleted_at IS NULL";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, portfolioId);
 
@@ -69,15 +69,15 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
     @Override
     public void insert(Portfolio portfolio) {
         String sql = """
-            INSERT INTO portfolios (
-                portfolio_id, user_id, name, total_capital, reserved_capital,
-                max_portfolio_log_loss, max_symbol_weight, max_symbols,
-                allocation_mode, status, paused, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-            """;
+                INSERT INTO portfolios (
+                    portfolio_id, user_id, name, total_capital, reserved_capital,
+                    max_portfolio_log_loss, max_symbol_weight, max_symbols,
+                    allocation_mode, status, paused, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, portfolio.portfolioId());
             ps.setString(2, portfolio.userId());
@@ -102,42 +102,42 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
 
     // @Override
     // public void update(Portfolio portfolio) {
-    //     String sql = """
-    //         UPDATE portfolios SET
-    //             name = ?,
-    //             total_capital = ?,
-    //             reserved_capital = ?,
-    //             max_portfolio_log_loss = ?,
-    //             max_symbol_weight = ?,
-    //             max_symbols = ?,
-    //             allocation_mode = ?,
-    //             status = ?,
-    //             paused = ?,
-    //             updated_at = NOW()
-    //         WHERE portfolio_id = ?
-    //         """;
+    // String sql = """
+    // UPDATE portfolios SET
+    // name = ?,
+    // total_capital = ?,
+    // reserved_capital = ?,
+    // max_portfolio_log_loss = ?,
+    // max_symbol_weight = ?,
+    // max_symbols = ?,
+    // allocation_mode = ?,
+    // status = ?,
+    // paused = ?,
+    // updated_at = NOW()
+    // WHERE portfolio_id = ?
+    // """;
     //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
+    // try (Connection conn = dataSource.getConnection();
+    // PreparedStatement ps = conn.prepareStatement(sql)) {
     //
-    //         ps.setString(1, portfolio.name());
-    //         ps.setBigDecimal(2, portfolio.totalCapital());
-    //         ps.setBigDecimal(3, portfolio.reservedCapital());
-    //         ps.setBigDecimal(4, portfolio.maxPortfolioLogLoss());
-    //         ps.setBigDecimal(5, portfolio.maxSymbolWeight());
-    //         ps.setInt(6, portfolio.maxSymbols());
-    //         ps.setString(7, portfolio.allocationMode());
-    //         ps.setString(8, portfolio.status());
-    //         ps.setBoolean(9, portfolio.paused());
-    //         ps.setString(10, portfolio.portfolioId());
+    // ps.setString(1, portfolio.name());
+    // ps.setBigDecimal(2, portfolio.totalCapital());
+    // ps.setBigDecimal(3, portfolio.reservedCapital());
+    // ps.setBigDecimal(4, portfolio.maxPortfolioLogLoss());
+    // ps.setBigDecimal(5, portfolio.maxSymbolWeight());
+    // ps.setInt(6, portfolio.maxSymbols());
+    // ps.setString(7, portfolio.allocationMode());
+    // ps.setString(8, portfolio.status());
+    // ps.setBoolean(9, portfolio.paused());
+    // ps.setString(10, portfolio.portfolioId());
     //
-    //         ps.executeUpdate();
-    //         log.info("Portfolio updated: {}", portfolio.portfolioId());
+    // ps.executeUpdate();
+    // log.info("Portfolio updated: {}", portfolio.portfolioId());
     //
-    //     } catch (Exception e) {
-    //         log.error("Error updating portfolio: {}", e.getMessage(), e);
-    //         throw new RuntimeException("Failed to update portfolio", e);
-    //     }
+    // } catch (Exception e) {
+    // log.error("Error updating portfolio: {}", e.getMessage(), e);
+    // throw new RuntimeException("Failed to update portfolio", e);
+    // }
     // }
     @Override
     public void update(Portfolio portfolio) {
@@ -145,12 +145,12 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
         String queryVersionSql = "SELECT version FROM portfolios WHERE portfolio_id = ? AND deleted_at IS NULL";
         String softDeleteSql = "UPDATE portfolios SET deleted_at = NOW() WHERE portfolio_id = ? AND version = ?";
         String insertSql = """
-            INSERT INTO portfolios (
-                portfolio_id, user_id, name, total_capital, reserved_capital,
-                max_portfolio_log_loss, max_symbol_weight, max_symbols,
-                allocation_mode, status, paused, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """;
+                INSERT INTO portfolios (
+                    portfolio_id, user_id, name, total_capital, reserved_capital,
+                    max_portfolio_log_loss, max_symbol_weight, max_symbols,
+                    allocation_mode, status, paused, version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -193,7 +193,8 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
             }
 
             conn.commit();
-            log.info("Portfolio updated: {} version {} → {}", portfolio.portfolioId(), currentVersion, currentVersion + 1);
+            log.info("Portfolio updated: {} version {} → {}", portfolio.portfolioId(), currentVersion,
+                    currentVersion + 1);
 
         } catch (Exception e) {
             log.error("Error updating portfolio: {}", e.getMessage(), e);
@@ -203,19 +204,19 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
 
     // @Override
     // public void delete(String portfolioId) {
-    //     String sql = "DELETE FROM portfolios WHERE portfolio_id = ?";
+    // String sql = "DELETE FROM portfolios WHERE portfolio_id = ?";
     //
-    //     try (Connection conn = dataSource.getConnection();
-    //          PreparedStatement ps = conn.prepareStatement(sql)) {
+    // try (Connection conn = dataSource.getConnection();
+    // PreparedStatement ps = conn.prepareStatement(sql)) {
     //
-    //         ps.setString(1, portfolioId);
-    //         ps.executeUpdate();
-    //         log.info("Portfolio deleted: {}", portfolioId);
+    // ps.setString(1, portfolioId);
+    // ps.executeUpdate();
+    // log.info("Portfolio deleted: {}", portfolioId);
     //
-    //     } catch (Exception e) {
-    //         log.error("Error deleting portfolio: {}", e.getMessage(), e);
-    //         throw new RuntimeException("Failed to delete portfolio", e);
-    //     }
+    // } catch (Exception e) {
+    // log.error("Error deleting portfolio: {}", e.getMessage(), e);
+    // throw new RuntimeException("Failed to delete portfolio", e);
+    // }
     // }
     @Override
     public void delete(String portfolioId) {
@@ -273,9 +274,8 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
         int version = rs.getInt("version");
 
         return new Portfolio(
-            portfolioId, userId, name, totalCapital, reservedCapital,
-            maxPortfolioLogLoss, maxSymbolWeight, maxSymbols,
-            allocationMode, status, paused, createdAt, updatedAt, deletedAt, version
-        );
+                portfolioId, userId, name, totalCapital, reservedCapital,
+                maxPortfolioLogLoss, maxSymbolWeight, maxSymbols,
+                allocationMode, status, paused, createdAt, updatedAt, deletedAt, version);
     }
 }

@@ -1,6 +1,6 @@
 package in.annupaper.service.signal;
 
-import in.annupaper.domain.signal.MtfGlobalConfig;
+import in.annupaper.domain.model.MtfGlobalConfig;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -9,7 +9,8 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * MTF Exit Calculator - Calculates multi-level exit targets with partial position sizing.
+ * MTF Exit Calculator - Calculates multi-level exit targets with partial
+ * position sizing.
  *
  * Exit Ladder (in order of price):
  * 1. BREAKEVEN - Close at avg cost (0% of remaining position)
@@ -30,29 +31,27 @@ public final class MtfExitCalculator {
     /**
      * Calculate exit targets for a mean reversion position.
      *
-     * @param avgCost Average cost of position
+     * @param avgCost    Average cost of position
      * @param htfCeiling HTF timeframe ceiling
      * @param itfCeiling ITF timeframe ceiling
      * @param ltfCeiling LTF timeframe ceiling
-     * @param config MTF configuration
+     * @param config     MTF configuration
      * @return ExitTargets with ladder
      */
     public static ExitTargets calculateExitTargets(
-        BigDecimal avgCost,
-        BigDecimal htfCeiling,
-        BigDecimal itfCeiling,
-        BigDecimal ltfCeiling,
-        MtfGlobalConfig config
-    ) {
+            BigDecimal avgCost,
+            BigDecimal htfCeiling,
+            BigDecimal itfCeiling,
+            BigDecimal ltfCeiling,
+            MtfGlobalConfig config) {
         if (avgCost.compareTo(ZERO) <= 0) {
             return new ExitTargets(
-                avgCost,
-                avgCost,
-                avgCost,
-                avgCost,
-                avgCost,
-                List.of()
-            );
+                    avgCost,
+                    avgCost,
+                    avgCost,
+                    avgCost,
+                    avgCost,
+                    List.of());
         }
 
         // Calculate R (risk) as distance from avg cost to floor
@@ -64,18 +63,15 @@ public final class MtfExitCalculator {
 
         // 2. Min Profit
         BigDecimal minProfitPrice = avgCost.add(
-            avgCost.multiply(config.minProfitPct())
-        );
+                avgCost.multiply(config.minProfitPct()));
 
         // 3. Target (target_r_multiple * risk)
         BigDecimal targetPrice = avgCost.add(
-            risk.multiply(config.targetRMultiple())
-        );
+                risk.multiply(config.targetRMultiple()));
 
         // 4. Stretch (stretch_r_multiple * risk)
         BigDecimal stretchPrice = avgCost.add(
-            risk.multiply(config.stretchRMultiple())
-        );
+                risk.multiply(config.stretchRMultiple()));
 
         // Build exit ladder
         List<ExitTarget> ladder = new ArrayList<>();
@@ -98,32 +94,29 @@ public final class MtfExitCalculator {
         ladder = normalizeExitPercentages(ladder);
 
         return new ExitTargets(
-            breakeven,
-            minProfitPrice,
-            targetPrice,
-            stretchPrice,
-            htfCeiling,
-            ladder
-        );
+                breakeven,
+                minProfitPrice,
+                targetPrice,
+                stretchPrice,
+                htfCeiling,
+                ladder);
     }
 
     /**
      * Add target to ladder if it's valid (above avg cost).
      */
     private static void addTargetIfValid(
-        List<ExitTarget> ladder,
-        String name,
-        BigDecimal price,
-        BigDecimal avgCost,
-        double exitPct
-    ) {
+            List<ExitTarget> ladder,
+            String name,
+            BigDecimal price,
+            BigDecimal avgCost,
+            double exitPct) {
         if (price.compareTo(avgCost) > 0) {
             ladder.add(new ExitTarget(
-                name,
-                price,
-                new BigDecimal(exitPct),
-                calculateLogReturn(avgCost, price)
-            ));
+                    name,
+                    price,
+                    new BigDecimal(exitPct),
+                    calculateLogReturn(avgCost, price)));
         }
     }
 
@@ -194,11 +187,10 @@ public final class MtfExitCalculator {
             }
 
             normalized.add(new ExitTarget(
-                target.name(),
-                target.price(),
-                exitQty,
-                target.logReturn()
-            ));
+                    target.name(),
+                    target.price(),
+                    exitQty,
+                    target.logReturn()));
 
             remainingPosition = remainingPosition.subtract(exitQty);
         }
@@ -224,25 +216,24 @@ public final class MtfExitCalculator {
      * Calculate trailing stop price based on current price and config.
      *
      * @param currentPrice Current market price
-     * @param avgCost Position average cost
-     * @param config MTF config
+     * @param avgCost      Position average cost
+     * @param config       MTF config
      * @return Trailing stop price (null if not activated)
      */
     public static BigDecimal calculateTrailingStop(
-        BigDecimal currentPrice,
-        BigDecimal avgCost,
-        MtfGlobalConfig config
-    ) {
+            BigDecimal currentPrice,
+            BigDecimal avgCost,
+            MtfGlobalConfig config) {
         if (!config.useTrailingStop()) {
             return null;
         }
 
         // Check if trailing stop is activated
         BigDecimal profitPct = currentPrice.subtract(avgCost)
-            .divide(avgCost, 6, RoundingMode.HALF_UP);
+                .divide(avgCost, 6, RoundingMode.HALF_UP);
 
         if (profitPct.compareTo(config.trailingStopActivationPct()) < 0) {
-            return null;  // Not yet activated
+            return null; // Not yet activated
         }
 
         // Calculate trailing stop
@@ -257,10 +248,10 @@ public final class MtfExitCalculator {
      * Exit target in the ladder.
      */
     public record ExitTarget(
-        String name,            // Target name (e.g., "LTF_CEILING")
-        BigDecimal price,       // Target price
-        BigDecimal exitPct,     // Percentage of position to exit (0.0 to 1.0)
-        BigDecimal logReturn    // Log return at this target
+            String name, // Target name (e.g., "LTF_CEILING")
+            BigDecimal price, // Target price
+            BigDecimal exitPct, // Percentage of position to exit (0.0 to 1.0)
+            BigDecimal logReturn // Log return at this target
     ) {
         /**
          * Get simple return as percentage.
@@ -275,12 +266,11 @@ public final class MtfExitCalculator {
          */
         public String getSummary() {
             return String.format(
-                "%s @ $%.2f (%.2f%% position, +%.2f%% return)",
-                name,
-                price.doubleValue(),
-                exitPct.multiply(new BigDecimal("100")).doubleValue(),
-                getReturnPercent().doubleValue()
-            );
+                    "%s @ $%.2f (%.2f%% position, +%.2f%% return)",
+                    name,
+                    price.doubleValue(),
+                    exitPct.multiply(new BigDecimal("100")).doubleValue(),
+                    getReturnPercent().doubleValue());
         }
     }
 
@@ -288,12 +278,12 @@ public final class MtfExitCalculator {
      * Complete exit targets result.
      */
     public record ExitTargets(
-        BigDecimal breakeven,        // Breakeven price
-        BigDecimal minProfit,        // Minimum profit target
-        BigDecimal target,           // Main target
-        BigDecimal stretch,          // Stretch target
-        BigDecimal maxTarget,        // Maximum target (HTF ceiling)
-        List<ExitTarget> ladder      // Ordered exit ladder
+            BigDecimal breakeven, // Breakeven price
+            BigDecimal minProfit, // Minimum profit target
+            BigDecimal target, // Main target
+            BigDecimal stretch, // Stretch target
+            BigDecimal maxTarget, // Maximum target (HTF ceiling)
+            List<ExitTarget> ladder // Ordered exit ladder
     ) {
         /**
          * Get target count.
@@ -307,9 +297,9 @@ public final class MtfExitCalculator {
          */
         public ExitTarget getNextTarget(BigDecimal currentPrice) {
             return ladder.stream()
-                .filter(t -> t.price().compareTo(currentPrice) > 0)
-                .findFirst()
-                .orElse(null);
+                    .filter(t -> t.price().compareTo(currentPrice) > 0)
+                    .findFirst()
+                    .orElse(null);
         }
 
         /**

@@ -2,7 +2,7 @@ package in.annupaper.transport.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import in.annupaper.config.TrailingStopsConfig;
-import in.annupaper.service.admin.TrailingStopsConfigService;
+import in.annupaper.application.service.TrailingStopsConfigService;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
 import io.undertow.util.StatusCodes;
@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets;
  * HTTP handler for admin configuration endpoints.
  *
  * Provides REST API for:
- * - GET  /api/admin/trailing-stops/config - Get current configuration
+ * - GET /api/admin/trailing-stops/config - Get current configuration
  * - POST /api/admin/trailing-stops/config - Update configuration
  */
 public final class AdminConfigHandler {
@@ -68,10 +68,11 @@ public final class AdminConfigHandler {
                 // Return success
                 exch.setStatusCode(StatusCodes.OK);
                 exch.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
-                exch.getResponseSender().send("{\"success\":true,\"message\":\"Configuration updated successfully\"}", StandardCharsets.UTF_8);
+                exch.getResponseSender().send("{\"success\":true,\"message\":\"Configuration updated successfully\"}",
+                        StandardCharsets.UTF_8);
 
                 log.info("POST /api/admin/trailing-stops/config → 200 OK (activation={}%, trailing={}%)",
-                    newConfig.activationPercent(), newConfig.trailingPercent());
+                        newConfig.activationPercent(), newConfig.trailingPercent());
 
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid configuration: {}", e.getMessage());

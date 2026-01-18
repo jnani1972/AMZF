@@ -1,10 +1,10 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
 import com.zaxxer.hikari.HikariDataSource;
-import in.annupaper.domain.data.WatchlistSelected;
-import in.annupaper.domain.data.WatchlistSelectedSymbol;
+import in.annupaper.domain.model.WatchlistSelected;
+import in.annupaper.domain.model.WatchlistSelectedSymbol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,16 +29,16 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public List<WatchlistSelected> findAllActive() {
         String sql = "SELECT selected_id, name, source_template_id, description, enabled, " +
-                     "created_at, updated_at, deleted_at, version " +
-                     "FROM watchlist_selected " +
-                     "WHERE deleted_at IS NULL AND enabled = true " +
-                     "ORDER BY name ASC";
+                "created_at, updated_at, deleted_at, version " +
+                "FROM watchlist_selected " +
+                "WHERE deleted_at IS NULL AND enabled = true " +
+                "ORDER BY name ASC";
 
         List<WatchlistSelected> selected = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 selected.add(mapSelected(rs));
@@ -55,12 +55,12 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public Optional<WatchlistSelected> findById(String selectedId) {
         String sql = "SELECT selected_id, name, source_template_id, description, enabled, " +
-                     "created_at, updated_at, deleted_at, version " +
-                     "FROM watchlist_selected " +
-                     "WHERE selected_id = ?";
+                "created_at, updated_at, deleted_at, version " +
+                "FROM watchlist_selected " +
+                "WHERE selected_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, selectedId);
 
@@ -81,14 +81,14 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public List<WatchlistSelectedSymbol> findSymbolsBySelectedId(String selectedId) {
         String sql = "SELECT id, selected_id, symbol, display_order, created_at " +
-                     "FROM watchlist_selected_symbols " +
-                     "WHERE selected_id = ? " +
-                     "ORDER BY display_order ASC, symbol ASC";
+                "FROM watchlist_selected_symbols " +
+                "WHERE selected_id = ? " +
+                "ORDER BY display_order ASC, symbol ASC";
 
         List<WatchlistSelectedSymbol> symbols = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, selectedId);
 
@@ -108,18 +108,19 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
 
     @Override
     public List<String> findMergedDefaultSymbols() {
-        // Level 3: Merge all symbols from all active selected watchlists (distinct, sorted)
+        // Level 3: Merge all symbols from all active selected watchlists (distinct,
+        // sorted)
         String sql = "SELECT DISTINCT symbol " +
-                     "FROM watchlist_selected_symbols wss " +
-                     "INNER JOIN watchlist_selected ws ON wss.selected_id = ws.selected_id " +
-                     "WHERE ws.deleted_at IS NULL AND ws.enabled = true " +
-                     "ORDER BY symbol ASC";
+                "FROM watchlist_selected_symbols wss " +
+                "INNER JOIN watchlist_selected ws ON wss.selected_id = ws.selected_id " +
+                "WHERE ws.deleted_at IS NULL AND ws.enabled = true " +
+                "ORDER BY symbol ASC";
 
         List<String> symbols = new ArrayList<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
                 symbols.add(rs.getString("symbol"));
@@ -136,12 +137,12 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public void insert(WatchlistSelected selected) {
         String sql = "INSERT INTO watchlist_selected " +
-                     "(selected_id, name, source_template_id, description, enabled, " +
-                     "created_at, updated_at, version) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                "(selected_id, name, source_template_id, description, enabled, " +
+                "created_at, updated_at, version) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, selected.selectedId());
             stmt.setString(2, selected.name());
@@ -164,12 +165,12 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public void update(WatchlistSelected selected) {
         String sql = "UPDATE watchlist_selected SET " +
-                     "name = ?, source_template_id = ?, description = ?, enabled = ?, " +
-                     "updated_at = ?, version = version + 1 " +
-                     "WHERE selected_id = ?";
+                "name = ?, source_template_id = ?, description = ?, enabled = ?, " +
+                "updated_at = ?, version = version + 1 " +
+                "WHERE selected_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, selected.name());
             stmt.setString(2, selected.sourceTemplateId());
@@ -190,10 +191,10 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public void delete(String selectedId) {
         String sql = "UPDATE watchlist_selected SET deleted_at = ?, version = version + 1 " +
-                     "WHERE selected_id = ?";
+                "WHERE selected_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setTimestamp(1, Timestamp.from(Instant.now()));
             stmt.setString(2, selectedId);
@@ -210,11 +211,11 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     @Override
     public void insertSymbol(WatchlistSelectedSymbol symbol) {
         String sql = "INSERT INTO watchlist_selected_symbols " +
-                     "(selected_id, symbol, display_order, created_at) " +
-                     "VALUES (?, ?, ?, ?)";
+                "(selected_id, symbol, display_order, created_at) " +
+                "VALUES (?, ?, ?, ?)";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, symbol.selectedId());
             stmt.setString(2, symbol.symbol());
@@ -235,7 +236,7 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
         String sql = "DELETE FROM watchlist_selected_symbols WHERE id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setLong(1, symbolId);
 
@@ -253,7 +254,7 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
         String sql = "DELETE FROM watchlist_selected_symbols WHERE selected_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, selectedId);
 
@@ -269,25 +270,23 @@ public class PostgresWatchlistSelectedRepository implements WatchlistSelectedRep
     private WatchlistSelected mapSelected(ResultSet rs) throws SQLException {
         Timestamp deletedAtTs = rs.getTimestamp("deleted_at");
         return new WatchlistSelected(
-            rs.getString("selected_id"),
-            rs.getString("name"),
-            rs.getString("source_template_id"),
-            rs.getString("description"),
-            rs.getBoolean("enabled"),
-            rs.getTimestamp("created_at").toInstant(),
-            rs.getTimestamp("updated_at").toInstant(),
-            deletedAtTs != null ? deletedAtTs.toInstant() : null,
-            rs.getInt("version")
-        );
+                rs.getString("selected_id"),
+                rs.getString("name"),
+                rs.getString("source_template_id"),
+                rs.getString("description"),
+                rs.getBoolean("enabled"),
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant(),
+                deletedAtTs != null ? deletedAtTs.toInstant() : null,
+                rs.getInt("version"));
     }
 
     private WatchlistSelectedSymbol mapSelectedSymbol(ResultSet rs) throws SQLException {
         return new WatchlistSelectedSymbol(
-            rs.getLong("id"),
-            rs.getString("selected_id"),
-            rs.getString("symbol"),
-            rs.getInt("display_order"),
-            rs.getTimestamp("created_at").toInstant()
-        );
+                rs.getLong("id"),
+                rs.getString("selected_id"),
+                rs.getString("symbol"),
+                rs.getInt("display_order"),
+                rs.getTimestamp("created_at").toInstant());
     }
 }

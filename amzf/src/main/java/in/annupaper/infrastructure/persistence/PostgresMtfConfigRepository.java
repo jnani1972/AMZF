@@ -1,9 +1,9 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.domain.signal.MtfGlobalConfig;
-import in.annupaper.domain.signal.MtfSymbolConfig;
+import in.annupaper.domain.model.MtfGlobalConfig;
+import in.annupaper.domain.model.MtfSymbolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,8 +31,8 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
         String sql = "SELECT * FROM mtf_global_config WHERE config_id = 'DEFAULT'";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             if (rs.next()) {
                 return Optional.of(mapGlobalConfigRow(rs));
@@ -47,28 +47,28 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
     @Override
     public void updateGlobalConfig(MtfGlobalConfig config) {
         String sql = """
-            UPDATE mtf_global_config SET
-                htf_candle_count = ?, htf_candle_minutes = ?, htf_weight = ?,
-                itf_candle_count = ?, itf_candle_minutes = ?, itf_weight = ?,
-                ltf_candle_count = ?, ltf_candle_minutes = ?, ltf_weight = ?,
-                buy_zone_pct = ?,
-                min_confluence_type = ?,
-                strength_threshold_very_strong = ?, strength_threshold_strong = ?,
-                strength_threshold_moderate = ?,
-                multiplier_very_strong = ?, multiplier_strong = ?,
-                multiplier_moderate = ?, multiplier_weak = ?,
-                max_position_log_loss = ?, max_portfolio_log_loss = ?,
-                kelly_fraction = ?, max_kelly_multiplier = ?,
-                use_limit_orders = ?, entry_offset_pct = ?,
-                min_profit_pct = ?, target_r_multiple = ?, stretch_r_multiple = ?,
-                use_trailing_stop = ?, trailing_stop_activation_pct = ?,
-                trailing_stop_distance_pct = ?,
-                updated_at = NOW()
-            WHERE config_id = 'DEFAULT'
-            """;
+                UPDATE mtf_global_config SET
+                    htf_candle_count = ?, htf_candle_minutes = ?, htf_weight = ?,
+                    itf_candle_count = ?, itf_candle_minutes = ?, itf_weight = ?,
+                    ltf_candle_count = ?, ltf_candle_minutes = ?, ltf_weight = ?,
+                    buy_zone_pct = ?,
+                    min_confluence_type = ?,
+                    strength_threshold_very_strong = ?, strength_threshold_strong = ?,
+                    strength_threshold_moderate = ?,
+                    multiplier_very_strong = ?, multiplier_strong = ?,
+                    multiplier_moderate = ?, multiplier_weak = ?,
+                    max_position_log_loss = ?, max_portfolio_log_loss = ?,
+                    kelly_fraction = ?, max_kelly_multiplier = ?,
+                    use_limit_orders = ?, entry_offset_pct = ?,
+                    min_profit_pct = ?, target_r_multiple = ?, stretch_r_multiple = ?,
+                    use_trailing_stop = ?, trailing_stop_activation_pct = ?,
+                    trailing_stop_distance_pct = ?,
+                    updated_at = NOW()
+                WHERE config_id = 'DEFAULT'
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             int idx = 1;
             ps.setInt(idx++, config.htfCandleCount());
@@ -128,7 +128,7 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
         String sql = "SELECT * FROM mtf_symbol_config WHERE symbol = ? AND user_broker_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, userBrokerId);
@@ -151,8 +151,8 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
 
         List<MtfSymbolConfig> configs = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 configs.add(mapSymbolConfigRow(rs));
@@ -167,77 +167,77 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
     @Override
     public void upsertSymbolConfig(MtfSymbolConfig config) {
         String sql = """
-            INSERT INTO mtf_symbol_config (
-                symbol_config_id, symbol, user_broker_id,
-                htf_candle_count, htf_candle_minutes, htf_weight,
-                itf_candle_count, itf_candle_minutes, itf_weight,
-                ltf_candle_count, ltf_candle_minutes, ltf_weight,
-                buy_zone_pct,
-                min_confluence_type,
-                strength_threshold_very_strong, strength_threshold_strong,
-                strength_threshold_moderate,
-                multiplier_very_strong, multiplier_strong,
-                multiplier_moderate, multiplier_weak,
-                max_position_log_loss, max_portfolio_log_loss,
-                kelly_fraction, max_kelly_multiplier,
-                use_limit_orders, entry_offset_pct,
-                min_profit_pct, target_r_multiple, stretch_r_multiple,
-                use_trailing_stop, trailing_stop_activation_pct,
-                trailing_stop_distance_pct
-            ) VALUES (
-                ?, ?, ?,
-                ?, ?, ?,
-                ?, ?, ?,
-                ?, ?, ?,
-                ?,
-                ?,
-                ?, ?,
-                ?,
-                ?, ?,
-                ?, ?,
-                ?, ?,
-                ?, ?,
-                ?, ?,
-                ?, ?, ?,
-                ?, ?,
-                ?
-            )
-            ON CONFLICT (symbol, user_broker_id) DO UPDATE SET
-                htf_candle_count = EXCLUDED.htf_candle_count,
-                htf_candle_minutes = EXCLUDED.htf_candle_minutes,
-                htf_weight = EXCLUDED.htf_weight,
-                itf_candle_count = EXCLUDED.itf_candle_count,
-                itf_candle_minutes = EXCLUDED.itf_candle_minutes,
-                itf_weight = EXCLUDED.itf_weight,
-                ltf_candle_count = EXCLUDED.ltf_candle_count,
-                ltf_candle_minutes = EXCLUDED.ltf_candle_minutes,
-                ltf_weight = EXCLUDED.ltf_weight,
-                buy_zone_pct = EXCLUDED.buy_zone_pct,
-                min_confluence_type = EXCLUDED.min_confluence_type,
-                strength_threshold_very_strong = EXCLUDED.strength_threshold_very_strong,
-                strength_threshold_strong = EXCLUDED.strength_threshold_strong,
-                strength_threshold_moderate = EXCLUDED.strength_threshold_moderate,
-                multiplier_very_strong = EXCLUDED.multiplier_very_strong,
-                multiplier_strong = EXCLUDED.multiplier_strong,
-                multiplier_moderate = EXCLUDED.multiplier_moderate,
-                multiplier_weak = EXCLUDED.multiplier_weak,
-                max_position_log_loss = EXCLUDED.max_position_log_loss,
-                max_portfolio_log_loss = EXCLUDED.max_portfolio_log_loss,
-                kelly_fraction = EXCLUDED.kelly_fraction,
-                max_kelly_multiplier = EXCLUDED.max_kelly_multiplier,
-                use_limit_orders = EXCLUDED.use_limit_orders,
-                entry_offset_pct = EXCLUDED.entry_offset_pct,
-                min_profit_pct = EXCLUDED.min_profit_pct,
-                target_r_multiple = EXCLUDED.target_r_multiple,
-                stretch_r_multiple = EXCLUDED.stretch_r_multiple,
-                use_trailing_stop = EXCLUDED.use_trailing_stop,
-                trailing_stop_activation_pct = EXCLUDED.trailing_stop_activation_pct,
-                trailing_stop_distance_pct = EXCLUDED.trailing_stop_distance_pct,
-                updated_at = NOW()
-            """;
+                INSERT INTO mtf_symbol_config (
+                    symbol_config_id, symbol, user_broker_id,
+                    htf_candle_count, htf_candle_minutes, htf_weight,
+                    itf_candle_count, itf_candle_minutes, itf_weight,
+                    ltf_candle_count, ltf_candle_minutes, ltf_weight,
+                    buy_zone_pct,
+                    min_confluence_type,
+                    strength_threshold_very_strong, strength_threshold_strong,
+                    strength_threshold_moderate,
+                    multiplier_very_strong, multiplier_strong,
+                    multiplier_moderate, multiplier_weak,
+                    max_position_log_loss, max_portfolio_log_loss,
+                    kelly_fraction, max_kelly_multiplier,
+                    use_limit_orders, entry_offset_pct,
+                    min_profit_pct, target_r_multiple, stretch_r_multiple,
+                    use_trailing_stop, trailing_stop_activation_pct,
+                    trailing_stop_distance_pct
+                ) VALUES (
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?,
+                    ?,
+                    ?,
+                    ?, ?,
+                    ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?
+                )
+                ON CONFLICT (symbol, user_broker_id) DO UPDATE SET
+                    htf_candle_count = EXCLUDED.htf_candle_count,
+                    htf_candle_minutes = EXCLUDED.htf_candle_minutes,
+                    htf_weight = EXCLUDED.htf_weight,
+                    itf_candle_count = EXCLUDED.itf_candle_count,
+                    itf_candle_minutes = EXCLUDED.itf_candle_minutes,
+                    itf_weight = EXCLUDED.itf_weight,
+                    ltf_candle_count = EXCLUDED.ltf_candle_count,
+                    ltf_candle_minutes = EXCLUDED.ltf_candle_minutes,
+                    ltf_weight = EXCLUDED.ltf_weight,
+                    buy_zone_pct = EXCLUDED.buy_zone_pct,
+                    min_confluence_type = EXCLUDED.min_confluence_type,
+                    strength_threshold_very_strong = EXCLUDED.strength_threshold_very_strong,
+                    strength_threshold_strong = EXCLUDED.strength_threshold_strong,
+                    strength_threshold_moderate = EXCLUDED.strength_threshold_moderate,
+                    multiplier_very_strong = EXCLUDED.multiplier_very_strong,
+                    multiplier_strong = EXCLUDED.multiplier_strong,
+                    multiplier_moderate = EXCLUDED.multiplier_moderate,
+                    multiplier_weak = EXCLUDED.multiplier_weak,
+                    max_position_log_loss = EXCLUDED.max_position_log_loss,
+                    max_portfolio_log_loss = EXCLUDED.max_portfolio_log_loss,
+                    kelly_fraction = EXCLUDED.kelly_fraction,
+                    max_kelly_multiplier = EXCLUDED.max_kelly_multiplier,
+                    use_limit_orders = EXCLUDED.use_limit_orders,
+                    entry_offset_pct = EXCLUDED.entry_offset_pct,
+                    min_profit_pct = EXCLUDED.min_profit_pct,
+                    target_r_multiple = EXCLUDED.target_r_multiple,
+                    stretch_r_multiple = EXCLUDED.stretch_r_multiple,
+                    use_trailing_stop = EXCLUDED.use_trailing_stop,
+                    trailing_stop_activation_pct = EXCLUDED.trailing_stop_activation_pct,
+                    trailing_stop_distance_pct = EXCLUDED.trailing_stop_distance_pct,
+                    updated_at = NOW()
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             int idx = 1;
             ps.setString(idx++, config.symbolConfigId());
@@ -297,7 +297,7 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
         String sql = "DELETE FROM mtf_symbol_config WHERE symbol = ? AND user_broker_id = ?";
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, userBrokerId);
@@ -316,7 +316,7 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
     @Override
     public MtfGlobalConfig getEffectiveConfig(String symbol, String userBrokerId) {
         MtfGlobalConfig global = getGlobalConfig().orElseThrow(
-            () -> new RuntimeException("Global config not found"));
+                () -> new RuntimeException("Global config not found"));
 
         Optional<MtfSymbolConfig> symbolConfig = getSymbolConfig(symbol, userBrokerId);
         if (symbolConfig.isEmpty()) {
@@ -381,103 +381,101 @@ public final class PostgresMtfConfigRepository implements MtfConfigRepository {
 
     private MtfGlobalConfig mapGlobalConfigRow(ResultSet rs) throws SQLException {
         return new MtfGlobalConfig(
-            rs.getString("config_id"),
-            rs.getInt("htf_candle_count"),
-            rs.getInt("htf_candle_minutes"),
-            rs.getBigDecimal("htf_weight"),
-            rs.getInt("itf_candle_count"),
-            rs.getInt("itf_candle_minutes"),
-            rs.getBigDecimal("itf_weight"),
-            rs.getInt("ltf_candle_count"),
-            rs.getInt("ltf_candle_minutes"),
-            rs.getBigDecimal("ltf_weight"),
-            rs.getBigDecimal("buy_zone_pct"),
-            rs.getBigDecimal("htf_buy_zone_pct"),
-            rs.getBigDecimal("itf_buy_zone_pct"),
-            rs.getBigDecimal("ltf_buy_zone_pct"),
-            rs.getString("min_confluence_type"),
-            rs.getBigDecimal("strength_threshold_very_strong"),
-            rs.getBigDecimal("strength_threshold_strong"),
-            rs.getBigDecimal("strength_threshold_moderate"),
-            rs.getBigDecimal("multiplier_very_strong"),
-            rs.getBigDecimal("multiplier_strong"),
-            rs.getBigDecimal("multiplier_moderate"),
-            rs.getBigDecimal("multiplier_weak"),
-            rs.getBigDecimal("max_position_log_loss"),
-            rs.getBigDecimal("max_portfolio_log_loss"),
-            rs.getBigDecimal("max_symbol_log_loss"),
-            rs.getBigDecimal("kelly_fraction"),
-            rs.getBigDecimal("max_kelly_multiplier"),
-            rs.getBoolean("use_limit_orders"),
-            rs.getBigDecimal("entry_offset_pct"),
-            rs.getBigDecimal("min_profit_pct"),
-            rs.getBigDecimal("target_r_multiple"),
-            rs.getBigDecimal("stretch_r_multiple"),
-            rs.getBoolean("use_trailing_stop"),
-            rs.getBigDecimal("trailing_stop_activation_pct"),
-            rs.getBigDecimal("trailing_stop_distance_pct"),
-            rs.getBigDecimal("min_reentry_spacing_atr_multiplier"),
-            rs.getBigDecimal("range_atr_threshold_wide"),
-            rs.getBigDecimal("range_atr_threshold_healthy"),
-            rs.getBigDecimal("range_atr_threshold_tight"),
-            rs.getBigDecimal("velocity_multiplier_wide"),
-            rs.getBigDecimal("velocity_multiplier_healthy"),
-            rs.getBigDecimal("velocity_multiplier_tight"),
-            rs.getBigDecimal("velocity_multiplier_compressed"),
-            rs.getBigDecimal("body_ratio_threshold_low"),
-            rs.getBigDecimal("body_ratio_threshold_critical"),
-            rs.getBigDecimal("body_ratio_penalty_low"),
-            rs.getBigDecimal("body_ratio_penalty_critical"),
-            rs.getInt("range_lookback_bars"),
-            rs.getBoolean("stress_throttle_enabled"),
-            rs.getBigDecimal("max_stress_drawdown"),
-            rs.getBigDecimal("utility_alpha"),
-            rs.getBigDecimal("utility_beta"),
-            rs.getBigDecimal("utility_lambda"),
-            rs.getBigDecimal("min_advantage_ratio"),
-            rs.getBoolean("utility_gate_enabled"),
-            rs.getTimestamp("created_at").toInstant(),
-            rs.getTimestamp("updated_at").toInstant()
-        );
+                rs.getString("config_id"),
+                rs.getInt("htf_candle_count"),
+                rs.getInt("htf_candle_minutes"),
+                rs.getBigDecimal("htf_weight"),
+                rs.getInt("itf_candle_count"),
+                rs.getInt("itf_candle_minutes"),
+                rs.getBigDecimal("itf_weight"),
+                rs.getInt("ltf_candle_count"),
+                rs.getInt("ltf_candle_minutes"),
+                rs.getBigDecimal("ltf_weight"),
+                rs.getBigDecimal("buy_zone_pct"),
+                rs.getBigDecimal("htf_buy_zone_pct"),
+                rs.getBigDecimal("itf_buy_zone_pct"),
+                rs.getBigDecimal("ltf_buy_zone_pct"),
+                rs.getString("min_confluence_type"),
+                rs.getBigDecimal("strength_threshold_very_strong"),
+                rs.getBigDecimal("strength_threshold_strong"),
+                rs.getBigDecimal("strength_threshold_moderate"),
+                rs.getBigDecimal("multiplier_very_strong"),
+                rs.getBigDecimal("multiplier_strong"),
+                rs.getBigDecimal("multiplier_moderate"),
+                rs.getBigDecimal("multiplier_weak"),
+                rs.getBigDecimal("max_position_log_loss"),
+                rs.getBigDecimal("max_portfolio_log_loss"),
+                rs.getBigDecimal("max_symbol_log_loss"),
+                rs.getBigDecimal("kelly_fraction"),
+                rs.getBigDecimal("max_kelly_multiplier"),
+                rs.getBoolean("use_limit_orders"),
+                rs.getBigDecimal("entry_offset_pct"),
+                rs.getBigDecimal("min_profit_pct"),
+                rs.getBigDecimal("target_r_multiple"),
+                rs.getBigDecimal("stretch_r_multiple"),
+                rs.getBoolean("use_trailing_stop"),
+                rs.getBigDecimal("trailing_stop_activation_pct"),
+                rs.getBigDecimal("trailing_stop_distance_pct"),
+                rs.getBigDecimal("min_reentry_spacing_atr_multiplier"),
+                rs.getBigDecimal("range_atr_threshold_wide"),
+                rs.getBigDecimal("range_atr_threshold_healthy"),
+                rs.getBigDecimal("range_atr_threshold_tight"),
+                rs.getBigDecimal("velocity_multiplier_wide"),
+                rs.getBigDecimal("velocity_multiplier_healthy"),
+                rs.getBigDecimal("velocity_multiplier_tight"),
+                rs.getBigDecimal("velocity_multiplier_compressed"),
+                rs.getBigDecimal("body_ratio_threshold_low"),
+                rs.getBigDecimal("body_ratio_threshold_critical"),
+                rs.getBigDecimal("body_ratio_penalty_low"),
+                rs.getBigDecimal("body_ratio_penalty_critical"),
+                rs.getInt("range_lookback_bars"),
+                rs.getBoolean("stress_throttle_enabled"),
+                rs.getBigDecimal("max_stress_drawdown"),
+                rs.getBigDecimal("utility_alpha"),
+                rs.getBigDecimal("utility_beta"),
+                rs.getBigDecimal("utility_lambda"),
+                rs.getBigDecimal("min_advantage_ratio"),
+                rs.getBoolean("utility_gate_enabled"),
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant());
     }
 
     private MtfSymbolConfig mapSymbolConfigRow(ResultSet rs) throws SQLException {
         return new MtfSymbolConfig(
-            rs.getString("symbol_config_id"),
-            rs.getString("symbol"),
-            rs.getString("user_broker_id"),
-            getIntOrNull(rs, "htf_candle_count"),
-            getIntOrNull(rs, "htf_candle_minutes"),
-            getBigDecimalOrNull(rs, "htf_weight"),
-            getIntOrNull(rs, "itf_candle_count"),
-            getIntOrNull(rs, "itf_candle_minutes"),
-            getBigDecimalOrNull(rs, "itf_weight"),
-            getIntOrNull(rs, "ltf_candle_count"),
-            getIntOrNull(rs, "ltf_candle_minutes"),
-            getBigDecimalOrNull(rs, "ltf_weight"),
-            getBigDecimalOrNull(rs, "buy_zone_pct"),
-            getStringOrNull(rs, "min_confluence_type"),
-            getBigDecimalOrNull(rs, "strength_threshold_very_strong"),
-            getBigDecimalOrNull(rs, "strength_threshold_strong"),
-            getBigDecimalOrNull(rs, "strength_threshold_moderate"),
-            getBigDecimalOrNull(rs, "multiplier_very_strong"),
-            getBigDecimalOrNull(rs, "multiplier_strong"),
-            getBigDecimalOrNull(rs, "multiplier_moderate"),
-            getBigDecimalOrNull(rs, "multiplier_weak"),
-            getBigDecimalOrNull(rs, "max_position_log_loss"),
-            getBigDecimalOrNull(rs, "max_portfolio_log_loss"),
-            getBigDecimalOrNull(rs, "kelly_fraction"),
-            getBigDecimalOrNull(rs, "max_kelly_multiplier"),
-            getBooleanOrNull(rs, "use_limit_orders"),
-            getBigDecimalOrNull(rs, "entry_offset_pct"),
-            getBigDecimalOrNull(rs, "min_profit_pct"),
-            getBigDecimalOrNull(rs, "target_r_multiple"),
-            getBigDecimalOrNull(rs, "stretch_r_multiple"),
-            getBooleanOrNull(rs, "use_trailing_stop"),
-            getBigDecimalOrNull(rs, "trailing_stop_activation_pct"),
-            getBigDecimalOrNull(rs, "trailing_stop_distance_pct"),
-            rs.getTimestamp("created_at").toInstant(),
-            rs.getTimestamp("updated_at").toInstant()
-        );
+                rs.getString("symbol_config_id"),
+                rs.getString("symbol"),
+                rs.getString("user_broker_id"),
+                getIntOrNull(rs, "htf_candle_count"),
+                getIntOrNull(rs, "htf_candle_minutes"),
+                getBigDecimalOrNull(rs, "htf_weight"),
+                getIntOrNull(rs, "itf_candle_count"),
+                getIntOrNull(rs, "itf_candle_minutes"),
+                getBigDecimalOrNull(rs, "itf_weight"),
+                getIntOrNull(rs, "ltf_candle_count"),
+                getIntOrNull(rs, "ltf_candle_minutes"),
+                getBigDecimalOrNull(rs, "ltf_weight"),
+                getBigDecimalOrNull(rs, "buy_zone_pct"),
+                getStringOrNull(rs, "min_confluence_type"),
+                getBigDecimalOrNull(rs, "strength_threshold_very_strong"),
+                getBigDecimalOrNull(rs, "strength_threshold_strong"),
+                getBigDecimalOrNull(rs, "strength_threshold_moderate"),
+                getBigDecimalOrNull(rs, "multiplier_very_strong"),
+                getBigDecimalOrNull(rs, "multiplier_strong"),
+                getBigDecimalOrNull(rs, "multiplier_moderate"),
+                getBigDecimalOrNull(rs, "multiplier_weak"),
+                getBigDecimalOrNull(rs, "max_position_log_loss"),
+                getBigDecimalOrNull(rs, "max_portfolio_log_loss"),
+                getBigDecimalOrNull(rs, "kelly_fraction"),
+                getBigDecimalOrNull(rs, "max_kelly_multiplier"),
+                getBooleanOrNull(rs, "use_limit_orders"),
+                getBigDecimalOrNull(rs, "entry_offset_pct"),
+                getBigDecimalOrNull(rs, "min_profit_pct"),
+                getBigDecimalOrNull(rs, "target_r_multiple"),
+                getBigDecimalOrNull(rs, "stretch_r_multiple"),
+                getBooleanOrNull(rs, "use_trailing_stop"),
+                getBigDecimalOrNull(rs, "trailing_stop_activation_pct"),
+                getBigDecimalOrNull(rs, "trailing_stop_distance_pct"),
+                rs.getTimestamp("created_at").toInstant(),
+                rs.getTimestamp("updated_at").toInstant());
     }
 }

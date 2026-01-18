@@ -1,12 +1,12 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import in.annupaper.domain.trade.Direction;
-import in.annupaper.domain.signal.SignalType;
-import in.annupaper.domain.signal.Signal;
+import in.annupaper.domain.model.Direction;
+import in.annupaper.domain.model.SignalType;
+import in.annupaper.domain.model.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,15 +35,15 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public List<Signal> findAll() {
         String sql = """
-            SELECT * FROM signals
-            WHERE deleted_at IS NULL
-            ORDER BY generated_at DESC
-            """;
+                SELECT * FROM signals
+                WHERE deleted_at IS NULL
+                ORDER BY generated_at DESC
+                """;
 
         List<Signal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 signals.add(mapRow(rs));
@@ -58,12 +58,12 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public Optional<Signal> findById(String signalId) {
         String sql = """
-            SELECT * FROM signals
-            WHERE signal_id = ? AND deleted_at IS NULL
-            """;
+                SELECT * FROM signals
+                WHERE signal_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -81,14 +81,14 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public List<Signal> findBySymbol(String symbol) {
         String sql = """
-            SELECT * FROM signals
-            WHERE symbol = ? AND deleted_at IS NULL
-            ORDER BY generated_at DESC
-            """;
+                SELECT * FROM signals
+                WHERE symbol = ? AND deleted_at IS NULL
+                ORDER BY generated_at DESC
+                """;
 
         List<Signal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             try (ResultSet rs = ps.executeQuery()) {
@@ -106,14 +106,14 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public List<Signal> findByStatus(String status) {
         String sql = """
-            SELECT * FROM signals
-            WHERE status = ? AND deleted_at IS NULL
-            ORDER BY generated_at DESC
-            """;
+                SELECT * FROM signals
+                WHERE status = ? AND deleted_at IS NULL
+                ORDER BY generated_at DESC
+                """;
 
         List<Signal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, status);
             try (ResultSet rs = ps.executeQuery()) {
@@ -131,31 +131,31 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public void insert(Signal signal) {
         String sql = """
-            INSERT INTO signals (
-                signal_id, symbol, direction, signal_type,
-                htf_zone, itf_zone, ltf_zone,
-                confluence_type, confluence_score,
-                p_win, p_fill, kelly,
-                ref_price, ref_bid, ref_ask, entry_low, entry_high,
-                htf_low, htf_high, itf_low, itf_high, ltf_low, ltf_high,
-                effective_floor, effective_ceiling,
-                confidence, reason, tags,
-                generated_at, expires_at, status, version
-            ) VALUES (
-                ?, ?, ?::direction, ?::signal_type,
-                ?, ?, ?,
-                ?, ?,
-                ?, ?, ?,
-                ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?,
-                ?, ?,
-                ?, ?, ?::jsonb,
-                ?, ?, ?, 1
-            )
-            """;
+                INSERT INTO signals (
+                    signal_id, symbol, direction, signal_type,
+                    htf_zone, itf_zone, ltf_zone,
+                    confluence_type, confluence_score,
+                    p_win, p_fill, kelly,
+                    ref_price, ref_bid, ref_ask, entry_low, entry_high,
+                    htf_low, htf_high, itf_low, itf_high, ltf_low, ltf_high,
+                    effective_floor, effective_ceiling,
+                    confidence, reason, tags,
+                    generated_at, expires_at, status, version
+                ) VALUES (
+                    ?, ?, ?::direction, ?::signal_type,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?::jsonb,
+                    ?, ?, ?, 1
+                )
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signal.signalId());
             ps.setString(2, signal.symbol());
@@ -211,39 +211,39 @@ public final class PostgresSignalRepository implements SignalRepository {
         // Immutable update: soft delete old version, insert new version
 
         String queryVersionSql = """
-            SELECT version FROM signals
-            WHERE signal_id = ? AND deleted_at IS NULL
-            """;
+                SELECT version FROM signals
+                WHERE signal_id = ? AND deleted_at IS NULL
+                """;
 
         String softDeleteSql = """
-            UPDATE signals
-            SET deleted_at = NOW()
-            WHERE signal_id = ? AND version = ?
-            """;
+                UPDATE signals
+                SET deleted_at = NOW()
+                WHERE signal_id = ? AND version = ?
+                """;
 
         String insertSql = """
-            INSERT INTO signals (
-                signal_id, symbol, direction, signal_type,
-                htf_zone, itf_zone, ltf_zone,
-                confluence_type, confluence_score,
-                p_win, p_fill, kelly,
-                ref_price, ref_bid, ref_ask, entry_low, entry_high,
-                htf_low, htf_high, itf_low, itf_high, ltf_low, ltf_high,
-                effective_floor, effective_ceiling,
-                confidence, reason, tags,
-                generated_at, expires_at, status, version
-            ) VALUES (
-                ?, ?, ?::direction, ?::signal_type,
-                ?, ?, ?,
-                ?, ?,
-                ?, ?, ?,
-                ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?,
-                ?, ?,
-                ?, ?, ?::jsonb,
-                ?, ?, ?, ?
-            )
-            """;
+                INSERT INTO signals (
+                    signal_id, symbol, direction, signal_type,
+                    htf_zone, itf_zone, ltf_zone,
+                    confluence_type, confluence_score,
+                    p_win, p_fill, kelly,
+                    ref_price, ref_bid, ref_ask, entry_low, entry_high,
+                    htf_low, htf_high, itf_low, itf_high, ltf_low, ltf_high,
+                    effective_floor, effective_ceiling,
+                    confidence, reason, tags,
+                    generated_at, expires_at, status, version
+                ) VALUES (
+                    ?, ?, ?::direction, ?::signal_type,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?::jsonb,
+                    ?, ?, ?, ?
+                )
+                """;
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -330,15 +330,15 @@ public final class PostgresSignalRepository implements SignalRepository {
         // Soft delete: mark as deleted
 
         String queryVersionSql = """
-            SELECT version FROM signals
-            WHERE signal_id = ? AND deleted_at IS NULL
-            """;
+                SELECT version FROM signals
+                WHERE signal_id = ? AND deleted_at IS NULL
+                """;
 
         String softDeleteSql = """
-            UPDATE signals
-            SET deleted_at = NOW()
-            WHERE signal_id = ? AND version = ?
-            """;
+                UPDATE signals
+                SET deleted_at = NOW()
+                WHERE signal_id = ? AND version = ?
+                """;
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
@@ -377,14 +377,14 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public List<Signal> findAllVersions(String signalId) {
         String sql = """
-            SELECT * FROM signals
-            WHERE signal_id = ?
-            ORDER BY version ASC
-            """;
+                SELECT * FROM signals
+                WHERE signal_id = ?
+                ORDER BY version ASC
+                """;
 
         List<Signal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -402,12 +402,12 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public Optional<Signal> findByIdAndVersion(String signalId, int version) {
         String sql = """
-            SELECT * FROM signals
-            WHERE signal_id = ? AND version = ?
-            """;
+                SELECT * FROM signals
+                WHERE signal_id = ? AND version = ?
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, signalId);
             ps.setInt(2, version);
@@ -432,44 +432,44 @@ public final class PostgresSignalRepository implements SignalRepository {
 
         String tagsJson = rs.getString("tags");
         List<String> tags = tagsJson != null
-            ? objectMapper.readValue(tagsJson, new TypeReference<List<String>>() {})
-            : List.of();
+                ? objectMapper.readValue(tagsJson, new TypeReference<List<String>>() {
+                })
+                : List.of();
 
         return new Signal(
-            rs.getString("signal_id"),
-            rs.getString("symbol"),
-            Direction.valueOf(rs.getString("direction")),
-            SignalType.valueOf(rs.getString("signal_type")),
-            (Integer) rs.getObject("htf_zone"),
-            (Integer) rs.getObject("itf_zone"),
-            (Integer) rs.getObject("ltf_zone"),
-            rs.getString("confluence_type"),
-            rs.getBigDecimal("confluence_score"),
-            rs.getBigDecimal("p_win"),
-            rs.getBigDecimal("p_fill"),
-            rs.getBigDecimal("kelly"),
-            rs.getBigDecimal("ref_price"),
-            rs.getBigDecimal("ref_bid"),
-            rs.getBigDecimal("ref_ask"),
-            rs.getBigDecimal("entry_low"),
-            rs.getBigDecimal("entry_high"),
-            rs.getBigDecimal("htf_low"),
-            rs.getBigDecimal("htf_high"),
-            rs.getBigDecimal("itf_low"),
-            rs.getBigDecimal("itf_high"),
-            rs.getBigDecimal("ltf_low"),
-            rs.getBigDecimal("ltf_high"),
-            rs.getBigDecimal("effective_floor"),
-            rs.getBigDecimal("effective_ceiling"),
-            rs.getBigDecimal("confidence"),
-            rs.getString("reason"),
-            tags,
-            rs.getTimestamp("generated_at").toInstant(),
-            expiresAt,
-            rs.getString("status"),
-            deletedAt,
-            rs.getInt("version")
-        );
+                rs.getString("signal_id"),
+                rs.getString("symbol"),
+                Direction.valueOf(rs.getString("direction")),
+                SignalType.valueOf(rs.getString("signal_type")),
+                (Integer) rs.getObject("htf_zone"),
+                (Integer) rs.getObject("itf_zone"),
+                (Integer) rs.getObject("ltf_zone"),
+                rs.getString("confluence_type"),
+                rs.getBigDecimal("confluence_score"),
+                rs.getBigDecimal("p_win"),
+                rs.getBigDecimal("p_fill"),
+                rs.getBigDecimal("kelly"),
+                rs.getBigDecimal("ref_price"),
+                rs.getBigDecimal("ref_bid"),
+                rs.getBigDecimal("ref_ask"),
+                rs.getBigDecimal("entry_low"),
+                rs.getBigDecimal("entry_high"),
+                rs.getBigDecimal("htf_low"),
+                rs.getBigDecimal("htf_high"),
+                rs.getBigDecimal("itf_low"),
+                rs.getBigDecimal("itf_high"),
+                rs.getBigDecimal("ltf_low"),
+                rs.getBigDecimal("ltf_high"),
+                rs.getBigDecimal("effective_floor"),
+                rs.getBigDecimal("effective_ceiling"),
+                rs.getBigDecimal("confidence"),
+                rs.getString("reason"),
+                tags,
+                rs.getTimestamp("generated_at").toInstant(),
+                expiresAt,
+                rs.getString("status"),
+                deletedAt,
+                rs.getInt("version"));
     }
 
     private void setIntOrNull(PreparedStatement ps, int index, Integer value) throws SQLException {
@@ -500,19 +500,19 @@ public final class PostgresSignalRepository implements SignalRepository {
     public int markSignalsAsStale() {
         // Mark all active signals as STALE where no trades exist yet
         String sql = """
-            UPDATE signals
-            SET status = 'STALE'
-            WHERE deleted_at IS NULL
-              AND status = 'ACTIVE'
-              AND signal_id NOT IN (
-                SELECT DISTINCT signal_id
-                FROM trades
-                WHERE signal_id IS NOT NULL
-              )
-            """;
+                UPDATE signals
+                SET status = 'STALE'
+                WHERE deleted_at IS NULL
+                  AND status = 'ACTIVE'
+                  AND signal_id NOT IN (
+                    SELECT DISTINCT signal_id
+                    FROM trades
+                    WHERE signal_id IS NOT NULL
+                  )
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             int count = ps.executeUpdate();
             log.info("Marked {} signals as STALE (global config change)", count);
@@ -526,22 +526,23 @@ public final class PostgresSignalRepository implements SignalRepository {
 
     @Override
     public int markSignalsAsStaleForSymbol(String symbol) {
-        // Mark all active signals for a specific symbol as STALE where no trades exist yet
+        // Mark all active signals for a specific symbol as STALE where no trades exist
+        // yet
         String sql = """
-            UPDATE signals
-            SET status = 'STALE'
-            WHERE deleted_at IS NULL
-              AND status = 'ACTIVE'
-              AND symbol = ?
-              AND signal_id NOT IN (
-                SELECT DISTINCT signal_id
-                FROM trades
-                WHERE signal_id IS NOT NULL
-              )
-            """;
+                UPDATE signals
+                SET status = 'STALE'
+                WHERE deleted_at IS NULL
+                  AND status = 'ACTIVE'
+                  AND symbol = ?
+                  AND signal_id NOT IN (
+                    SELECT DISTINCT signal_id
+                    FROM trades
+                    WHERE signal_id IS NOT NULL
+                  )
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             int count = ps.executeUpdate();
@@ -562,36 +563,36 @@ public final class PostgresSignalRepository implements SignalRepository {
         // Note: signal_day is auto-generated from generated_at
 
         String sql = """
-            INSERT INTO signals (
-                signal_id, symbol, direction, signal_type,
-                htf_zone, itf_zone, ltf_zone,
-                confluence_type, confluence_score,
-                p_win, p_fill, kelly,
-                ref_price, ref_bid, ref_ask, entry_low, entry_high,
-                htf_low, htf_high, itf_low, itf_high, ltf_low, ltf_high,
-                effective_floor, effective_ceiling,
-                confidence, reason, tags,
-                generated_at, expires_at, status, version
-            ) VALUES (
-                ?, ?, ?::direction, ?::signal_type,
-                ?, ?, ?,
-                ?, ?,
-                ?, ?, ?,
-                ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?,
-                ?, ?,
-                ?, ?, ?::jsonb,
-                ?, ?, ?, 1
-            )
-            ON CONFLICT (symbol, confluence_type, signal_day, effective_floor, effective_ceiling)
-            DO UPDATE SET
-                status = 'ACTIVE',
-                updated_at = NOW()
-            RETURNING *
-            """;
+                INSERT INTO signals (
+                    signal_id, symbol, direction, signal_type,
+                    htf_zone, itf_zone, ltf_zone,
+                    confluence_type, confluence_score,
+                    p_win, p_fill, kelly,
+                    ref_price, ref_bid, ref_ask, entry_low, entry_high,
+                    htf_low, htf_high, itf_low, itf_high, ltf_low, ltf_high,
+                    effective_floor, effective_ceiling,
+                    confidence, reason, tags,
+                    generated_at, expires_at, status, version
+                ) VALUES (
+                    ?, ?, ?::direction, ?::signal_type,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?::jsonb,
+                    ?, ?, ?, 1
+                )
+                ON CONFLICT (symbol, confluence_type, signal_day, effective_floor, effective_ceiling)
+                DO UPDATE SET
+                    status = 'ACTIVE',
+                    updated_at = NOW()
+                RETURNING *
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             int idx = 1;
             ps.setString(idx++, signal.signalId());
@@ -648,8 +649,8 @@ public final class PostgresSignalRepository implements SignalRepository {
                 if (rs.next()) {
                     Signal result = mapRow(rs);
                     log.info("Signal upserted: {} (symbol={}, confluence={}, floor={}, ceiling={})",
-                        result.signalId(), result.symbol(), result.confluenceType(),
-                        result.effectiveFloor(), result.effectiveCeiling());
+                            result.signalId(), result.symbol(), result.confluenceType(),
+                            result.effectiveFloor(), result.effectiveCeiling());
                     return result;
                 }
             }
@@ -665,13 +666,13 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public void updateStatus(String signalId, String status) {
         String sql = """
-            UPDATE signals
-            SET status = ?, updated_at = NOW()
-            WHERE signal_id = ? AND deleted_at IS NULL
-            """;
+                UPDATE signals
+                SET status = ?, updated_at = NOW()
+                WHERE signal_id = ? AND deleted_at IS NULL
+                """;
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, status);
             ps.setString(2, signalId);
@@ -689,14 +690,14 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public List<Signal> findBySymbolAndStatus(String symbol, String status) {
         String sql = """
-            SELECT * FROM signals
-            WHERE symbol = ? AND status = ? AND deleted_at IS NULL
-            ORDER BY generated_at DESC
-            """;
+                SELECT * FROM signals
+                WHERE symbol = ? AND status = ? AND deleted_at IS NULL
+                ORDER BY generated_at DESC
+                """;
 
         List<Signal> signals = new ArrayList<>();
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, symbol);
             ps.setString(2, status);
@@ -716,19 +717,19 @@ public final class PostgresSignalRepository implements SignalRepository {
     @Override
     public List<Signal> findExpiringSoon(java.time.Duration window) {
         String sql = """
-            SELECT * FROM signals
-            WHERE expires_at IS NOT NULL
-              AND expires_at <= ?
-              AND status = 'PUBLISHED'
-              AND deleted_at IS NULL
-            ORDER BY expires_at ASC
-            """;
+                SELECT * FROM signals
+                WHERE expires_at IS NOT NULL
+                  AND expires_at <= ?
+                  AND status = 'PUBLISHED'
+                  AND deleted_at IS NULL
+                ORDER BY expires_at ASC
+                """;
 
         List<Signal> signals = new ArrayList<>();
         Instant threshold = Instant.now().plus(window);
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setTimestamp(1, Timestamp.from(threshold));
 

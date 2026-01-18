@@ -1,0 +1,23 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< in.annupaper:annu-undertow-ws-v04 >------------------
+[INFO] Building annu-undertow-ws-v04 0.4.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ annu-undertow-ws-v04 ---
+[INFO] Deleting /Users/jnani/Desktop/AMZF/amzf/target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ annu-undertow-ws-v04 ---
+[INFO] Copying 2 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ annu-undertow-ws-v04 ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 183 source files with javac [debug deprecation target 17] to target/classes
+[WARNING] system modules path not set in conjunction with -source 17
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  21.771 s
+[INFO] Finished at: 2026-01-18T19:32:00+05:30
+[INFO] ------------------------------------------------------------------------

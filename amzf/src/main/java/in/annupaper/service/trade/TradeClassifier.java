@@ -1,6 +1,6 @@
 package in.annupaper.service.trade;
 
-import in.annupaper.domain.trade.Trade;
+import in.annupaper.domain.model.Trade;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

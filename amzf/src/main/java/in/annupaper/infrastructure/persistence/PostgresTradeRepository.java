@@ -1,8 +1,8 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
-import in.annupaper.domain.trade.Trade;
+import in.annupaper.domain.model.Trade;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

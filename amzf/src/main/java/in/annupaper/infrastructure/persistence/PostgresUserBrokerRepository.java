@@ -1,11 +1,11 @@
 package in.annupaper.infrastructure.persistence;
 
-import in.annupaper.domain.repository.*;
+import in.annupaper.application.port.output.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import in.annupaper.domain.broker.BrokerRole;
-import in.annupaper.domain.broker.UserBroker;
+import in.annupaper.domain.model.BrokerRole;
+import in.annupaper.domain.model.UserBroker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,7 +1,6 @@
 package in.annupaper.chaos;
 
-import in.annupaper.domain.order.*;
-import in.annupaper.domain.trade.Direction;
+import in.annupaper.domain.model.*;
 import in.annupaper.infrastructure.broker.metrics.BrokerMetrics;
 import in.annupaper.infrastructure.broker.metrics.PrometheusBrokerMetrics;
 import io.prometheus.client.CollectorRegistry;
@@ -100,7 +99,7 @@ public class BrokerChaosTest {
         OrderRequest request = createTestOrder();
 
         Instant start = Instant.now();
-        Exception exception = assertThrows(SimulatedBrokerException.class, () -> {
+        assertThrows(SimulatedBrokerException.class, () -> {
             primaryBroker.simulatePlaceOrder(request);
         });
         Duration elapsed = Duration.between(start, Instant.now());
@@ -111,7 +110,7 @@ public class BrokerChaosTest {
         // Verify high latency is recorded in metrics
         String metricsOutput = getMetricsOutput();
         assertTrue(metricsOutput.contains("broker_order_latency_seconds"),
-            "Should record order latency histogram");
+                "Should record order latency histogram");
 
         System.out.println("✅ Timeout handled correctly\n");
     }
@@ -152,7 +151,7 @@ public class BrokerChaosTest {
         // Verify metrics recorded rate limit hits
         String metricsOutput = getMetricsOutput();
         assertTrue(metricsOutput.contains("broker_rate_limit_total"),
-            "Should record rate limit hits");
+                "Should record rate limit hits");
 
         System.out.println("✅ Rate limiting handled correctly\n");
     }
@@ -180,7 +179,7 @@ public class BrokerChaosTest {
         // Verify metrics recorded authentication failure
         String metricsOutput = getMetricsOutput();
         assertTrue(metricsOutput.contains("broker_auth_failure_total"),
-            "Should record authentication attempts");
+                "Should record authentication attempts");
 
         System.out.println("✅ Authentication retry handled correctly\n");
     }
@@ -195,10 +194,10 @@ public class BrokerChaosTest {
         ChaosSimulator broker2 = new ChaosSimulator("ZERODHA", metrics);
         ChaosSimulator broker3 = new ChaosSimulator("FYERS", metrics);
 
-        broker1.setFailureMode(FailureMode.INTERMITTENT);  // 50% failure rate
-        broker2.setFailureMode(FailureMode.TIMEOUT);       // Slow but works
+        broker1.setFailureMode(FailureMode.INTERMITTENT); // 50% failure rate
+        broker2.setFailureMode(FailureMode.TIMEOUT); // Slow but works
         broker2.setLatencyMs(500);
-        broker3.setFailureMode(FailureMode.NONE);          // Healthy
+        broker3.setFailureMode(FailureMode.NONE); // Healthy
 
         System.out.println("⚠️ UPSTOX: Intermittent failures (50%)");
         System.out.println("⚠️ ZERODHA: High latency (500ms)");
@@ -331,8 +330,8 @@ public class BrokerChaosTest {
         // Verify order metrics are recorded
         String metricsOutput = getMetricsOutput();
         assertTrue(metricsOutput.contains("broker_order_success_total") ||
-                   metricsOutput.contains("broker_order_failure_total"),
-                   "Should track health or orders");
+                metricsOutput.contains("broker_order_failure_total"),
+                "Should track health or orders");
 
         System.out.println("✅ Broker recovery handled correctly\n");
     }
@@ -343,7 +342,7 @@ public class BrokerChaosTest {
         System.out.println("\n=== CHAOS TEST 8: High Load Stress Test ===");
 
         primaryBroker.setFailureMode(FailureMode.NONE);
-        primaryBroker.setLatencyMs(10);  // Slight delay per request
+        primaryBroker.setLatencyMs(10); // Slight delay per request
 
         ExecutorService executor = Executors.newFixedThreadPool(50);
         int totalRequests = 500;
@@ -378,15 +377,15 @@ public class BrokerChaosTest {
 
         System.out.println("✅ Completed " + totalRequests + " requests in " + elapsed.toMillis() + "ms");
         System.out.println("✅ Success: " + successCount.get() + " (" +
-            (100 * successCount.get() / totalRequests) + "%)");
+                (100 * successCount.get() / totalRequests) + "%)");
         System.out.println("⚠️ Failures: " + failureCount.get() + " (" +
-            (100 * failureCount.get() / totalRequests) + "%)");
+                (100 * failureCount.get() / totalRequests) + "%)");
 
         double throughput = totalRequests / (elapsed.toMillis() / 1000.0);
         System.out.println("✅ Throughput: " + String.format("%.2f", throughput) + " requests/second");
 
         assertTrue(successCount.get() > totalRequests * 0.95,
-            "Should have >95% success rate under high load");
+                "Should have >95% success rate under high load");
 
         System.out.println("✅ System survived high load stress test\n");
     }
@@ -395,15 +394,15 @@ public class BrokerChaosTest {
 
     private OrderRequest createTestOrder() {
         return new OrderRequest(
-            "NSE:SBIN-EQ",
-            Direction.BUY,
-            1,
-            OrderType.MARKET,
-            BigDecimal.ZERO,
-            BigDecimal.ZERO,
-            TimeInForce.DAY,
-            ProductType.CNC,
-            null  // tag
+                "NSE:SBIN-EQ",
+                Direction.BUY,
+                1,
+                OrderType.MARKET,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                TimeInForce.DAY,
+                ProductType.CNC,
+                null // tag
         );
     }
 
@@ -509,22 +508,22 @@ public class BrokerChaosTest {
                 metrics.recordOrderSuccess(brokerCode, latency);
 
                 return new OrderResponse(
-                    "ORDER-" + System.nanoTime(),  // brokerOrderId
-                    request.symbol(),                // symbol
-                    OrderStatus.PLACED,              // status
-                    request.direction(),             // direction
-                    request.orderType(),             // orderType
-                    request.productType(),           // productType
-                    request.quantity(),              // quantity
-                    0,                               // filledQuantity
-                    request.quantity(),              // pendingQuantity
-                    request.limitPrice(),            // orderPrice
-                    BigDecimal.ZERO,                 // avgFillPrice
-                    Instant.now(),                   // orderTime
-                    null,                            // fillTime
-                    "Order placed",                  // statusMessage
-                    null,                            // tag
-                    null                             // extendedData
+                        "ORDER-" + System.nanoTime(), // brokerOrderId
+                        request.symbol(), // symbol
+                        OrderStatus.PLACED, // status
+                        request.direction(), // direction
+                        request.orderType(), // orderType
+                        request.productType(), // productType
+                        request.quantity(), // quantity
+                        0, // filledQuantity
+                        request.quantity(), // pendingQuantity
+                        request.limitPrice(), // orderPrice
+                        BigDecimal.ZERO, // avgFillPrice
+                        Instant.now(), // orderTime
+                        null, // fillTime
+                        "Order placed", // statusMessage
+                        null, // tag
+                        null // extendedData
                 );
 
             } catch (SimulatedBrokerException e) {

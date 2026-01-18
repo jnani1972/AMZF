@@ -1,6 +1,6 @@
 package in.annupaper.service.signal;
 
-import in.annupaper.domain.data.Candle;
+import in.annupaper.domain.model.HistoricalCandle;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -33,10 +33,10 @@ public final class ATRCalculator {
      * Requires at least (period + 1) candles for accurate calculation.
      *
      * @param candles Daily candles in chronological order (oldest first)
-     * @param period ATR period (typically 14)
+     * @param period  ATR period (typically 14)
      * @return ATR value, or null if insufficient data
      */
-    public static BigDecimal calculateDailyATR(List<Candle> candles, int period) {
+    public static BigDecimal calculateDailyATR(List<HistoricalCandle> candles, int period) {
         if (candles == null || candles.isEmpty()) {
             return null;
         }
@@ -45,7 +45,8 @@ public final class ATRCalculator {
             throw new IllegalArgumentException("ATR period must be positive: " + period);
         }
 
-        // Need at least (period + 1) candles: period for initial ATR, +1 for previous close
+        // Need at least (period + 1) candles: period for initial ATR, +1 for previous
+        // close
         if (candles.size() < period + 1) {
             return null;
         }
@@ -54,8 +55,8 @@ public final class ATRCalculator {
         BigDecimal sumTR = ZERO;
 
         for (int i = 1; i <= period; i++) {
-            Candle current = candles.get(i);
-            Candle previous = candles.get(i - 1);
+            HistoricalCandle current = candles.get(i);
+            HistoricalCandle previous = candles.get(i - 1);
 
             BigDecimal tr = calculateTrueRange(current, previous);
             sumTR = sumTR.add(tr);
@@ -66,8 +67,8 @@ public final class ATRCalculator {
         // Step 2: Apply Wilder's smoothing for remaining candles
         // ATR_t = ((ATR_{t-1} × (n-1)) + TR_t) / n
         for (int i = period + 1; i < candles.size(); i++) {
-            Candle current = candles.get(i);
-            Candle previous = candles.get(i - 1);
+            HistoricalCandle current = candles.get(i);
+            HistoricalCandle previous = candles.get(i - 1);
 
             BigDecimal tr = calculateTrueRange(current, previous);
 
@@ -89,11 +90,11 @@ public final class ATRCalculator {
      * - L = current low
      * - PC = previous close
      *
-     * @param current Current candle
+     * @param current  Current candle
      * @param previous Previous candle
      * @return True Range value
      */
-    public static BigDecimal calculateTrueRange(Candle current, Candle previous) {
+    public static BigDecimal calculateTrueRange(HistoricalCandle current, HistoricalCandle previous) {
         if (current == null || previous == null) {
             throw new IllegalArgumentException("Candles cannot be null");
         }
@@ -121,11 +122,11 @@ public final class ATRCalculator {
      * Used as initial ATR value before applying Wilder's smoothing.
      *
      * @param candles Candles to calculate from
-     * @param start Start index (inclusive)
-     * @param period Number of candles to average
+     * @param start   Start index (inclusive)
+     * @param period  Number of candles to average
      * @return Average TR over period
      */
-    public static BigDecimal calculateSimpleTRAverage(List<Candle> candles, int start, int period) {
+    public static BigDecimal calculateSimpleTRAverage(List<HistoricalCandle> candles, int start, int period) {
         if (candles == null || candles.size() < start + period) {
             return null;
         }
@@ -133,8 +134,8 @@ public final class ATRCalculator {
         BigDecimal sum = ZERO;
 
         for (int i = start; i < start + period; i++) {
-            Candle current = candles.get(i);
-            Candle previous = candles.get(i - 1);
+            HistoricalCandle current = candles.get(i);
+            HistoricalCandle previous = candles.get(i - 1);
 
             BigDecimal tr = calculateTrueRange(current, previous);
             sum = sum.add(tr);
@@ -147,10 +148,10 @@ public final class ATRCalculator {
      * Validate that candles are sufficient for ATR calculation.
      *
      * @param candles Candle list
-     * @param period ATR period
+     * @param period  ATR period
      * @return True if sufficient candles available
      */
-    public static boolean hasSufficientData(List<Candle> candles, int period) {
+    public static boolean hasSufficientData(List<HistoricalCandle> candles, int period) {
         return candles != null && candles.size() >= period + 1;
     }
 
@@ -159,16 +160,15 @@ public final class ATRCalculator {
      *
      * Useful for early-stage symbols with limited history.
      *
-     * @param candles Daily candles
-     * @param period ATR period
+     * @param candles        Daily candles
+     * @param period         ATR period
      * @param fallbackPeriod Minimum period for fallback (e.g., 5)
      * @return ATR value, or null if even fallback fails
      */
     public static BigDecimal calculateDailyATRWithFallback(
-        List<Candle> candles,
-        int period,
-        int fallbackPeriod
-    ) {
+            List<HistoricalCandle> candles,
+            int period,
+            int fallbackPeriod) {
         // Try full ATR calculation
         BigDecimal atr = calculateDailyATR(candles, period);
         if (atr != null) {
@@ -187,24 +187,23 @@ public final class ATRCalculator {
      * Result of ATR calculation with diagnostics.
      */
     public record ATRResult(
-        BigDecimal atr,              // ATR value
-        int periodUsed,              // Period used for calculation
-        int candlesUsed,             // Number of candles used
-        boolean isFallback,          // Whether fallback method was used
-        String calculationMethod     // "WILDER" or "SIMPLE_TR_AVERAGE"
+            BigDecimal atr, // ATR value
+            int periodUsed, // Period used for calculation
+            int candlesUsed, // Number of candles used
+            boolean isFallback, // Whether fallback method was used
+            String calculationMethod // "WILDER" or "SIMPLE_TR_AVERAGE"
     ) {
         /**
          * Get summary string.
          */
         public String getSummary() {
             return String.format(
-                "ATR=%.4f (period=%d, candles=%d, method=%s%s)",
-                atr.doubleValue(),
-                periodUsed,
-                candlesUsed,
-                calculationMethod,
-                isFallback ? ", FALLBACK" : ""
-            );
+                    "ATR=%.4f (period=%d, candles=%d, method=%s%s)",
+                    atr.doubleValue(),
+                    periodUsed,
+                    candlesUsed,
+                    calculationMethod,
+                    isFallback ? ", FALLBACK" : "");
         }
     }
 
@@ -212,10 +211,10 @@ public final class ATRCalculator {
      * Calculate ATR with full diagnostics.
      *
      * @param candles Daily candles
-     * @param period ATR period
+     * @param period  ATR period
      * @return ATRResult with calculation details
      */
-    public static ATRResult calculateWithDiagnostics(List<Candle> candles, int period) {
+    public static ATRResult calculateWithDiagnostics(List<HistoricalCandle> candles, int period) {
         if (candles == null || candles.isEmpty()) {
             return null;
         }
@@ -224,12 +223,11 @@ public final class ATRCalculator {
 
         if (atr != null) {
             return new ATRResult(
-                atr,
-                period,
-                candles.size(),
-                false,
-                "WILDER"
-            );
+                    atr,
+                    period,
+                    candles.size(),
+                    false,
+                    "WILDER");
         }
 
         // Try fallback
@@ -238,12 +236,11 @@ public final class ATRCalculator {
 
         if (fallbackATR != null) {
             return new ATRResult(
-                fallbackATR,
-                fallbackPeriod,
-                candles.size(),
-                true,
-                "SIMPLE_TR_AVERAGE"
-            );
+                    fallbackATR,
+                    fallbackPeriod,
+                    candles.size(),
+                    true,
+                    "SIMPLE_TR_AVERAGE");
         }
 
         return null;

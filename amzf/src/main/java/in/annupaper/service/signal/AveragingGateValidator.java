@@ -1,6 +1,6 @@
 package in.annupaper.service.signal;
 
-import in.annupaper.domain.trade.Trade;
+import in.annupaper.domain.model.Trade;
 
 import java.math.BigDecimal;
 import java.util.List;

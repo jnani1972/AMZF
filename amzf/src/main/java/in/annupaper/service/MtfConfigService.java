@@ -1,9 +1,9 @@
 package in.annupaper.service;
 
-import in.annupaper.domain.signal.MtfGlobalConfig;
-import in.annupaper.domain.signal.MtfSymbolConfig;
-import in.annupaper.domain.repository.MtfConfigRepository;
-import in.annupaper.domain.repository.SignalRepository;
+import in.annupaper.domain.model.MtfGlobalConfig;
+import in.annupaper.domain.model.MtfSymbolConfig;
+import in.annupaper.application.port.output.MtfConfigRepository;
+import in.annupaper.application.port.output.SignalRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +57,8 @@ public final class MtfConfigService {
     }
 
     /**
-     * Upsert symbol-specific configuration and mark signals for that symbol as STALE.
+     * Upsert symbol-specific configuration and mark signals for that symbol as
+     * STALE.
      */
     public void upsertSymbolConfig(MtfSymbolConfig config) {
         mtfConfigRepo.upsertSymbolConfig(config);
@@ -65,11 +66,12 @@ public final class MtfConfigService {
         // Mark signals for this symbol as STALE (where no trades exist)
         int markedCount = signalRepo.markSignalsAsStaleForSymbol(config.symbol());
         log.info("Marked {} signals as STALE for symbol {} after config change",
-            markedCount, config.symbol());
+                markedCount, config.symbol());
     }
 
     /**
-     * Delete symbol-specific configuration and mark signals for that symbol as STALE.
+     * Delete symbol-specific configuration and mark signals for that symbol as
+     * STALE.
      */
     public void deleteSymbolConfig(String symbol, String userBrokerId) {
         mtfConfigRepo.deleteSymbolConfig(symbol, userBrokerId);
@@ -77,7 +79,7 @@ public final class MtfConfigService {
         // Mark signals for this symbol as STALE (where no trades exist)
         int markedCount = signalRepo.markSignalsAsStaleForSymbol(symbol);
         log.info("Marked {} signals as STALE for symbol {} after config deletion",
-            markedCount, symbol);
+                markedCount, symbol);
     }
 
     /**

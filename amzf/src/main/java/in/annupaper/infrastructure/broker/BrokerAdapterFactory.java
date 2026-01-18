@@ -1,11 +1,9 @@
 package in.annupaper.infrastructure.broker;
 
 import in.annupaper.infrastructure.broker.adapters.*;
-import in.annupaper.domain.broker.BrokerAdapter;
-import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.domain.broker.UserBrokerSession;
-import in.annupaper.domain.repository.UserBrokerRepository;
-import in.annupaper.domain.repository.UserBrokerSessionRepository;
+import in.annupaper.domain.model.*;
+import in.annupaper.application.port.output.UserBrokerRepository;
+import in.annupaper.application.port.output.UserBrokerSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

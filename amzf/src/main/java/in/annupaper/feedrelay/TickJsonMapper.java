@@ -1,6 +1,6 @@
 package in.annupaper.feedrelay;
 
-import in.annupaper.domain.broker.BrokerAdapter.Tick;
+import in.annupaper.domain.model.*;
 import org.json.JSONObject;
 
 import java.math.BigDecimal;
@@ -13,7 +13,8 @@ public final class TickJsonMapper {
         JSONObject o = new JSONObject();
 
         o.put("symbol", t.symbol());
-        o.put("timestamp", t.timestamp());
+        o.put("timestamp", t.timestamp() != null ? t.timestamp().toString() : null);
+        o.put("broker", t.brokerCode());
 
         putDecimal(o, "lastPrice", t.lastPrice());
         putDecimal(o, "open", t.open());

@@ -1,9 +1,11 @@
 package in.annupaper.transport.http;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import in.annupaper.domain.signal.MtfGlobalConfig;
-import in.annupaper.domain.signal.MtfSymbolConfig;
 import in.annupaper.service.MtfConfigService;
+import io.undertow.server.HttpServerExchange;
+import in.annupaper.application.port.output.MtfConfigRepository;
+import in.annupaper.domain.model.MtfGlobalConfig;
+import in.annupaper.domain.model.MtfSymbolConfig;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.Headers;
 import io.undertow.util.StatusCodes;
@@ -46,7 +48,7 @@ public final class MtfConfigHandler {
 
         try {
             MtfGlobalConfig config = mtfConfigService.getGlobalConfig()
-                .orElseThrow(() -> new RuntimeException("Global config not found"));
+                    .orElseThrow(() -> new RuntimeException("Global config not found"));
 
             Map<String, Object> response = buildGlobalConfigResponse(config);
             sendJson(exchange, response);
@@ -72,15 +74,14 @@ public final class MtfConfigHandler {
                 Map<String, Object> request = objectMapper.readValue(data, Map.class);
 
                 MtfGlobalConfig existing = mtfConfigService.getGlobalConfig()
-                    .orElseThrow(() -> new RuntimeException("Global config not found"));
+                        .orElseThrow(() -> new RuntimeException("Global config not found"));
 
                 MtfGlobalConfig updated = buildGlobalConfigFromRequest(existing, request);
                 mtfConfigService.updateGlobalConfig(updated);
 
                 sendJson(ex, Map.of(
-                    "success", true,
-                    "message", "Global config updated successfully"
-                ));
+                        "success", true,
+                        "message", "Global config updated successfully"));
 
             } catch (Exception e) {
                 log.error("Failed to update global config: {}", e.getMessage());
@@ -101,8 +102,8 @@ public final class MtfConfigHandler {
         try {
             List<MtfSymbolConfig> configs = mtfConfigService.getAllSymbolConfigs();
             List<Map<String, Object>> response = configs.stream()
-                .map(this::buildSymbolConfigResponse)
-                .toList();
+                    .map(this::buildSymbolConfigResponse)
+                    .toList();
 
             sendJson(exchange, Map.of("symbols", response));
 
@@ -126,7 +127,7 @@ public final class MtfConfigHandler {
 
         try {
             MtfSymbolConfig config = mtfConfigService.getSymbolConfig(symbol, userBrokerId)
-                .orElse(null);
+                    .orElse(null);
 
             if (config == null) {
                 sendJson(exchange, Map.of("exists", false));
@@ -164,9 +165,8 @@ public final class MtfConfigHandler {
                 mtfConfigService.upsertSymbolConfig(config);
 
                 sendJson(ex, Map.of(
-                    "success", true,
-                    "message", "Symbol config saved successfully"
-                ));
+                        "success", true,
+                        "message", "Symbol config saved successfully"));
 
             } catch (Exception e) {
                 log.error("Failed to upsert symbol config: {}", e.getMessage());
@@ -191,9 +191,8 @@ public final class MtfConfigHandler {
             mtfConfigService.deleteSymbolConfig(symbol, userBrokerId);
 
             sendJson(exchange, Map.of(
-                "success", true,
-                "message", "Symbol config deleted successfully"
-            ));
+                    "success", true,
+                    "message", "Symbol config deleted successfully"));
 
         } catch (Exception e) {
             log.error("Failed to delete symbol config: {}", e.getMessage());
@@ -316,104 +315,105 @@ public final class MtfConfigHandler {
 
     private MtfGlobalConfig buildGlobalConfigFromRequest(MtfGlobalConfig existing, Map<String, Object> request) {
         return new MtfGlobalConfig(
-            existing.configId(),
-            getIntOrDefault(request, "htfCandleCount", existing.htfCandleCount()),
-            getIntOrDefault(request, "htfCandleMinutes", existing.htfCandleMinutes()),
-            getBigDecimalOrDefault(request, "htfWeight", existing.htfWeight()),
-            getIntOrDefault(request, "itfCandleCount", existing.itfCandleCount()),
-            getIntOrDefault(request, "itfCandleMinutes", existing.itfCandleMinutes()),
-            getBigDecimalOrDefault(request, "itfWeight", existing.itfWeight()),
-            getIntOrDefault(request, "ltfCandleCount", existing.ltfCandleCount()),
-            getIntOrDefault(request, "ltfCandleMinutes", existing.ltfCandleMinutes()),
-            getBigDecimalOrDefault(request, "ltfWeight", existing.ltfWeight()),
-            getBigDecimalOrDefault(request, "buyZonePct", existing.buyZonePct()),
-            getBigDecimalOrDefault(request, "htfBuyZonePct", existing.htfBuyZonePct()),
-            getBigDecimalOrDefault(request, "itfBuyZonePct", existing.itfBuyZonePct()),
-            getBigDecimalOrDefault(request, "ltfBuyZonePct", existing.ltfBuyZonePct()),
-            getStringOrDefault(request, "minConfluenceType", existing.minConfluenceType()),
-            getBigDecimalOrDefault(request, "strengthThresholdVeryStrong", existing.strengthThresholdVeryStrong()),
-            getBigDecimalOrDefault(request, "strengthThresholdStrong", existing.strengthThresholdStrong()),
-            getBigDecimalOrDefault(request, "strengthThresholdModerate", existing.strengthThresholdModerate()),
-            getBigDecimalOrDefault(request, "multiplierVeryStrong", existing.multiplierVeryStrong()),
-            getBigDecimalOrDefault(request, "multiplierStrong", existing.multiplierStrong()),
-            getBigDecimalOrDefault(request, "multiplierModerate", existing.multiplierModerate()),
-            getBigDecimalOrDefault(request, "multiplierWeak", existing.multiplierWeak()),
-            getBigDecimalOrDefault(request, "maxPositionLogLoss", existing.maxPositionLogLoss()),
-            getBigDecimalOrDefault(request, "maxPortfolioLogLoss", existing.maxPortfolioLogLoss()),
-            getBigDecimalOrDefault(request, "maxSymbolLogLoss", existing.maxSymbolLogLoss()),
-            getBigDecimalOrDefault(request, "kellyFraction", existing.kellyFraction()),
-            getBigDecimalOrDefault(request, "maxKellyMultiplier", existing.maxKellyMultiplier()),
-            getBooleanOrDefault(request, "useLimitOrders", existing.useLimitOrders()),
-            getBigDecimalOrDefault(request, "entryOffsetPct", existing.entryOffsetPct()),
-            getBigDecimalOrDefault(request, "minProfitPct", existing.minProfitPct()),
-            getBigDecimalOrDefault(request, "targetRMultiple", existing.targetRMultiple()),
-            getBigDecimalOrDefault(request, "stretchRMultiple", existing.stretchRMultiple()),
-            getBooleanOrDefault(request, "useTrailingStop", existing.useTrailingStop()),
-            getBigDecimalOrDefault(request, "trailingStopActivationPct", existing.trailingStopActivationPct()),
-            getBigDecimalOrDefault(request, "trailingStopDistancePct", existing.trailingStopDistancePct()),
-            getBigDecimalOrDefault(request, "minReentrySpacingAtrMultiplier", existing.minReentrySpacingAtrMultiplier()),
-            getBigDecimalOrDefault(request, "rangeAtrThresholdWide", existing.rangeAtrThresholdWide()),
-            getBigDecimalOrDefault(request, "rangeAtrThresholdHealthy", existing.rangeAtrThresholdHealthy()),
-            getBigDecimalOrDefault(request, "rangeAtrThresholdTight", existing.rangeAtrThresholdTight()),
-            getBigDecimalOrDefault(request, "velocityMultiplierWide", existing.velocityMultiplierWide()),
-            getBigDecimalOrDefault(request, "velocityMultiplierHealthy", existing.velocityMultiplierHealthy()),
-            getBigDecimalOrDefault(request, "velocityMultiplierTight", existing.velocityMultiplierTight()),
-            getBigDecimalOrDefault(request, "velocityMultiplierCompressed", existing.velocityMultiplierCompressed()),
-            getBigDecimalOrDefault(request, "bodyRatioThresholdLow", existing.bodyRatioThresholdLow()),
-            getBigDecimalOrDefault(request, "bodyRatioThresholdCritical", existing.bodyRatioThresholdCritical()),
-            getBigDecimalOrDefault(request, "bodyRatioPenaltyLow", existing.bodyRatioPenaltyLow()),
-            getBigDecimalOrDefault(request, "bodyRatioPenaltyCritical", existing.bodyRatioPenaltyCritical()),
-            getIntOrDefault(request, "rangeLookbackBars", existing.rangeLookbackBars()),
-            getBooleanOrDefault(request, "stressThrottleEnabled", existing.stressThrottleEnabled()),
-            getBigDecimalOrDefault(request, "maxStressDrawdown", existing.maxStressDrawdown()),
-            getBigDecimalOrDefault(request, "utilityAlpha", existing.utilityAlpha()),
-            getBigDecimalOrDefault(request, "utilityBeta", existing.utilityBeta()),
-            getBigDecimalOrDefault(request, "utilityLambda", existing.utilityLambda()),
-            getBigDecimalOrDefault(request, "minAdvantageRatio", existing.minAdvantageRatio()),
-            getBooleanOrDefault(request, "utilityGateEnabled", existing.utilityGateEnabled()),
-            existing.createdAt(),
-            Instant.now()
-        );
+                existing.configId(),
+                getIntOrDefault(request, "htfCandleCount", existing.htfCandleCount()),
+                getIntOrDefault(request, "htfCandleMinutes", existing.htfCandleMinutes()),
+                getBigDecimalOrDefault(request, "htfWeight", existing.htfWeight()),
+                getIntOrDefault(request, "itfCandleCount", existing.itfCandleCount()),
+                getIntOrDefault(request, "itfCandleMinutes", existing.itfCandleMinutes()),
+                getBigDecimalOrDefault(request, "itfWeight", existing.itfWeight()),
+                getIntOrDefault(request, "ltfCandleCount", existing.ltfCandleCount()),
+                getIntOrDefault(request, "ltfCandleMinutes", existing.ltfCandleMinutes()),
+                getBigDecimalOrDefault(request, "ltfWeight", existing.ltfWeight()),
+                getBigDecimalOrDefault(request, "buyZonePct", existing.buyZonePct()),
+                getBigDecimalOrDefault(request, "htfBuyZonePct", existing.htfBuyZonePct()),
+                getBigDecimalOrDefault(request, "itfBuyZonePct", existing.itfBuyZonePct()),
+                getBigDecimalOrDefault(request, "ltfBuyZonePct", existing.ltfBuyZonePct()),
+                getStringOrDefault(request, "minConfluenceType", existing.minConfluenceType()),
+                getBigDecimalOrDefault(request, "strengthThresholdVeryStrong", existing.strengthThresholdVeryStrong()),
+                getBigDecimalOrDefault(request, "strengthThresholdStrong", existing.strengthThresholdStrong()),
+                getBigDecimalOrDefault(request, "strengthThresholdModerate", existing.strengthThresholdModerate()),
+                getBigDecimalOrDefault(request, "multiplierVeryStrong", existing.multiplierVeryStrong()),
+                getBigDecimalOrDefault(request, "multiplierStrong", existing.multiplierStrong()),
+                getBigDecimalOrDefault(request, "multiplierModerate", existing.multiplierModerate()),
+                getBigDecimalOrDefault(request, "multiplierWeak", existing.multiplierWeak()),
+                getBigDecimalOrDefault(request, "maxPositionLogLoss", existing.maxPositionLogLoss()),
+                getBigDecimalOrDefault(request, "maxPortfolioLogLoss", existing.maxPortfolioLogLoss()),
+                getBigDecimalOrDefault(request, "maxSymbolLogLoss", existing.maxSymbolLogLoss()),
+                getBigDecimalOrDefault(request, "kellyFraction", existing.kellyFraction()),
+                getBigDecimalOrDefault(request, "maxKellyMultiplier", existing.maxKellyMultiplier()),
+                getBooleanOrDefault(request, "useLimitOrders", existing.useLimitOrders()),
+                getBigDecimalOrDefault(request, "entryOffsetPct", existing.entryOffsetPct()),
+                getBigDecimalOrDefault(request, "minProfitPct", existing.minProfitPct()),
+                getBigDecimalOrDefault(request, "targetRMultiple", existing.targetRMultiple()),
+                getBigDecimalOrDefault(request, "stretchRMultiple", existing.stretchRMultiple()),
+                getBooleanOrDefault(request, "useTrailingStop", existing.useTrailingStop()),
+                getBigDecimalOrDefault(request, "trailingStopActivationPct", existing.trailingStopActivationPct()),
+                getBigDecimalOrDefault(request, "trailingStopDistancePct", existing.trailingStopDistancePct()),
+                getBigDecimalOrDefault(request, "minReentrySpacingAtrMultiplier",
+                        existing.minReentrySpacingAtrMultiplier()),
+                getBigDecimalOrDefault(request, "rangeAtrThresholdWide", existing.rangeAtrThresholdWide()),
+                getBigDecimalOrDefault(request, "rangeAtrThresholdHealthy", existing.rangeAtrThresholdHealthy()),
+                getBigDecimalOrDefault(request, "rangeAtrThresholdTight", existing.rangeAtrThresholdTight()),
+                getBigDecimalOrDefault(request, "velocityMultiplierWide", existing.velocityMultiplierWide()),
+                getBigDecimalOrDefault(request, "velocityMultiplierHealthy", existing.velocityMultiplierHealthy()),
+                getBigDecimalOrDefault(request, "velocityMultiplierTight", existing.velocityMultiplierTight()),
+                getBigDecimalOrDefault(request, "velocityMultiplierCompressed",
+                        existing.velocityMultiplierCompressed()),
+                getBigDecimalOrDefault(request, "bodyRatioThresholdLow", existing.bodyRatioThresholdLow()),
+                getBigDecimalOrDefault(request, "bodyRatioThresholdCritical", existing.bodyRatioThresholdCritical()),
+                getBigDecimalOrDefault(request, "bodyRatioPenaltyLow", existing.bodyRatioPenaltyLow()),
+                getBigDecimalOrDefault(request, "bodyRatioPenaltyCritical", existing.bodyRatioPenaltyCritical()),
+                getIntOrDefault(request, "rangeLookbackBars", existing.rangeLookbackBars()),
+                getBooleanOrDefault(request, "stressThrottleEnabled", existing.stressThrottleEnabled()),
+                getBigDecimalOrDefault(request, "maxStressDrawdown", existing.maxStressDrawdown()),
+                getBigDecimalOrDefault(request, "utilityAlpha", existing.utilityAlpha()),
+                getBigDecimalOrDefault(request, "utilityBeta", existing.utilityBeta()),
+                getBigDecimalOrDefault(request, "utilityLambda", existing.utilityLambda()),
+                getBigDecimalOrDefault(request, "minAdvantageRatio", existing.minAdvantageRatio()),
+                getBooleanOrDefault(request, "utilityGateEnabled", existing.utilityGateEnabled()),
+                existing.createdAt(),
+                Instant.now());
     }
 
-    private MtfSymbolConfig buildSymbolConfigFromRequest(String symbol, String userBrokerId, Map<String, Object> request) {
+    private MtfSymbolConfig buildSymbolConfigFromRequest(String symbol, String userBrokerId,
+            Map<String, Object> request) {
         return new MtfSymbolConfig(
-            UUID.randomUUID().toString(),
-            symbol,
-            userBrokerId,
-            getIntOrNull(request, "htfCandleCount"),
-            getIntOrNull(request, "htfCandleMinutes"),
-            getBigDecimalOrNull(request, "htfWeight"),
-            getIntOrNull(request, "itfCandleCount"),
-            getIntOrNull(request, "itfCandleMinutes"),
-            getBigDecimalOrNull(request, "itfWeight"),
-            getIntOrNull(request, "ltfCandleCount"),
-            getIntOrNull(request, "ltfCandleMinutes"),
-            getBigDecimalOrNull(request, "ltfWeight"),
-            getBigDecimalOrNull(request, "buyZonePct"),
-            getStringOrNull(request, "minConfluenceType"),
-            getBigDecimalOrNull(request, "strengthThresholdVeryStrong"),
-            getBigDecimalOrNull(request, "strengthThresholdStrong"),
-            getBigDecimalOrNull(request, "strengthThresholdModerate"),
-            getBigDecimalOrNull(request, "multiplierVeryStrong"),
-            getBigDecimalOrNull(request, "multiplierStrong"),
-            getBigDecimalOrNull(request, "multiplierModerate"),
-            getBigDecimalOrNull(request, "multiplierWeak"),
-            getBigDecimalOrNull(request, "maxPositionLogLoss"),
-            getBigDecimalOrNull(request, "maxPortfolioLogLoss"),
-            getBigDecimalOrNull(request, "kellyFraction"),
-            getBigDecimalOrNull(request, "maxKellyMultiplier"),
-            getBooleanOrNull(request, "useLimitOrders"),
-            getBigDecimalOrNull(request, "entryOffsetPct"),
-            getBigDecimalOrNull(request, "minProfitPct"),
-            getBigDecimalOrNull(request, "targetRMultiple"),
-            getBigDecimalOrNull(request, "stretchRMultiple"),
-            getBooleanOrNull(request, "useTrailingStop"),
-            getBigDecimalOrNull(request, "trailingStopActivationPct"),
-            getBigDecimalOrNull(request, "trailingStopDistancePct"),
-            Instant.now(),
-            Instant.now()
-        );
+                UUID.randomUUID().toString(),
+                symbol,
+                userBrokerId,
+                getIntOrNull(request, "htfCandleCount"),
+                getIntOrNull(request, "htfCandleMinutes"),
+                getBigDecimalOrNull(request, "htfWeight"),
+                getIntOrNull(request, "itfCandleCount"),
+                getIntOrNull(request, "itfCandleMinutes"),
+                getBigDecimalOrNull(request, "itfWeight"),
+                getIntOrNull(request, "ltfCandleCount"),
+                getIntOrNull(request, "ltfCandleMinutes"),
+                getBigDecimalOrNull(request, "ltfWeight"),
+                getBigDecimalOrNull(request, "buyZonePct"),
+                getStringOrNull(request, "minConfluenceType"),
+                getBigDecimalOrNull(request, "strengthThresholdVeryStrong"),
+                getBigDecimalOrNull(request, "strengthThresholdStrong"),
+                getBigDecimalOrNull(request, "strengthThresholdModerate"),
+                getBigDecimalOrNull(request, "multiplierVeryStrong"),
+                getBigDecimalOrNull(request, "multiplierStrong"),
+                getBigDecimalOrNull(request, "multiplierModerate"),
+                getBigDecimalOrNull(request, "multiplierWeak"),
+                getBigDecimalOrNull(request, "maxPositionLogLoss"),
+                getBigDecimalOrNull(request, "maxPortfolioLogLoss"),
+                getBigDecimalOrNull(request, "kellyFraction"),
+                getBigDecimalOrNull(request, "maxKellyMultiplier"),
+                getBooleanOrNull(request, "useLimitOrders"),
+                getBigDecimalOrNull(request, "entryOffsetPct"),
+                getBigDecimalOrNull(request, "minProfitPct"),
+                getBigDecimalOrNull(request, "targetRMultiple"),
+                getBigDecimalOrNull(request, "stretchRMultiple"),
+                getBooleanOrNull(request, "useTrailingStop"),
+                getBigDecimalOrNull(request, "trailingStopActivationPct"),
+                getBigDecimalOrNull(request, "trailingStopDistancePct"),
+                Instant.now(),
+                Instant.now());
     }
 
     private int getIntOrDefault(Map<String, Object> map, String key, int defaultValue) {

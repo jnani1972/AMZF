@@ -1,10 +1,8 @@
 package in.annupaper.bootstrap;
 
-import in.annupaper.domain.broker.BrokerEnvironment;
-import in.annupaper.domain.broker.Broker;
-import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.domain.repository.BrokerRepository;
-import in.annupaper.domain.repository.UserBrokerRepository;
+import in.annupaper.domain.model.*;
+import in.annupaper.application.port.output.BrokerRepository;
+import in.annupaper.application.port.output.UserBrokerRepository;
 import in.annupaper.util.Env;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,10 +30,12 @@ public final class StartupConfigValidator {
     /**
      * Validate configuration at startup.
      *
-     * This method should be called from App.main() BEFORE any system initialization.
-     * If validation fails, it throws IllegalStateException and system refuses to start.
+     * This method should be called from App.main() BEFORE any system
+     * initialization.
+     * If validation fails, it throws IllegalStateException and system refuses to
+     * start.
      *
-     * @param brokerRepo Broker repository (for checking broker configs)
+     * @param brokerRepo     Broker repository (for checking broker configs)
      * @param userBrokerRepo User-broker repository (for checking connections)
      * @throws IllegalStateException if configuration is invalid
      */
@@ -68,12 +68,11 @@ public final class StartupConfigValidator {
         boolean orderExecutionEnabled = Env.getBool("ORDER_EXECUTION_ENABLED", false);
         if (!orderExecutionEnabled) {
             throw new IllegalStateException(
-                "❌ INVALID CONFIG: PRODUCTION MODE requires ORDER_EXECUTION_ENABLED=true\n" +
-                "System refuses to start.\n" +
-                "Either:\n" +
-                "  1. Enable order execution: set ORDER_EXECUTION_ENABLED=true\n" +
-                "  2. Set PRODUCTION_MODE=false for testing/paper trading"
-            );
+                    "❌ INVALID CONFIG: PRODUCTION MODE requires ORDER_EXECUTION_ENABLED=true\n" +
+                            "System refuses to start.\n" +
+                            "Either:\n" +
+                            "  1. Enable order execution: set ORDER_EXECUTION_ENABLED=true\n" +
+                            "  2. Set PRODUCTION_MODE=false for testing/paper trading");
         }
         log.info("✓ Order execution enabled");
 
@@ -98,14 +97,13 @@ public final class StartupConfigValidator {
             BrokerEnvironment env = BrokerEnvironment.fromUrl(apiUrl);
             if (env.isNonProduction()) {
                 throw new IllegalStateException(
-                    "❌ INVALID CONFIG: PRODUCTION MODE forbids non-production broker APIs\n" +
-                    "Broker: " + broker.brokerName() + " (" + broker.brokerCode() + ")\n" +
-                    "URL: " + apiUrl + "\n" +
-                    "Environment: " + env + "\n" +
-                    "Either:\n" +
-                    "  1. Use production API URL in broker config\n" +
-                    "  2. Set PRODUCTION_MODE=false"
-                );
+                        "❌ INVALID CONFIG: PRODUCTION MODE forbids non-production broker APIs\n" +
+                                "Broker: " + broker.brokerName() + " (" + broker.brokerCode() + ")\n" +
+                                "URL: " + apiUrl + "\n" +
+                                "Environment: " + env + "\n" +
+                                "Either:\n" +
+                                "  1. Use production API URL in broker config\n" +
+                                "  2. Set PRODUCTION_MODE=false");
             }
             log.info("✓ Broker {} using production API: {}", broker.brokerCode(), apiUrl);
         }
@@ -116,12 +114,11 @@ public final class StartupConfigValidator {
 
         if (persistTickEvents && !asyncEventWriterEnabled) {
             throw new IllegalStateException(
-                "❌ INVALID CONFIG: Tick event persistence requires ASYNC_EVENT_WRITER_ENABLED=true\n" +
-                "Direct DB writes on broker thread are FORBIDDEN (P0 invariant).\n" +
-                "Either:\n" +
-                "  1. Enable async writer: set ASYNC_EVENT_WRITER_ENABLED=true\n" +
-                "  2. Disable tick persistence: set PERSIST_TICK_EVENTS=false"
-            );
+                    "❌ INVALID CONFIG: Tick event persistence requires ASYNC_EVENT_WRITER_ENABLED=true\n" +
+                            "Direct DB writes on broker thread are FORBIDDEN (P0 invariant).\n" +
+                            "Either:\n" +
+                            "  1. Enable async writer: set ASYNC_EVENT_WRITER_ENABLED=true\n" +
+                            "  2. Disable tick persistence: set PERSIST_TICK_EVENTS=false");
         }
         if (persistTickEvents) {
             log.info("✓ Tick persistence enabled with async writer");
@@ -135,12 +132,11 @@ public final class StartupConfigValidator {
             if (!P0DebtRegistry.allGatesResolved()) {
                 String unresolved = P0DebtRegistry.getUnresolvedGates();
                 throw new IllegalStateException(
-                    "❌ PROD_READY GATE FAILED: Unresolved P0 blockers\n" +
-                    "The following P0 items are not complete:\n  - " + unresolved + "\n\n" +
-                    "Either:\n" +
-                    "  1. Resolve all P0 blockers (update P0DebtRegistry flags in code)\n" +
-                    "  2. Set RELEASE_READINESS=BETA to bypass gate"
-                );
+                        "❌ PROD_READY GATE FAILED: Unresolved P0 blockers\n" +
+                                "The following P0 items are not complete:\n  - " + unresolved + "\n\n" +
+                                "Either:\n" +
+                                "  1. Resolve all P0 blockers (update P0DebtRegistry flags in code)\n" +
+                                "  2. Set RELEASE_READINESS=BETA to bypass gate");
             }
             log.info("✅ PROD_READY gate passed - all P0 blockers resolved");
         } else {
@@ -172,15 +168,17 @@ public final class StartupConfigValidator {
         List<UserBroker> allUserBrokers = userBrokerRepo.findAll();
         for (UserBroker userBroker : allUserBrokers) {
             Broker broker = brokerRepo.findById(userBroker.brokerId()).orElse(null);
-            if (broker == null) continue;
+            if (broker == null)
+                continue;
 
             String apiUrl = extractApiUrl(broker);
-            if (apiUrl == null || apiUrl.isEmpty()) continue;
+            if (apiUrl == null || apiUrl.isEmpty())
+                continue;
 
             BrokerEnvironment env = BrokerEnvironment.fromUrl(apiUrl);
             if (env.isNonProduction()) {
                 log.warn("⚠️  Non-production API: {} - {} ({})",
-                    broker.brokerName(), apiUrl, env);
+                        broker.brokerName(), apiUrl, env);
             }
         }
 
@@ -213,7 +211,7 @@ public final class StartupConfigValidator {
         }
 
         // Try common config keys
-        String[] keys = {"apiUrl", "api_url", "baseUrl", "base_url", "url"};
+        String[] keys = { "apiUrl", "api_url", "baseUrl", "base_url", "url" };
         for (String key : keys) {
             if (config.has(key)) {
                 JsonNode node = config.get(key);

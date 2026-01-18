@@ -1,11 +1,11 @@
 package in.annupaper.application.monitoring;
 
-import in.annupaper.domain.monitoring.*;
-import in.annupaper.domain.trade.ExitIntent;
-import in.annupaper.domain.broker.UserBroker;
-import in.annupaper.domain.repository.ExitIntentRepository;
-import in.annupaper.domain.repository.TradeRepository;
-import in.annupaper.domain.repository.UserBrokerRepository;
+import in.annupaper.domain.model.*;
+
+import in.annupaper.application.port.output.UserBrokerRepository;
+import in.annupaper.application.port.output.ExitIntentRepository;
+import in.annupaper.application.port.output.TradeRepository;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,27 +57,24 @@ public final class MonitoringService {
 
         // Check for expired broker sessions (CRITICAL - Every 1 minute)
         scheduler.scheduleAtFixedRate(
-            this::checkBrokerSessionsExpired,
-            0,
-            60,
-            TimeUnit.SECONDS
-        );
+                this::checkBrokerSessionsExpired,
+                0,
+                60,
+                TimeUnit.SECONDS);
 
         // Check for stuck exit orders (CRITICAL - Every 1 minute)
         scheduler.scheduleAtFixedRate(
-            this::checkStuckExitOrders,
-            0,
-            60,
-            TimeUnit.SECONDS
-        );
+                this::checkStuckExitOrders,
+                0,
+                60,
+                TimeUnit.SECONDS);
 
         // Check for broker sessions expiring soon (HIGH - Every 5 minutes)
         scheduler.scheduleAtFixedRate(
-            this::checkBrokerSessionsExpiringSoon,
-            0,
-            300,
-            TimeUnit.SECONDS
-        );
+                this::checkBrokerSessionsExpiringSoon,
+                0,
+                300,
+                TimeUnit.SECONDS);
 
         log.info("✓ Monitoring service started with 3 scheduled health checks");
     }
@@ -116,13 +113,13 @@ public final class MonitoringService {
 
             if (!expiredSessions.isEmpty()) {
                 Alert alert = Alert.builder()
-                    .alertType("BROKER_SESSION_EXPIRED")
-                    .level(AlertLevel.CRITICAL)
-                    .message(String.format("%d broker session(s) expired - re-authentication required immediately",
-                        expiredSessions.size()))
-                    .detail("expired_count", expiredSessions.size())
-                    .detail("expired_brokers", expiredSessions)
-                    .build();
+                        .alertType("BROKER_SESSION_EXPIRED")
+                        .level(AlertLevel.CRITICAL)
+                        .message(String.format("%d broker session(s) expired - re-authentication required immediately",
+                                expiredSessions.size()))
+                        .detail("expired_count", expiredSessions.size())
+                        .detail("expired_brokers", expiredSessions)
+                        .build();
 
                 alertService.sendAlert(alert);
                 log.error("CRITICAL: {} broker sessions expired", expiredSessions.size());
@@ -144,13 +141,14 @@ public final class MonitoringService {
 
             if (!stuckOrders.isEmpty()) {
                 Alert alert = Alert.builder()
-                    .alertType("STUCK_EXIT_ORDER")
-                    .level(AlertLevel.CRITICAL)
-                    .message(String.format("%d exit order(s) stuck for more than 10 minutes - check broker connectivity",
-                        stuckOrders.size()))
-                    .detail("stuck_count", stuckOrders.size())
-                    .detail("stuck_orders", stuckOrders)
-                    .build();
+                        .alertType("STUCK_EXIT_ORDER")
+                        .level(AlertLevel.CRITICAL)
+                        .message(String.format(
+                                "%d exit order(s) stuck for more than 10 minutes - check broker connectivity",
+                                stuckOrders.size()))
+                        .detail("stuck_count", stuckOrders.size())
+                        .detail("stuck_orders", stuckOrders)
+                        .build();
 
                 alertService.sendAlert(alert);
                 log.error("CRITICAL: {} exit orders stuck", stuckOrders.size());
@@ -172,12 +170,13 @@ public final class MonitoringService {
 
             if (expiringSoon > 0) {
                 Alert alert = Alert.builder()
-                    .alertType("BROKER_SESSION_EXPIRING")
-                    .level(AlertLevel.HIGH)
-                    .message(String.format("%d broker session(s) expiring within 1 hour - schedule re-authentication",
-                        expiringSoon))
-                    .detail("expiring_count", expiringSoon)
-                    .build();
+                        .alertType("BROKER_SESSION_EXPIRING")
+                        .level(AlertLevel.HIGH)
+                        .message(String.format(
+                                "%d broker session(s) expiring within 1 hour - schedule re-authentication",
+                                expiringSoon))
+                        .detail("expiring_count", expiringSoon)
+                        .build();
 
                 alertService.sendAlert(alert);
                 log.warn("HIGH: {} broker sessions expiring soon", expiringSoon);
@@ -212,19 +211,18 @@ public final class MonitoringService {
         long pendingExitIntents = exitIntentRepository.countPendingExitIntents();
 
         return new SystemHealthSnapshot(
-            Instant.now(),
-            ((Number) tradeMetrics.getOrDefault("total_open_trades", 0)).intValue(),
-            ((Number) tradeMetrics.getOrDefault("long_positions", 0)).intValue(),
-            ((Number) tradeMetrics.getOrDefault("short_positions", 0)).intValue(),
-            ((Number) tradeMetrics.getOrDefault("total_exposure_value", 0.0)).doubleValue(),
-            ((Number) tradeMetrics.getOrDefault("avg_holding_hours", 0.0)).doubleValue(),
-            0, // pending trade intents - would need to add to repository
-            (int) pendingExitIntents,
-            0, // pending orders - would need to add to repository
-            (int) activeBrokers,
-            (int) expiredSessions,
-            (int) expiringSoon
-        );
+                Instant.now(),
+                ((Number) tradeMetrics.getOrDefault("total_open_trades", 0)).intValue(),
+                ((Number) tradeMetrics.getOrDefault("long_positions", 0)).intValue(),
+                ((Number) tradeMetrics.getOrDefault("short_positions", 0)).intValue(),
+                ((Number) tradeMetrics.getOrDefault("total_exposure_value", 0.0)).doubleValue(),
+                ((Number) tradeMetrics.getOrDefault("avg_holding_hours", 0.0)).doubleValue(),
+                0, // pending trade intents - would need to add to repository
+                (int) pendingExitIntents,
+                0, // pending orders - would need to add to repository
+                (int) activeBrokers,
+                (int) expiredSessions,
+                (int) expiringSoon);
     }
 
     /**
@@ -240,22 +238,20 @@ public final class MonitoringService {
         if (metrics.isEmpty()) {
             // No trades closed today
             return new DailyPerformance(
-                LocalDate.now(),
-                0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0
-            );
+                    LocalDate.now(),
+                    0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0);
         }
 
         return new DailyPerformance(
-            LocalDate.now(),
-            ((Number) metrics.get("trades_closed")).intValue(),
-            ((Number) metrics.get("winning_trades")).intValue(),
-            ((Number) metrics.get("losing_trades")).intValue(),
-            ((Number) metrics.get("win_rate_percent")).doubleValue(),
-            ((Number) metrics.get("total_pnl")).doubleValue(),
-            ((Number) metrics.get("avg_pnl_per_trade")).doubleValue(),
-            ((Number) metrics.get("best_trade")).doubleValue(),
-            ((Number) metrics.get("worst_trade")).doubleValue()
-        );
+                LocalDate.now(),
+                ((Number) metrics.get("trades_closed")).intValue(),
+                ((Number) metrics.get("winning_trades")).intValue(),
+                ((Number) metrics.get("losing_trades")).intValue(),
+                ((Number) metrics.get("win_rate_percent")).doubleValue(),
+                ((Number) metrics.get("total_pnl")).doubleValue(),
+                ((Number) metrics.get("avg_pnl_per_trade")).doubleValue(),
+                ((Number) metrics.get("best_trade")).doubleValue(),
+                ((Number) metrics.get("worst_trade")).doubleValue());
     }
 
     /**

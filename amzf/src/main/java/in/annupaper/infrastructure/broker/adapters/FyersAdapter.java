@@ -1,8 +1,7 @@
 package in.annupaper.infrastructure.broker.adapters;
 
-import in.annupaper.domain.broker.BrokerAdapter;
-import in.annupaper.domain.broker.UserBrokerSession;
-import in.annupaper.domain.repository.UserBrokerSessionRepository;
+import in.annupaper.domain.model.*;
+import in.annupaper.application.port.output.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -45,9 +44,8 @@ public class FyersAdapter implements BrokerAdapter {
     // Official FYERS API v2 Data WebSocket endpoint with trailing slash
     // Override via FYERS_WS_URL environment variable for network path debugging
     private static final String WS_URL = System.getenv().getOrDefault(
-        "FYERS_WS_URL",
-        "wss://api.fyers.in/socket/v2/data/"
-    );
+            "FYERS_WS_URL",
+            "wss://api.fyers.in/socket/v2/data/");
 
     static {
         String wsUrlOverride = System.getenv("FYERS_WS_URL");
@@ -60,8 +58,8 @@ public class FyersAdapter implements BrokerAdapter {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
-        .connectTimeout(java.time.Duration.ofSeconds(10))
-        .build();
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .build();
 
     private final UserBrokerSessionRepository sessionRepo;
     private String userBrokerId;
@@ -88,13 +86,17 @@ public class FyersAdapter implements BrokerAdapter {
         this.sessionRepo = null;
         this.userBrokerId = null;
     }
-    
-    // Multiple listeners per symbol (TickCandleBuilder, ExitSignalService, MtfSignalGenerator)
+
+    // Multiple listeners per symbol (TickCandleBuilder, ExitSignalService,
+    // MtfSignalGenerator)
     private final Map<String, List<TickListener>> tickListeners = new ConcurrentHashMap<>();
-    private final Map<String, OrderStatus> orders = new ConcurrentHashMap<>();
+    private final Map<String, BrokerOrderStatus> orders = new ConcurrentHashMap<>();
 
     // WebSocket connection state
-    private enum WsState { DISCONNECTED, CONNECTING, CONNECTED, RECONNECT_REQUIRED }
+    private enum WsState {
+        DISCONNECTED, CONNECTING, CONNECTED, RECONNECT_REQUIRED
+    }
+
     private volatile WsState wsState = WsState.DISCONNECTED;
 
     // Retry state
@@ -114,12 +116,12 @@ public class FyersAdapter implements BrokerAdapter {
         t.setDaemon(true);
         return t;
     });
-    
+
     @Override
     public String getBrokerCode() {
         return "FYERS";
     }
-    
+
     @Override
     public CompletableFuture<ConnectionResult> connect(BrokerCredentials credentials) {
         return CompletableFuture.supplyAsync(() -> {
@@ -129,7 +131,7 @@ public class FyersAdapter implements BrokerAdapter {
             this.appId = credentials.apiKey();
 
             if (appId == null || appId.isEmpty()) {
-                return ConnectionResult.failure("Invalid App ID", "INVALID_APP_ID");
+                return ConnectionResult.ofFailure("Invalid App ID", "INVALID_APP_ID");
             }
 
             // Load access token from session repository if available
@@ -139,8 +141,10 @@ public class FyersAdapter implements BrokerAdapter {
                 Optional<UserBrokerSession> sessionOpt = sessionRepo.findActiveSession(userBrokerId);
 
                 if (sessionOpt.isEmpty()) {
-                    log.error("[FYERS] No active session found for userBrokerId={}. Please connect via OAuth.", userBrokerId);
-                    return ConnectionResult.failure("No active session. Please connect via OAuth.", "NO_ACTIVE_SESSION");
+                    log.error("[FYERS] No active session found for userBrokerId={}. Please connect via OAuth.",
+                            userBrokerId);
+                    return ConnectionResult.ofFailure("No active session. Please connect via OAuth.",
+                            "NO_ACTIVE_SESSION");
                 }
 
                 UserBrokerSession session = sessionOpt.get();
@@ -148,32 +152,35 @@ public class FyersAdapter implements BrokerAdapter {
                 // Check if session is active and not expired
                 if (!session.isActive()) {
                     log.error("[FYERS] Session {} is not active or expired (status={}, validTill={})",
-                             session.sessionId(), session.sessionStatus(), session.tokenValidTill());
-                    return ConnectionResult.failure("Session expired. Please reconnect via OAuth.", "SESSION_EXPIRED");
+                            session.sessionId(), session.sessionStatus(), session.tokenValidTill());
+                    return ConnectionResult.ofFailure("Session expired. Please reconnect via OAuth.",
+                            "SESSION_EXPIRED");
                 }
 
                 this.accessToken = session.accessToken();
                 log.info("[FYERS] Loaded access token from session {} (valid till {})",
-                         session.sessionId(), session.tokenValidTill());
+                        session.sessionId(), session.tokenValidTill());
 
             } else {
                 // Fallback: Load from credentials (backwards compatibility)
-                log.warn("[FYERS] No session repository configured. Loading access token from credentials (deprecated).");
+                log.warn(
+                        "[FYERS] No session repository configured. Loading access token from credentials (deprecated).");
                 this.accessToken = credentials.accessToken();
             }
 
             if (accessToken == null || accessToken.isEmpty()) {
                 log.error("[FYERS] No access token available. Please connect via OAuth.");
-                return ConnectionResult.failure("Access token required. Please connect via OAuth.", "NO_ACCESS_TOKEN");
+                return ConnectionResult.ofFailure("Access token required. Please connect via OAuth.",
+                        "NO_ACCESS_TOKEN");
             }
 
             // Validate access token by making a profile API call
             try {
                 HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(BASE_URL + "/api/v3/profile"))
-                    .header("Authorization", appId + ":" + accessToken)
-                    .GET()
-                    .build();
+                        .uri(URI.create(BASE_URL + "/api/v3/profile"))
+                        .header("Authorization", appId + ":" + accessToken)
+                        .GET()
+                        .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -183,22 +190,22 @@ public class FyersAdapter implements BrokerAdapter {
                         this.sessionToken = accessToken;
                         this.connected = true;
                         log.info("[FYERS] Connected successfully - Profile: {}", responseJson.get("data"));
-                        return ConnectionResult.success(sessionToken);
+                        return ConnectionResult.ofSuccess(sessionToken);
                     } else {
                         log.error("[FYERS] Profile API failed: {}", responseJson);
-                        return ConnectionResult.failure("Authentication failed", "AUTH_FAILED");
+                        return ConnectionResult.ofFailure("Authentication failed", "AUTH_FAILED");
                     }
                 } else {
                     log.error("[FYERS] Profile API HTTP {}: {}", response.statusCode(), response.body());
-                    return ConnectionResult.failure("HTTP error " + response.statusCode(), "HTTP_ERROR");
+                    return ConnectionResult.ofFailure("HTTP error " + response.statusCode(), "HTTP_ERROR");
                 }
             } catch (Exception e) {
                 log.error("[FYERS] Connection error: {}", e.getMessage());
-                return ConnectionResult.failure(e.getMessage(), "CONNECTION_ERROR");
+                return ConnectionResult.ofFailure(e.getMessage(), "CONNECTION_ERROR");
             }
         });
     }
-    
+
     @Override
     public void disconnect() {
         log.info("[FYERS] Disconnecting...");
@@ -267,7 +274,7 @@ public class FyersAdapter implements BrokerAdapter {
             log.info("[FYERS] No active subscriptions - reconnect deferred until next subscribe");
         }
     }
-    
+
     @Override
     public boolean isConnected() {
         // Check for stale feed - if no ticks for > 5 minutes, force READ-ONLY
@@ -275,7 +282,8 @@ public class FyersAdapter implements BrokerAdapter {
         if (lastTick > 0) {
             long silenceDuration = System.currentTimeMillis() - lastTick;
             if (silenceDuration > MAX_TICK_SILENCE_MS && !forceReadOnly) {
-                log.error("[FYERS] ⚠️  STALE FEED DETECTED: No ticks for {}ms. Forcing READ-ONLY mode.", silenceDuration);
+                log.error("[FYERS] ⚠️  STALE FEED DETECTED: No ticks for {}ms. Forcing READ-ONLY mode.",
+                        silenceDuration);
                 forceReadOnly = true;
             } else if (silenceDuration <= MAX_TICK_SILENCE_MS && forceReadOnly) {
                 log.info("[FYERS] ✅ Feed recovered. Clearing READ-ONLY mode.");
@@ -354,140 +362,149 @@ public class FyersAdapter implements BrokerAdapter {
     }
 
     @Override
-    public CompletableFuture<OrderResult> placeOrder(OrderRequest request) {
+    public CompletableFuture<OrderResult> placeOrder(BrokerOrderRequest request) {
         return CompletableFuture.supplyAsync(() -> {
-            if (!connected) {
-                return OrderResult.failure("Not connected", "NOT_CONNECTED");
+            try {
+                if (!connected) {
+                    return OrderResult.ofFailure("Not connected", "NOT_CONNECTED");
+                }
+
+                log.info("[FYERS] Placing order: {} {} {} qty={} @ {}",
+                        request.transactionType(), request.symbol(), request.orderType(),
+                        request.quantity(), request.price());
+
+                // Fyers uses different symbol format: NSE:SBIN-EQ
+                String orderId = "FY" + System.currentTimeMillis();
+
+                String status = "MARKET".equals(request.orderType()) ? "COMPLETE" : "OPEN";
+                int filledQty = "MARKET".equals(request.orderType()) ? request.quantity() : 0;
+                BigDecimal avgPrice = "MARKET".equals(request.orderType())
+                        ? request.price() != null ? request.price() : new BigDecimal("100")
+                        : BigDecimal.ZERO;
+
+                BrokerOrderStatus orderStatus = new BrokerOrderStatus(
+                        orderId,
+                        request.symbol(),
+                        request.exchange(),
+                        request.transactionType(),
+                        request.orderType(),
+                        request.productType(),
+                        request.quantity(),
+                        filledQty,
+                        request.quantity() - filledQty,
+                        request.price(),
+                        avgPrice,
+                        request.triggerPrice(),
+                        status,
+                        "Order placed",
+                        Instant.now().toString(),
+                        "FY" + System.currentTimeMillis(),
+                        request.tag() // tag
+                );
+
+                orders.put(orderId, orderStatus);
+
+                log.info("[FYERS] Order placed: {} status={}", orderId, status);
+                return OrderResult.ofSuccess(orderId);
+            } catch (Exception e) {
+                log.error("[FYERS] Error placing order: {}", e.getMessage());
+                return OrderResult.ofFailure(e.getMessage(), "PLACE_ORDER_ERROR");
             }
-            
-            log.info("[FYERS] Placing order: {} {} {} qty={} @ {}", 
-                     request.transactionType(), request.symbol(), request.orderType(),
-                     request.quantity(), request.price());
-            
-            // Fyers uses different symbol format: NSE:SBIN-EQ
-            String orderId = "FY" + System.currentTimeMillis();
-            
-            String status = "MARKET".equals(request.orderType()) ? "COMPLETE" : "OPEN";
-            int filledQty = "MARKET".equals(request.orderType()) ? request.quantity() : 0;
-            BigDecimal avgPrice = "MARKET".equals(request.orderType()) 
-                ? request.price() != null ? request.price() : new BigDecimal("100")
-                : BigDecimal.ZERO;
-            
-            OrderStatus orderStatus = new OrderStatus(
-                orderId,
-                request.symbol(),
-                request.exchange(),
-                request.transactionType(),
-                request.orderType(),
-                request.productType(),
-                request.quantity(),
-                filledQty,
-                request.quantity() - filledQty,
-                request.price(),
-                avgPrice,
-                request.triggerPrice(),
-                status,
-                "Order placed",
-                Instant.now().toString(),
-                "FY" + System.currentTimeMillis(),
-                request.tag()
-            );
-            
-            orders.put(orderId, orderStatus);
-            
-            log.info("[FYERS] Order placed: {} status={}", orderId, status);
-            return OrderResult.success(orderId);
         });
     }
-    
+
     @Override
     public CompletableFuture<OrderResult> modifyOrder(String orderId, OrderModifyRequest request) {
         return CompletableFuture.supplyAsync(() -> {
-            if (!connected) return OrderResult.failure("Not connected", "NOT_CONNECTED");
-            
-            OrderStatus existing = orders.get(orderId);
-            if (existing == null) return OrderResult.failure("Order not found", "ORDER_NOT_FOUND");
-            
-            log.info("[FYERS] Modifying order: {}", orderId);
-            
-            OrderStatus modified = new OrderStatus(
-                orderId, existing.symbol(), existing.exchange(), existing.transactionType(),
-                request.orderType() != null ? request.orderType() : existing.orderType(),
-                existing.productType(),
-                request.quantity() > 0 ? request.quantity() : existing.quantity(),
-                existing.filledQuantity(), existing.pendingQuantity(),
-                request.price() != null ? request.price() : existing.price(),
-                existing.averagePrice(),
-                request.triggerPrice() != null ? request.triggerPrice() : existing.triggerPrice(),
-                existing.status(), "Modified", Instant.now().toString(),
-                existing.exchangeOrderId(), existing.tag()
-            );
-            
-            orders.put(orderId, modified);
-            return OrderResult.success(orderId);
+            try {
+                if (!connected)
+                    return OrderResult.ofFailure("Not connected", "NOT_CONNECTED");
+
+                BrokerOrderStatus existing = orders.get(orderId);
+                if (existing == null)
+                    return OrderResult.ofFailure("Order not found", "ORDER_NOT_FOUND");
+
+                log.info("[FYERS] Modifying order: {}", orderId);
+
+                BrokerOrderStatus modified = new BrokerOrderStatus(
+                        orderId,
+                        existing.symbol(), existing.exchange(), existing.transactionType(),
+                        request.orderType(), existing.productType(),
+                        request.quantity(), existing.filledQuantity(), request.quantity() - existing.filledQuantity(),
+                        request.price(), existing.averagePrice(), request.triggerPrice(),
+                        existing.status(), existing.statusMessage(), Instant.now().toString(),
+                        existing.exchangeOrderId(), existing.tag());
+
+                orders.put(orderId, modified);
+                return OrderResult.ofSuccess(orderId);
+            } catch (Exception e) {
+                return OrderResult.ofFailure(e.getMessage(), "MODIFY_ORDER_ERROR");
+            }
         });
     }
-    
+
     @Override
     public CompletableFuture<OrderResult> cancelOrder(String orderId) {
         return CompletableFuture.supplyAsync(() -> {
-            if (!connected) return OrderResult.failure("Not connected", "NOT_CONNECTED");
-            
-            OrderStatus existing = orders.get(orderId);
-            if (existing == null) return OrderResult.failure("Order not found", "ORDER_NOT_FOUND");
-            
-            log.info("[FYERS] Cancelling order: {}", orderId);
-            
-            OrderStatus cancelled = new OrderStatus(
-                orderId, existing.symbol(), existing.exchange(), existing.transactionType(),
-                existing.orderType(), existing.productType(), existing.quantity(),
-                existing.filledQuantity(), 0, existing.price(), existing.averagePrice(),
-                existing.triggerPrice(), "CANCELLED", "Cancelled", Instant.now().toString(),
-                existing.exchangeOrderId(), existing.tag()
-            );
-            
-            orders.put(orderId, cancelled);
-            return OrderResult.success(orderId);
+            try {
+                if (!connected)
+                    return OrderResult.ofFailure("Not connected", "NOT_CONNECTED");
+
+                BrokerOrderStatus existing = orders.get(orderId);
+                if (existing == null)
+                    return OrderResult.ofFailure("Order not found", "ORDER_NOT_FOUND");
+
+                log.info("[FYERS] Cancelling order: {}", orderId);
+
+                BrokerOrderStatus cancelled = new BrokerOrderStatus(
+                        orderId, existing.symbol(), existing.exchange(), existing.transactionType(),
+                        existing.orderType(), existing.productType(), existing.quantity(),
+                        existing.filledQuantity(), 0, existing.price(), existing.averagePrice(),
+                        existing.triggerPrice(), "CANCELLED", existing.statusMessage(), Instant.now().toString(),
+                        existing.exchangeOrderId(), existing.tag());
+
+                orders.put(orderId, cancelled);
+                return OrderResult.ofSuccess(orderId);
+            } catch (Exception e) {
+                return OrderResult.ofFailure(e.getMessage(), "CANCEL_ORDER_ERROR");
+            }
         });
     }
-    
+
     @Override
-    public CompletableFuture<OrderStatus> getOrderStatus(String orderId) {
+    public CompletableFuture<BrokerOrderStatus> getOrderStatus(String orderId) {
         return CompletableFuture.supplyAsync(() -> orders.get(orderId));
     }
-    
+
     @Override
-    public CompletableFuture<List<OrderStatus>> getOpenOrders() {
-        return CompletableFuture.supplyAsync(() -> 
-            orders.values().stream().filter(o -> "OPEN".equals(o.status())).toList()
-        );
+    public CompletableFuture<List<BrokerOrderStatus>> getOpenOrders() {
+        return CompletableFuture
+                .supplyAsync(() -> orders.values().stream().filter(o -> "OPEN".equals(o.status())).toList());
     }
-    
+
     @Override
     public CompletableFuture<List<Position>> getPositions() {
         return CompletableFuture.completedFuture(List.of());
     }
-    
+
     @Override
     public CompletableFuture<List<Holding>> getHoldings() {
         return CompletableFuture.completedFuture(List.of());
     }
-    
+
     @Override
     public CompletableFuture<AccountFunds> getFunds() {
         return CompletableFuture.supplyAsync(() -> new AccountFunds(
-            new BigDecimal("400000"), new BigDecimal("40000"),
-            new BigDecimal("440000"), BigDecimal.ZERO, new BigDecimal("400000")
-        ));
+                new BigDecimal("400000"), new BigDecimal("40000"),
+                new BigDecimal("440000"), BigDecimal.ZERO, new BigDecimal("400000")));
     }
-    
+
     @Override
     public CompletableFuture<BigDecimal> getLtp(String symbol) {
-        return CompletableFuture.supplyAsync(() -> 
-            new BigDecimal("100").add(new BigDecimal(Math.random() * 10).setScale(2, java.math.RoundingMode.HALF_UP))
-        );
+        return CompletableFuture.supplyAsync(() -> new BigDecimal("100")
+                .add(new BigDecimal(Math.random() * 10).setScale(2, java.math.RoundingMode.HALF_UP)));
     }
-    
+
     @Override
     public void subscribeTicks(List<String> symbols, TickListener listener) {
         log.info("[FYERS] Subscribing {} to ticks for {} symbols", listener.getClass().getSimpleName(), symbols.size());
@@ -498,8 +515,8 @@ public class FyersAdapter implements BrokerAdapter {
         }
 
         log.info("[FYERS] Total tick listeners: {} symbols with {} unique listeners",
-            tickListeners.size(),
-            tickListeners.values().stream().mapToInt(List::size).max().orElse(0));
+                tickListeners.size(),
+                tickListeners.values().stream().mapToInt(List::size).max().orElse(0));
 
         // Start connection loop if not already running
         if (wsState == WsState.DISCONNECTED) {
@@ -511,7 +528,9 @@ public class FyersAdapter implements BrokerAdapter {
         if (wsState == WsState.CONNECTED && wsRef.get() != null) {
             sendSubscribeMessage(symbols);
         } else {
-            log.warn("[FYERS] WebSocket not connected (state={}). Subscription will be sent when connection establishes.", wsState);
+            log.warn(
+                    "[FYERS] WebSocket not connected (state={}). Subscription will be sent when connection establishes.",
+                    wsState);
         }
     }
 
@@ -526,8 +545,8 @@ public class FyersAdapter implements BrokerAdapter {
 
         try {
             List<String> fyersSymbols = symbols.stream()
-                .map(this::convertToFyersSymbol)
-                .toList();
+                    .map(this::convertToFyersSymbol)
+                    .toList();
 
             // Fyers WebSocket subscribe message format:
             // {"T":"SUB_L2","L2LIST":["NSE:SBIN-EQ","NSE:RELIANCE-EQ"],"SUB_T":1}
@@ -579,7 +598,9 @@ public class FyersAdapter implements BrokerAdapter {
 
                 if (failures >= 10) {
                     // Circuit breaker - pause for 5 minutes after 10 consecutive failures
-                    log.error("[FYERS] ⚠️  CIRCUIT BREAKER: {} consecutive failures. FYERS WebSocket appears down. Pausing for 5 minutes.", failures);
+                    log.error(
+                            "[FYERS] ⚠️  CIRCUIT BREAKER: {} consecutive failures. FYERS WebSocket appears down. Pausing for 5 minutes.",
+                            failures);
                     backoffMs = 300_000; // 5 minutes
                 }
 
@@ -630,53 +651,54 @@ public class FyersAdapter implements BrokerAdapter {
             // FYERS WebSocket v2 requires access token in format: appId:accessToken
             String wsAccessToken = appId + ":" + accessToken;
 
-            // Connect to WebSocket endpoint (NO query parameters - just the base URL with trailing slash)
+            // Connect to WebSocket endpoint (NO query parameters - just the base URL with
+            // trailing slash)
             String wsUrl = WS_URL;
             log.info("[FYERS] WebSocket URL: {}", wsUrl);
             log.info("[FYERS] Access token format: {}:***", appId);
 
             CompletableFuture<WebSocket> wsFuture = httpClient.newWebSocketBuilder()
-                .buildAsync(URI.create(wsUrl), new WebSocket.Listener() {
-                    private final StringBuilder messageBuffer = new StringBuilder();
+                    .buildAsync(URI.create(wsUrl), new WebSocket.Listener() {
+                        private final StringBuilder messageBuffer = new StringBuilder();
 
-                    @Override
-                    public void onOpen(WebSocket webSocket) {
-                        log.info("[FYERS] ✅ WebSocket handshake successful - onOpen called");
-                        // Store WebSocket reference FIRST
-                        wsRef.set(webSocket);
-                        // Clear error tracking on successful connection
-                        lastHttpStatus = null;
-                        lastErrorMessage = null;
-                        consecutiveFailures.set(0);
-                        // Request to start receiving data
-                        webSocket.request(1);
-                        log.info("[FYERS] WebSocket now ready for sending messages");
-                        WebSocket.Listener.super.onOpen(webSocket);
-                    }
-
-                    @Override
-                    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-                        messageBuffer.append(data);
-                        if (last) {
-                            String message = messageBuffer.toString();
-                            messageBuffer.setLength(0);
-                            processWebSocketMessage(message);
+                        @Override
+                        public void onOpen(WebSocket webSocket) {
+                            log.info("[FYERS] ✅ WebSocket handshake successful - onOpen called");
+                            // Store WebSocket reference FIRST
+                            wsRef.set(webSocket);
+                            // Clear error tracking on successful connection
+                            lastHttpStatus = null;
+                            lastErrorMessage = null;
+                            consecutiveFailures.set(0);
+                            // Request to start receiving data
+                            webSocket.request(1);
+                            log.info("[FYERS] WebSocket now ready for sending messages");
+                            WebSocket.Listener.super.onOpen(webSocket);
                         }
-                        return WebSocket.Listener.super.onText(webSocket, data, last);
-                    }
 
-                    @Override
-                    public void onError(WebSocket webSocket, Throwable error) {
-                        log.error("[FYERS] WebSocket error: {}", error.getMessage());
-                        WebSocket.Listener.super.onError(webSocket, error);
-                    }
+                        @Override
+                        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                            messageBuffer.append(data);
+                            if (last) {
+                                String message = messageBuffer.toString();
+                                messageBuffer.setLength(0);
+                                processWebSocketMessage(message);
+                            }
+                            return WebSocket.Listener.super.onText(webSocket, data, last);
+                        }
 
-                    @Override
-                    public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                        log.info("[FYERS] WebSocket closed: {} - {}", statusCode, reason);
-                        return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
-                    }
-                });
+                        @Override
+                        public void onError(WebSocket webSocket, Throwable error) {
+                            log.error("[FYERS] WebSocket error: {}", error.getMessage());
+                            WebSocket.Listener.super.onError(webSocket, error);
+                        }
+
+                        @Override
+                        public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                            log.info("[FYERS] WebSocket closed: {} - {}", statusCode, reason);
+                            return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+                        }
+                    });
 
             WebSocket ws = wsFuture.get(10, TimeUnit.SECONDS);
             // Note: wsRef is set in onOpen callback, not here
@@ -789,11 +811,19 @@ public class FyersAdapter implements BrokerAdapter {
                         lastSuccessfulTick.set(System.currentTimeMillis());
 
                         Tick tick = new Tick(
-                            symbol, lastPrice, open, high, low,
-                            lastPrice, volume,
-                            lastPrice, lastPrice,
-                            0, 0, timestamp
-                        );
+                                symbol,
+                                lastPrice,
+                                open,
+                                high,
+                                low,
+                                lastPrice, // close
+                                volume,
+                                lastPrice, // bid
+                                lastPrice, // ask
+                                0, // bidQty
+                                0, // askQty
+                                Instant.ofEpochMilli(timestamp),
+                                "FYERS");
 
                         // Call all listeners for this symbol
                         for (TickListener listener : listeners) {
@@ -801,7 +831,7 @@ public class FyersAdapter implements BrokerAdapter {
                                 listener.onTick(tick);
                             } catch (Exception e) {
                                 log.warn("[FYERS] Tick processing error for {} ({}): {}",
-                                    symbol, listener.getClass().getSimpleName(), e.getMessage());
+                                        symbol, listener.getClass().getSimpleName(), e.getMessage());
                             }
                         }
                     }
@@ -830,43 +860,49 @@ public class FyersAdapter implements BrokerAdapter {
         }
         return fyersSymbol;
     }
-    
+
     @Override
     public CompletableFuture<List<HistoricalCandle>> getHistoricalCandles(
-        String symbol,
-        int interval,
-        long fromEpoch,
-        long toEpoch
-    ) {
+            String symbol,
+            TimeframeType timeframe,
+            long fromEpoch,
+            long toEpoch) {
         return CompletableFuture.supplyAsync(() -> {
             if (!connected) {
                 throw new RuntimeException("Not connected");
             }
 
-            log.info("[FYERS] Fetching historical candles: {} interval={} from={} to={}",
-                     symbol, interval, fromEpoch, toEpoch);
+            int interval = timeframe.getInterval();
+            log.info("[FYERS] Fetching historical candles: {} timeframe={} (interval={}) from={} to={}",
+                    symbol, timeframe, interval, fromEpoch, toEpoch);
 
             try {
                 // Convert symbol format: RELIANCE → NSE:RELIANCE-EQ
                 String fyersSymbol = convertToFyersSymbol(symbol);
+                String resolutionStr;
 
                 // Handle custom intervals by aggregating smaller candles
-                if (interval == 25) {
+                if (timeframe == TimeframeType.MINUTE_25) {
                     // 25-min = aggregate 5 × 5-min candles
+                    resolutionStr = "5";
                     log.info("[FYERS] Building 25-min candles from 5-min candles");
-                    List<HistoricalCandle> fiveMinCandles = fetchFyersCandles(fyersSymbol, "5", fromEpoch, toEpoch);
-                    return aggregateCandles(fiveMinCandles, 5, 25 * 60);
-                } else if (interval == 125) {
+                    List<HistoricalCandle> fiveMinCandles = fetchFyersCandles(fyersSymbol, resolutionStr, fromEpoch,
+                            toEpoch, TimeframeType.MINUTE_5);
+                    return aggregateCandles(fiveMinCandles, 5, 25 * 60, timeframe, symbol);
+                } else if (timeframe == TimeframeType.MINUTE_125) {
                     // 125-min = aggregate 5 × 25-min candles
                     // First build 25-min candles from 5-min
+                    resolutionStr = "5";
                     log.info("[FYERS] Building 125-min candles from 5-min candles (via 25-min aggregation)");
-                    List<HistoricalCandle> fiveMinCandles = fetchFyersCandles(fyersSymbol, "5", fromEpoch, toEpoch);
-                    List<HistoricalCandle> twentyFiveMinCandles = aggregateCandles(fiveMinCandles, 5, 25 * 60);
-                    return aggregateCandles(twentyFiveMinCandles, 5, 125 * 60);
+                    List<HistoricalCandle> fiveMinCandles = fetchFyersCandles(fyersSymbol, resolutionStr, fromEpoch,
+                            toEpoch, TimeframeType.MINUTE_5);
+                    List<HistoricalCandle> twentyFiveMinCandles = aggregateCandles(fiveMinCandles, 5, 25 * 60,
+                            TimeframeType.MINUTE_25, symbol);
+                    return aggregateCandles(twentyFiveMinCandles, 5, 125 * 60, timeframe, symbol);
                 } else {
                     // Standard intervals supported by Fyers
-                    String resolution = convertToFyersResolution(interval);
-                    return fetchFyersCandles(fyersSymbol, resolution, fromEpoch, toEpoch);
+                    resolutionStr = convertToFyersResolution(interval);
+                    return fetchFyersCandles(fyersSymbol, resolutionStr, fromEpoch, toEpoch, timeframe);
                 }
 
             } catch (Exception e) {
@@ -879,24 +915,25 @@ public class FyersAdapter implements BrokerAdapter {
     /**
      * Fetch raw candles from Fyers API.
      */
-    private List<HistoricalCandle> fetchFyersCandles(String fyersSymbol, String resolution, long fromEpoch, long toEpoch) {
+    private List<HistoricalCandle> fetchFyersCandles(String fyersSymbol, String resolution, long fromEpoch,
+            long toEpoch, TimeframeType timeframe) {
         try {
             // Build query string
-            // Note: Using date_format=0 for epoch timestamps (FYERS seems to return epoch regardless)
+            // Note: Using date_format=0 for epoch timestamps (FYERS seems to return epoch
+            // regardless)
             String queryString = String.format(
-                "symbol=%s&resolution=%s&date_format=0&range_from=%d&range_to=%d&cont_flag=0",
-                java.net.URLEncoder.encode(fyersSymbol, StandardCharsets.UTF_8),
-                resolution,
-                fromEpoch,
-                toEpoch
-            );
+                    "symbol=%s&resolution=%s&date_format=0&range_from=%d&range_to=%d&cont_flag=0",
+                    java.net.URLEncoder.encode(fyersSymbol, StandardCharsets.UTF_8),
+                    resolution,
+                    fromEpoch,
+                    toEpoch);
 
             // Make HTTP GET request (FYERS History API uses GET, not POST)
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + "/data/history?" + queryString))
-                .header("Authorization", appId + ":" + accessToken)
-                .GET()
-                .build();
+                    .uri(URI.create(BASE_URL + "/data/history?" + queryString))
+                    .header("Authorization", appId + ":" + accessToken)
+                    .GET()
+                    .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -930,7 +967,11 @@ public class FyersAdapter implements BrokerAdapter {
                 BigDecimal close = new BigDecimal(candleNode.get(4).asText());
                 long volume = candleNode.get(5).asLong();
 
-                candles.add(new HistoricalCandle(timestamp, open, high, low, close, volume));
+                candles.add(new HistoricalCandle(
+                        convertFromFyersSymbol(fyersSymbol), // Extract symbol from fyers symbol
+                        timeframe,
+                        Instant.ofEpochSecond(timestamp),
+                        open, high, low, close, volume));
             }
 
             log.info("[FYERS] Fetched {} candles (resolution={})", candles.size(), resolution);
@@ -945,16 +986,19 @@ public class FyersAdapter implements BrokerAdapter {
     /**
      * Aggregate smaller candles into larger timeframe candles.
      *
-     * @param sourceCandles List of smaller timeframe candles
-     * @param aggregationFactor Number of source candles to combine (e.g., 5 for 5-min → 25-min)
-     * @param targetIntervalSeconds Target interval in seconds (e.g., 25*60 for 25-min)
+     * @param sourceCandles         List of smaller timeframe candles
+     * @param aggregationFactor     Number of source candles to combine (e.g., 5 for
+     *                              5-min → 25-min)
+     * @param targetIntervalSeconds Target interval in seconds (e.g., 25*60 for
+     *                              25-min)
      * @return List of aggregated candles
      */
     private List<HistoricalCandle> aggregateCandles(
-        List<HistoricalCandle> sourceCandles,
-        int aggregationFactor,
-        long targetIntervalSeconds
-    ) {
+            List<HistoricalCandle> sourceCandles,
+            int aggregationFactor,
+            long targetIntervalSeconds,
+            TimeframeType targetTimeframe,
+            String symbol) {
         if (sourceCandles.isEmpty()) {
             return List.of();
         }
@@ -967,27 +1011,31 @@ public class FyersAdapter implements BrokerAdapter {
 
             if (batch.size() == aggregationFactor) {
                 // Aggregate this batch
-                long timestamp = batch.get(0).timestamp();  // Use first candle's timestamp
-                BigDecimal open = batch.get(0).open();      // First candle's open
-                BigDecimal close = batch.get(batch.size() - 1).close();  // Last candle's close
+                Instant timestamp = batch.get(0).timestamp(); // Use first candle's timestamp
+                BigDecimal open = batch.get(0).open(); // First candle's open
+                BigDecimal close = batch.get(batch.size() - 1).close(); // Last candle's close
 
                 // Find highest high and lowest low
                 BigDecimal high = batch.stream()
-                    .map(HistoricalCandle::high)
-                    .max(BigDecimal::compareTo)
-                    .orElse(open);
+                        .map(HistoricalCandle::high)
+                        .max(BigDecimal::compareTo)
+                        .orElse(open);
 
                 BigDecimal low = batch.stream()
-                    .map(HistoricalCandle::low)
-                    .min(BigDecimal::compareTo)
-                    .orElse(open);
+                        .map(HistoricalCandle::low)
+                        .min(BigDecimal::compareTo)
+                        .orElse(open);
 
                 // Sum volumes
-                long totalVolume = batch.stream()
-                    .mapToLong(HistoricalCandle::volume)
-                    .sum();
+                long aggVolume = batch.stream()
+                        .mapToLong(HistoricalCandle::volume)
+                        .sum();
 
-                aggregated.add(new HistoricalCandle(timestamp, open, high, low, close, totalVolume));
+                aggregated.add(new HistoricalCandle(
+                        symbol,
+                        targetTimeframe,
+                        timestamp,
+                        open, high, low, close, aggVolume));
                 batch.clear();
             }
         }
@@ -998,18 +1046,20 @@ public class FyersAdapter implements BrokerAdapter {
         }
 
         log.info("[FYERS] Aggregated {} candles from {} source candles (factor={})",
-                 aggregated.size(), sourceCandles.size(), aggregationFactor);
+                aggregated.size(), sourceCandles.size(), aggregationFactor);
 
         return aggregated;
     }
 
     @Override
     public void unsubscribeTicks(List<String> symbols) {
-        for (String symbol : symbols) tickListeners.remove(symbol);
+        for (String symbol : symbols)
+            tickListeners.remove(symbol);
     }
-    
+
     private String maskKey(String key) {
-        if (key == null || key.length() < 8) return "***";
+        if (key == null || key.length() < 8)
+            return "***";
         return key.substring(0, 4) + "****" + key.substring(key.length() - 4);
     }
 
@@ -1049,7 +1099,7 @@ public class FyersAdapter implements BrokerAdapter {
             case 60 -> "60";
             case 120 -> "120";
             case 240 -> "240";
-            case 1440 -> "1D";  // Daily
+            case 1440 -> "1D"; // Daily
             default -> {
                 log.warn("[FYERS] Unsupported interval {}, defaulting to 1-min", intervalMinutes);
                 yield "1";
@@ -1058,40 +1108,42 @@ public class FyersAdapter implements BrokerAdapter {
     }
 
     @Override
-    public CompletableFuture<List<Instrument>> getInstruments() {
+    public CompletableFuture<List<BrokerInstrument>> getInstruments() {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 log.info("[FYERS] Downloading NSE EQ instruments from Fyers public API...");
 
                 // Download NSE Cash Market symbols master from Fyers public API
                 String csvUrl = "https://public.fyers.in/sym_details/NSE_CM.csv";
-                java.net.URL url = new java.net.URL(csvUrl);
+                java.net.URL url = URI.create(csvUrl).toURL();
                 java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(url.openStream())
-                );
+                        new java.io.InputStreamReader(url.openStream()));
 
-                List<Instrument> instruments = new ArrayList<>();
+                List<BrokerInstrument> instruments = new ArrayList<>();
                 String line;
 
                 while ((line = reader.readLine()) != null) {
                     // CSV format (NO header line):
                     // 0=Token, 1=Company Name, 4=Tick Size, 9=Trading Symbol (NSE:SYMBOL-EQ),
                     // 10=Segment (10=NSE CM), 12=Lot Size, 13=Short Symbol
-                    // Example: 1010000000100,AMARA RAJA ENERGY MOB LTD,0,1,0.05,INE885A01032,0915-1530|1815-1915:,2026-01-09,,NSE:ARE&M-EQ,10,10,100,ARE&M,100,-1.0,XX,1010000000100,None,1,3.4
+                    // Example: 1010000000100,AMARA RAJA ENERGY MOB
+                    // LTD,0,1,0.05,INE885A01032,0915-1530|1815-1915:,2026-01-09,,NSE:ARE&M-EQ,10,10,100,ARE&M,100,-1.0,XX,1010000000100,None,1,3.4
 
                     String[] fields = line.split(",", -1);
 
-                    if (fields.length < 14) continue;
+                    if (fields.length < 14)
+                        continue;
 
                     String token = fields[0].trim();
                     String companyName = fields[1].trim();
                     String tickSizeStr = fields[4].trim();
-                    String tradingSymbol = fields[9].trim();  // NSE:SYMBOL-EQ
-                    String segmentStr = fields[10].trim();    // "10" for NSE CM
+                    String tradingSymbol = fields[9].trim(); // NSE:SYMBOL-EQ
+                    String segmentStr = fields[10].trim(); // "10" for NSE CM
                     String lotSizeStr = fields[12].trim();
                     String shortSymbol = fields[13].trim();
 
-                    // Filter for NSE equity instruments only (segment 10 = NSE CM, trading symbol ends with -EQ)
+                    // Filter for NSE equity instruments only (segment 10 = NSE CM, trading symbol
+                    // ends with -EQ)
                     if (!"10".equals(segmentStr) || !tradingSymbol.endsWith("-EQ")) {
                         continue;
                     }
@@ -1115,18 +1167,18 @@ public class FyersAdapter implements BrokerAdapter {
                         tickSize = new BigDecimal("0.05");
                     }
 
-                    instruments.add(new Instrument(
-                        "NSE",             // exchange: NSE
-                        tradingSymbol,     // tradingSymbol: NSE:ARE&M-EQ
-                        companyName,       // name: AMARA RAJA ENERGY MOB LTD
-                        "EQUITY",          // instrumentType: EQUITY
-                        "EQUITY",          // segment: EQUITY
-                        token,             // token: 1010000000100
-                        lotSize,           // lotSize: 100
-                        tickSize,          // tickSize: 0.05
-                        null,              // expiryDate (null for EQ)
-                        null,              // strikePrice (null for EQ)
-                        null               // optionType (null for EQ)
+                    instruments.add(new BrokerInstrument(
+                            "NSE", // exchange: NSE
+                            tradingSymbol, // tradingSymbol: NSE:ARE&M-EQ
+                            companyName, // name: AMARA RAJA ENERGY MOB LTD
+                            "EQUITY", // instrumentType: EQUITY
+                            "EQUITY", // segment: EQUITY
+                            token, // token: 1010000000100
+                            lotSize, // lotSize: 100
+                            tickSize, // tickSize: 0.05
+                            null, // expiryDate (null for EQ)
+                            null, // strikePrice (null for EQ)
+                            null // optionType (null for EQ)
                     ));
                 }
 
@@ -1145,23 +1197,19 @@ public class FyersAdapter implements BrokerAdapter {
         });
     }
 
-    /**
-     * Fallback method that returns hardcoded list if API download fails.
-     */
-    private List<Instrument> getFallbackInstruments() {
-        List<Instrument> instruments = new ArrayList<>();
+    private List<BrokerInstrument> getFallbackInstruments() {
+        List<BrokerInstrument> instruments = new ArrayList<>();
 
         String[][] stocks = {
-            {"RELIANCE", "Reliance Industries Ltd"}, {"TCS", "Tata Consultancy Services Ltd"},
-            {"HDFCBANK", "HDFC Bank Ltd"}, {"INFY", "Infosys Ltd"},
-            {"ICICIBANK", "ICICI Bank Ltd"}, {"SBIN", "State Bank of India"}
+                { "RELIANCE", "Reliance Industries Ltd" }, { "TCS", "Tata Consultancy Services Ltd" },
+                { "HDFCBANK", "HDFC Bank Ltd" }, { "INFY", "Infosys Ltd" },
+                { "ICICIBANK", "ICICI Bank Ltd" }, { "SBIN", "State Bank of India" }
         };
 
         for (String[] stock : stocks) {
-            instruments.add(new Instrument(
-                "NSE", "NSE:" + stock[0] + "-EQ", stock[1], "EQ", "EQUITY",
-                "NSE_" + stock[0], 1, new BigDecimal("0.05"), null, null, null
-            ));
+            instruments.add(new BrokerInstrument(
+                    "NSE", "NSE:" + stock[0] + "-EQ", stock[1], "EQ", "EQUITY",
+                    "NSE_" + stock[0], 1, new BigDecimal("0.05"), null, null, null));
         }
 
         log.info("[FYERS] Generated {} fallback instruments", instruments.size());
