@@ -248,6 +248,10 @@ public final class AdminService {
         return portfolioRepo.findByUserId(userId);
     }
 
+    public List<Portfolio> getAllPortfolios() {
+        return portfolioRepo.findAll();
+    }
+
     /**
      * Update portfolio name and/or capital.
      */
@@ -1448,6 +1452,72 @@ public final class AdminService {
     // ═══════════════════════════════════════════════════════════════
     // USER STATUS VALIDATION
     // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Get system-wide status report.
+     */
+    public SystemStatusDTO getSystemStatus() {
+        // 1. Broker Status
+        Optional<UserBroker> dataBrokerOpt = userBrokerRepo.findDataBroker();
+        String brokerName = "None";
+        String brokerUserId = "None";
+        boolean connected = false;
+        String brokerMessage = "No Data Broker configured";
+        String userBrokerId = null;
+
+        if (dataBrokerOpt.isPresent()) {
+            UserBroker ub = dataBrokerOpt.get();
+            userBrokerId = ub.userBrokerId();
+            Optional<Broker> brokerDef = brokerRepo.findById(ub.brokerId());
+            brokerName = brokerDef.map(Broker::brokerName).orElse(ub.brokerId());
+            brokerUserId = ub.userId();
+
+            if (ub.credentials() != null && ub.credentials().has("brokerUserId")) {
+                brokerUserId = ub.credentials().get("brokerUserId").asText();
+            } else if (ub.credentials() != null && ub.credentials().has("clientId")) {
+                brokerUserId = ub.credentials().get("clientId").asText();
+            }
+
+            connected = ub.connected();
+            brokerMessage = connected ? "Connected" : "Disconnected";
+
+            if (ub.connectionError() != null && !ub.connectionError().isEmpty()) {
+                brokerMessage = "Error: " + ub.connectionError();
+            } else if (connected) {
+                brokerMessage = "Ready to download instruments & stream ticks";
+            }
+        }
+
+        SystemStatusDTO.BrokerStatus brokerStatus = new SystemStatusDTO.BrokerStatus(
+                brokerName, brokerUserId, userBrokerId, connected, brokerMessage);
+
+        // 2. Readiness
+        boolean historicalReady = true;
+        boolean ltpReady = connected;
+        String readinessMessage = "System initialized";
+
+        SystemStatusDTO.ReadinessStatus readinessStatus = new SystemStatusDTO.ReadinessStatus(
+                historicalReady, ltpReady, readinessMessage);
+
+        // 3. Watchlist
+        List<Watchlist> watchlists = watchlistRepo.findAll();
+        long activeWatchlistCount = watchlists.stream()
+                .filter(w -> w.isActive())
+                .count();
+
+        String wlName = activeWatchlistCount > 0 ? "System Watchlist" : "None";
+        int wlCount = (int) activeWatchlistCount;
+
+        SystemStatusDTO.WatchlistStatus watchlistStatus = new SystemStatusDTO.WatchlistStatus(
+                wlName, wlCount);
+
+        // 4. Trades
+        // Returning empty stats for now as TradeRepo isn't injected
+        SystemStatusDTO.TradeStatus tradeStatus = new SystemStatusDTO.TradeStatus(
+                0, 0, 0, List.of(), List.of());
+
+        return new SystemStatusDTO(brokerStatus, readinessStatus, watchlistStatus, tradeStatus);
+    }
 
     /**
      * Validate that a user is ACTIVE before allowing data creation.

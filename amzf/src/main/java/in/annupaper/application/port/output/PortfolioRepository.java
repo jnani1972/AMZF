@@ -10,6 +10,8 @@ public interface PortfolioRepository {
 
     Optional<Portfolio> findById(String portfolioId);
 
+    List<Portfolio> findAll();
+
     void insert(Portfolio portfolio);
 
     void update(Portfolio portfolio);

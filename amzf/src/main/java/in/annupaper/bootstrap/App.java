@@ -212,14 +212,10 @@ public final class App {
         // Service layer (moved up - needed by candle services)
         // ═══════════════════════════════════════════════════════════════
         EventService eventService = new EventService(eventRepo, wsHub);
-        in.annupaper.service.InstrumentService instrumentService = new in.annupaper.service.InstrumentService(
-                legacyBrokerFactory, instrumentRepo);
 
         // ═══════════════════════════════════════════════════════════════
         // Startup: Download instruments from all brokers
         // ═══════════════════════════════════════════════════════════════
-        log.info("Triggering instrument download on startup...");
-        instrumentService.downloadAllInstruments();
 
         // ═══════════════════════════════════════════════════════════════
         // Market Data Cache (in-memory cache for latest tick prices)
@@ -231,7 +227,10 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         CandleStore candleStore = new CandleStore(candleRepo);
         CandleFetcher candleFetcher = new CandleFetcher(legacyBrokerFactory, candleStore);
-        new CandleReconciler(candleFetcher, candleStore);
+        in.annupaper.service.candle.CandleReconciler candleReconciler = new in.annupaper.service.candle.CandleReconciler(
+                candleFetcher,
+                candleStore,
+                mtfConfigRepo);
 
         // HistoryBackfiller dynamically fetches data broker adapter
         in.annupaper.service.candle.HistoryBackfiller historyBackfiller = new in.annupaper.service.candle.HistoryBackfiller(
@@ -479,12 +478,23 @@ public final class App {
 
         // OAuth service (token exchange)
         in.annupaper.service.oauth.BrokerOAuthService oauthService = new in.annupaper.service.oauth.BrokerOAuthService(
-                userBrokerRepo, sessionRepo, oauthStateRepo, oauthRedirectUri);
+                userBrokerRepo, sessionRepo, oauthStateRepo, brokerRepo, oauthRedirectUri);
 
         // FYERS login orchestrator (generates login URLs, opens browser)
         in.annupaper.service.oauth.FyersLoginOrchestrator fyersLoginOrchestrator = new in.annupaper.service.oauth.FyersLoginOrchestrator(
                 oauthStateRepo, userBrokerRepo, oauthRedirectUri);
         log.info("✓ OAuth services initialized (redirect URI: {})", oauthRedirectUri);
+
+        // Features: Instruments
+        in.annupaper.service.InstrumentService instrumentService = new in.annupaper.service.InstrumentService(
+                legacyBrokerFactory,
+                instrumentRepo,
+                userBrokerRepo);
+        log.info("✓ Instrument service initialized");
+
+        // Trigger instrument download
+        log.info("Triggering instrument download on startup...");
+        instrumentService.downloadAllInstruments();
 
         // ═══════════════════════════════════════════════════════════════
         // Exit Signal Services
@@ -516,7 +526,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Startup: Historical DAILY candles reconciliation
         // ═══════════════════════════════════════════════════════════════
-        reconcileHistoricalData(dataSource, candleFetcher, userBrokerRepo, brokerRepo, watchlistRepo);
+        reconcileHistoricalData(dataSource, candleReconciler, userBrokerRepo, brokerRepo, watchlistRepo);
 
         // ═══════════════════════════════════════════════════════════════
         // Tick Stream Subscription & Recovery
@@ -632,6 +642,7 @@ public final class App {
                     .post("/api/admin/brokers/{userBrokerId}/disconnect", api::adminDisconnectBroker)
                     .post("/api/admin/brokers/{userBrokerId}/test-connection", api::adminTestConnection)
                     .post("/api/admin/brokers/{userBrokerId}/save-connection", api::adminSaveConnection)
+                    .get("/api/admin/system-status", api::systemStatus)
                     // FYERS OAuth v3 endpoints (auto-login flow)
                     .get("/api/brokers/{userBrokerId}/fyers/login-url", api::fyersLoginUrl)
                     .post("/api/fyers/oauth/exchange", api::fyersOAuthExchange)
@@ -860,7 +871,7 @@ public final class App {
      */
     private static void reconcileHistoricalData(
             DataSource dataSource,
-            in.annupaper.service.candle.CandleFetcher candleFetcher,
+            in.annupaper.service.candle.CandleReconciler candleReconciler,
             in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo,
             in.annupaper.application.port.output.BrokerRepository brokerRepo,
             in.annupaper.application.port.output.WatchlistRepository watchlistRepo) {
@@ -908,72 +919,13 @@ public final class App {
 
             log.info("[RECONCILIATION] Found {} watchlist symbols to check", allSymbols.size());
 
-            // Check which symbols are missing DAILY candles
-            String checkSql = """
-                    SELECT symbol FROM (VALUES (?)) AS symbols(symbol)
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM candles
-                        WHERE candles.symbol = symbols.symbol
-                        AND candles.timeframe = 'DAILY'
-                        LIMIT 1
-                    )
-                    """;
+            log.info("[RECONCILIATION] Use configured MtfConfig for lookback calculations");
 
-            java.util.List<String> missingSymbols = new java.util.ArrayList<>();
-
-            try (java.sql.Connection conn = dataSource.getConnection()) {
-                for (String symbol : allSymbols) {
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(checkSql)) {
-                        ps.setString(1, symbol);
-                        try (java.sql.ResultSet rs = ps.executeQuery()) {
-                            if (rs.next()) {
-                                missingSymbols.add(symbol);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (missingSymbols.isEmpty()) {
-                log.info("[RECONCILIATION] ✓ All symbols have DAILY candles, no fetch needed");
-                log.info("[RECONCILIATION] ════════════════════════════════════════════════════════");
-                return;
-            }
-
-            log.info("[RECONCILIATION] Found {} symbols missing DAILY candles", missingSymbols.size());
-            log.info("[RECONCILIATION] Missing symbols: {}", missingSymbols);
-
-            // Fetch historical DAILY candles for missing symbols
-            // Fyers API limit: max 365 days for DAILY resolution
-            java.time.Instant to = java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.DAYS)
-                    .minus(1, java.time.temporal.ChronoUnit.DAYS);
-            java.time.Instant from = to.minus(365, java.time.temporal.ChronoUnit.DAYS);
-
-            log.info("[RECONCILIATION] Fetching DAILY candles from {} to {} via {}", from, to, brokerCode);
-
-            int successCount = 0;
-            int failCount = 0;
-
-            for (String symbol : missingSymbols) {
-                try {
-                    log.info("[RECONCILIATION] Fetching DAILY candles for {} (target: 252 trading days)", symbol);
-                    candleFetcher.fetchHistorical(
-                            userBrokerId,
-                            brokerCode,
-                            symbol,
-                            TimeframeType.DAILY,
-                            from,
-                            to).join(); // Wait for completion
-                    successCount++;
-                    log.info("[RECONCILIATION] ✓ Successfully fetched DAILY candles for {}", symbol);
-                } catch (Exception e) {
-                    failCount++;
-                    log.error("[RECONCILIATION] ✗ Failed to fetch DAILY candles for {}: {}", symbol, e.getMessage());
-                }
-            }
+            // Delegate to CandleReconciler which now uses MtfConfig
+            candleReconciler.reconcile(dataBroker.userBrokerId(), brokerCode, allSymbols);
 
             log.info("[RECONCILIATION] ════════════════════════════════════════════════════════");
-            log.info("[RECONCILIATION] ✓ COMPLETED: {} successful, {} failed", successCount, failCount);
+            log.info("[RECONCILIATION] ✓ COMPLETED");
             log.info("[RECONCILIATION] ════════════════════════════════════════════════════════");
 
         } catch (Exception e) {

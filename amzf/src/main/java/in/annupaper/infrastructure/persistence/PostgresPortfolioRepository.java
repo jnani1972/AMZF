@@ -46,6 +46,26 @@ public final class PostgresPortfolioRepository implements PortfolioRepository {
     }
 
     @Override
+    public List<Portfolio> findAll() {
+        String sql = "SELECT * FROM portfolios WHERE deleted_at IS NULL";
+        List<Portfolio> portfolios = new ArrayList<>();
+
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    portfolios.add(mapRow(rs));
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error finding all portfolios: {}", e.getMessage(), e);
+        }
+
+        return portfolios;
+    }
+
+    @Override
     public Optional<Portfolio> findById(String portfolioId) {
         String sql = "SELECT * FROM portfolios WHERE portfolio_id = ? AND deleted_at IS NULL";
 

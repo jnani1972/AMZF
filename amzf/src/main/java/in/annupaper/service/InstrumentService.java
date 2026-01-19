@@ -18,15 +18,16 @@ import java.util.List;
 public class InstrumentService { // Removed 'final'
     private static final Logger log = LoggerFactory.getLogger(InstrumentService.class);
 
-    private final BrokerAdapterFactory brokerAdapterFactory; // Renamed field
+    private final BrokerAdapterFactory brokerAdapterFactory;
     private final InstrumentRepository instrumentRepo;
+    private final in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo;
 
-    public InstrumentService(BrokerAdapterFactory brokerAdapterFactory, InstrumentRepository instrumentRepo) { // Reordered
-                                                                                                               // and
-                                                                                                               // renamed
-                                                                                                               // parameters
+    public InstrumentService(BrokerAdapterFactory brokerAdapterFactory,
+            InstrumentRepository instrumentRepo,
+            in.annupaper.application.port.output.UserBrokerRepository userBrokerRepo) {
         this.brokerAdapterFactory = brokerAdapterFactory;
         this.instrumentRepo = instrumentRepo;
+        this.userBrokerRepo = userBrokerRepo;
     }
 
     // New method added
@@ -87,25 +88,36 @@ public class InstrumentService { // Removed 'final'
     }
 
     /**
-     * Download instruments from all configured brokers.
+     * Download instruments from the configured DATA broker.
      */
     public void downloadAllInstruments() {
         log.info("[INSTRUMENTS] ════════════════════════════════════════════════════════");
-        log.info("[INSTRUMENTS] Starting instrument download for all brokers");
+        log.info("[INSTRUMENTS] Starting instrument download from configured DATA broker");
         log.info("[INSTRUMENTS] ════════════════════════════════════════════════════════");
 
-        Instant start = Instant.now();
-        int totalInstruments = 0;
+        try {
+            var dataBrokerOpt = userBrokerRepo.findDataBroker();
 
-        // Download from Fyers (primary)
-        totalInstruments += downloadInstruments("B_FYERS"); // Using String literal to avoid missing enum dependency if
-                                                            // any
+            if (dataBrokerOpt.isPresent()) {
+                var dataBroker = dataBrokerOpt.get();
+                log.info("[INSTRUMENTS] Found configured DATA broker: {} (UserBrokerId: {})",
+                        dataBroker.brokerId(), dataBroker.userBrokerId());
 
-        Duration elapsed = Duration.between(start, Instant.now());
-        log.info("[INSTRUMENTS] ════════════════════════════════════════════════════════");
-        log.info("[INSTRUMENTS] ✓ COMPLETED: {} total instruments in {}ms ({} seconds)",
-                totalInstruments, elapsed.toMillis(), elapsed.toSeconds());
-        log.info("[INSTRUMENTS] ════════════════════════════════════════════════════════");
+                // Use the brokerId from the configured data broker (e.g., "B_ZERODHA")
+                int count = downloadInstruments(dataBroker.brokerId());
+
+                if (count > 0) {
+                    log.info("[INSTRUMENTS] Successfully initialized {} instruments from {}", count,
+                            dataBroker.brokerId());
+                } else {
+                    log.warn("[INSTRUMENTS] Download finished but 0 instruments were saved.");
+                }
+            } else {
+                log.warn("[INSTRUMENTS] No DATA broker configured! Skipping instrument download.");
+            }
+        } catch (Exception e) {
+            log.error("[INSTRUMENTS] Failed to execute downloadAllInstruments: {}", e.getMessage(), e);
+        }
     }
 
     /**

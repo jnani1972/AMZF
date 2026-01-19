@@ -1146,15 +1146,13 @@ public final class ApiHandlers {
 
         try {
             Deque<String> userIdParam = exchange.getQueryParameters().get("userId");
-            if (userIdParam == null || userIdParam.isEmpty()) {
-                exchange.setStatusCode(400);
-                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
-                exchange.getResponseSender().send("{\"error\":\"userId parameter required\"}", StandardCharsets.UTF_8);
-                return;
-            }
+            List<Portfolio> portfolios;
 
-            String userId = userIdParam.peekFirst();
-            List<Portfolio> portfolios = adminService.getUserPortfolios(userId);
+            if (userIdParam != null && !userIdParam.isEmpty()) {
+                portfolios = adminService.getUserPortfolios(userIdParam.peekFirst());
+            } else {
+                portfolios = adminService.getAllPortfolios();
+            }
             ArrayNode portfoliosArray = MAPPER.createArrayNode();
 
             for (Portfolio portfolio : portfolios) {
@@ -1437,6 +1435,33 @@ public final class ApiHandlers {
         }, StandardCharsets.UTF_8);
     }
 
+    public void systemStatus(HttpServerExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod().toString())) {
+            handleOptions(exchange);
+            return;
+        }
+
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth))
+            return;
+
+        exchange.dispatch(java.util.concurrent.ForkJoinPool.commonPool(), () -> {
+            try {
+                in.annupaper.domain.model.SystemStatusDTO status = adminService.getSystemStatus();
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put(JSON_SUCCESS, true);
+                response.set(JSON_DATA, MAPPER.valueToTree(status));
+
+                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                exchange.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (Exception e) {
+                badRequest(exchange, e.getMessage());
+            }
+        });
+    }
+
     /**
      * POST /api/admin/watchlist/{id}/toggle - Toggle watchlist item enabled status
      * (admin only).
@@ -1575,7 +1600,7 @@ public final class ApiHandlers {
                     .getParameters().get("userBrokerId");
             String userBrokerId = pathTemplate;
 
-            String oauthUrl = oauthService.generateFyersOAuthUrl(userBrokerId);
+            String oauthUrl = oauthService.generateOAuthUrl(userBrokerId);
 
             ObjectNode response = MAPPER.createObjectNode();
             response.put("success", true);
@@ -1628,7 +1653,7 @@ public final class ApiHandlers {
             log.info("OAuth callback received: state={}, authCode length={}", state, authCode.length());
 
             // Exchange code for token and create session
-            UserBrokerSession session = oauthService.handleFyersCallback(authCode, state);
+            UserBrokerSession session = oauthService.handleOAuthCallback(authCode, state);
 
             // Reconnect data broker and setup tick stream with new session
             reconnectDataBrokerAndSetupTickStream(session.userBrokerId());
@@ -2663,5 +2688,12 @@ public final class ApiHandlers {
         exchange.setStatusCode(500);
         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send("{\"error\":\"" + message + "\"}", StandardCharsets.UTF_8);
+    }
+
+    private void handleOptions(HttpServerExchange exchange) {
+        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+        exchange.getResponseHeaders().put(Headers.ALLOW, "GET, POST, PUT, DELETE, OPTIONS");
+        exchange.setStatusCode(200);
+        exchange.getResponseSender().send("");
     }
 }

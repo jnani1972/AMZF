@@ -33,6 +33,7 @@ public class BrokerOAuthService {
     private final UserBrokerRepository userBrokerRepo;
     private final UserBrokerSessionRepository sessionRepo;
     private final OAuthStateRepository oauthStateRepo;
+    private final in.annupaper.application.port.output.BrokerRepository brokerRepo;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final String redirectUri;
@@ -41,10 +42,12 @@ public class BrokerOAuthService {
             UserBrokerRepository userBrokerRepo,
             UserBrokerSessionRepository sessionRepo,
             OAuthStateRepository oauthStateRepo,
+            in.annupaper.application.port.output.BrokerRepository brokerRepo,
             String redirectUri) {
         this.userBrokerRepo = userBrokerRepo;
         this.sessionRepo = sessionRepo;
         this.oauthStateRepo = oauthStateRepo;
+        this.brokerRepo = brokerRepo;
         this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(10))
@@ -53,15 +56,38 @@ public class BrokerOAuthService {
     }
 
     /**
-     * Generate OAuth authorization URL for Fyers.
+     * Generate OAuth authorization URL for the specific broker.
      */
-    public String generateFyersOAuthUrl(String userBrokerId) {
+    public String generateOAuthUrl(String userBrokerId) {
         Optional<UserBroker> userBrokerOpt = userBrokerRepo.findById(userBrokerId);
         if (userBrokerOpt.isEmpty()) {
             throw new IllegalArgumentException("User broker not found: " + userBrokerId);
         }
 
         UserBroker userBroker = userBrokerOpt.get();
+
+        // Find broker definition to get the code
+        java.util.Optional<in.annupaper.domain.model.Broker> brokerOpt = brokerRepo.findById(userBroker.brokerId());
+        if (brokerOpt.isEmpty()) {
+            throw new IllegalArgumentException("Broker definition not found for: " + userBroker.brokerId());
+        }
+
+        String brokerCode = brokerOpt.get().brokerCode();
+
+        if ("FYERS".equalsIgnoreCase(brokerCode)) {
+            return generateFyersOAuthUrl(userBroker);
+        } else if ("ZERODHA".equalsIgnoreCase(brokerCode)) {
+            return generateZerodhaOAuthUrl(userBroker);
+        } else {
+            throw new UnsupportedOperationException("OAuth not supported for broker: " + brokerCode);
+        }
+    }
+
+    /**
+     * Generate OAuth URL for Fyers.
+     */
+    private String generateFyersOAuthUrl(UserBroker userBroker) {
+        String userBrokerId = userBroker.id();
         JsonNode credentials = userBroker.credentials();
 
         // Support both apiKey/apiSecret and appId/secretId formats
@@ -86,9 +112,34 @@ public class BrokerOAuthService {
     }
 
     /**
+     * Generate OAuth URL for Zerodha Kite.
+     */
+    private String generateZerodhaOAuthUrl(UserBroker userBroker) {
+        String userBrokerId = userBroker.id();
+        JsonNode credentials = userBroker.credentials();
+
+        if (!credentials.has("apiKey")) {
+            throw new IllegalStateException("apiKey not configured for user broker: " + userBrokerId);
+        }
+
+        String apiKey = credentials.get("apiKey").asText();
+
+        // Zerodha Kite Connect URL
+        String authUrl = String.format(
+                "https://kite.trade/connect/login?api_key=%s&v=3",
+                URLEncoder.encode(apiKey, StandardCharsets.UTF_8));
+
+        log.info("Generated Zerodha OAuth URL for user_broker={}", userBrokerId);
+        return authUrl;
+    }
+
+    /**
      * Handle OAuth callback - exchange auth code for access token.
      */
-    public UserBrokerSession handleFyersCallback(String authCode, String state) {
+    /**
+     * Handle OAuth callback - exchange auth code for access token.
+     */
+    public UserBrokerSession handleOAuthCallback(String authCode, String state) {
         String userBrokerId = state;
 
         Optional<UserBroker> userBrokerOpt = userBrokerRepo.findById(userBrokerId);
@@ -97,10 +148,33 @@ public class BrokerOAuthService {
         }
 
         UserBroker userBroker = userBrokerOpt.get();
+        java.util.Optional<in.annupaper.domain.model.Broker> brokerOpt = brokerRepo.findById(userBroker.brokerId());
+
+        if (brokerOpt.isEmpty()) {
+            throw new IllegalArgumentException("Broker definition not found: " + userBroker.brokerId());
+        }
+
+        String brokerCode = brokerOpt.get().brokerCode();
+
+        if ("FYERS".equalsIgnoreCase(brokerCode)) {
+            return handleFyersCallback(authCode, userBroker);
+        } else if ("ZERODHA".equalsIgnoreCase(brokerCode)) {
+            return handleZerodhaCallback(authCode, userBroker);
+        } else {
+            throw new UnsupportedOperationException("OAuth callback not supported for broker: " + brokerCode);
+        }
+    }
+
+    /**
+     * Handle Fyers OAuth callback.
+     */
+    private UserBrokerSession handleFyersCallback(String authCode, UserBroker userBroker) {
+        String userBrokerId = userBroker.id();
+        UserBrokerSession session = null;
+
         JsonNode credentials = userBroker.credentials();
 
-        // Support multiple credential field name formats: apiKey/apiSecret,
-        // appId/secretId, appId/secretKey
+        // Support multiple credential field name formats
         String appId = credentials.has("apiKey") ? credentials.get("apiKey").asText()
                 : credentials.get("appId").asText();
         String secretId = credentials.has("apiSecret") ? credentials.get("apiSecret").asText()
@@ -112,6 +186,101 @@ public class BrokerOAuthService {
 
         // Exchange auth code for access token
         String accessToken = exchangeAuthCodeForToken(appId, appIdHash, authCode);
+
+        // Create session (24 hours)
+        return createUserSession(userBrokerId, accessToken, 24);
+    }
+
+    /**
+     * Handle Zerodha OAuth callback.
+     */
+    private UserBrokerSession handleZerodhaCallback(String requestToken, UserBroker userBroker) {
+        String userBrokerId = userBroker.id();
+        JsonNode credentials = userBroker.credentials();
+
+        if (!credentials.has("apiKey") || !credentials.has("apiSecret")) {
+            throw new IllegalStateException("apiKey/apiSecret not found for Zerodha user broker: " + userBrokerId);
+        }
+
+        String apiKey = credentials.get("apiKey").asText();
+        String apiSecret = credentials.get("apiSecret").asText();
+
+        // Calculate checksum = SHA256(api_key + request_token + api_secret)
+        String checksum = generateSHA256Hash(apiKey + requestToken + apiSecret);
+
+        // Exchange token
+        String accessToken = exchangeZerodhaToken(apiKey, requestToken, checksum);
+
+        // Create session (24 hours)
+        return createUserSession(userBrokerId, accessToken, 24);
+    }
+
+    private UserBrokerSession createUserSession(String userBrokerId, String accessToken, int hoursValid) {
+        Instant validTill = Instant.now().plus(hoursValid, ChronoUnit.HOURS);
+        String sessionId = "SESSION_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        UserBrokerSession session = UserBrokerSession.create(
+                sessionId,
+                userBrokerId,
+                accessToken,
+                validTill);
+
+        // Revoke any existing active sessions
+        Optional<UserBrokerSession> existingSession = sessionRepo.findActiveSession(userBrokerId);
+        if (existingSession.isPresent()) {
+            UserBrokerSession revoked = existingSession.get().withStatus(UserBrokerSession.SessionStatus.REVOKED);
+            sessionRepo.update(revoked);
+            log.info("Revoked existing session {} for user_broker={}", existingSession.get().sessionId(), userBrokerId);
+        }
+
+        // Save new session
+        sessionRepo.insert(session);
+        log.info("Created new session {} for user_broker={}, valid till {}", sessionId, userBrokerId, validTill);
+        return session;
+    }
+
+    /**
+     * Exchange Zerodha request token for access token.
+     */
+    private String exchangeZerodhaToken(String apiKey, String requestToken, String checksum) {
+        try {
+            // Build request body
+            String requestBody = String.format("api_key=%s&request_token=%s&checksum=%s",
+                    URLEncoder.encode(apiKey, StandardCharsets.UTF_8),
+                    URLEncoder.encode(requestToken, StandardCharsets.UTF_8),
+                    URLEncoder.encode(checksum, StandardCharsets.UTF_8));
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.kite.trade/session/token"))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                log.error("Zerodha token exchange failed: HTTP {} - {}", response.statusCode(), response.body());
+                throw new RuntimeException("Failed to exchange request token: HTTP " + response.statusCode());
+            }
+
+            JsonNode responseJson = objectMapper.readTree(response.body());
+
+            if (!responseJson.has("status") || !"success".equals(responseJson.get("status").asText())) {
+                String errorMsg = responseJson.has("message") ? responseJson.get("message").asText() : "Unknown error";
+                throw new RuntimeException("Token exchange failed: " + errorMsg);
+            }
+
+            return responseJson.get("data").get("access_token").asText();
+
+        } catch (Exception e) {
+            log.error("Error exchanging Zerodha token: {}", e.getMessage());
+            throw new RuntimeException("Failed to exchange Zerodha token", e);
+        }
+    }
+
+    // Kept to avoid breaking references for now, effectively replaced by logic
+    // above
+    private void unusedHelper() {
 
         // Create session
         Instant validTill = Instant.now().plus(24, ChronoUnit.HOURS); // Fyers tokens valid for 24 hours

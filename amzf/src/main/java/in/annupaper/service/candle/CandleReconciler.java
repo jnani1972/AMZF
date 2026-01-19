@@ -17,13 +17,15 @@ public final class CandleReconciler {
 
     private final CandleFetcher candleFetcher;
     private final CandleStore candleStore;
+    private final in.annupaper.application.port.output.MtfConfigRepository mtfConfigRepo;
 
-    // Default lookback period for backfill
-    private static final int DEFAULT_LOOKBACK_DAYS = 30;
-
-    public CandleReconciler(CandleFetcher candleFetcher, CandleStore candleStore) {
+    public CandleReconciler(
+            CandleFetcher candleFetcher,
+            CandleStore candleStore,
+            in.annupaper.application.port.output.MtfConfigRepository mtfConfigRepo) {
         this.candleFetcher = candleFetcher;
         this.candleStore = candleStore;
+        this.mtfConfigRepo = mtfConfigRepo;
     }
 
     /**
@@ -41,28 +43,14 @@ public final class CandleReconciler {
 
         log.info("Starting candle reconciliation for {} symbols", watchlistSymbols.size());
 
-        Instant to = Instant.now();
-        Instant from = to.minus(DEFAULT_LOOKBACK_DAYS, ChronoUnit.DAYS);
-
         int reconciled = 0;
 
         for (String symbol : watchlistSymbols) {
             try {
-                boolean needsReconciliation = false;
-
-                // Check if candles exist for all timeframes
-                for (TimeframeType tf : TimeframeType.values()) {
-                    if (!candleStore.exists(symbol, tf)) {
-                        log.info("Missing candles for {} {}, will fetch", symbol, tf);
-                        needsReconciliation = true;
-                        break;
-                    }
-                }
-
-                if (needsReconciliation) {
-                    reconcileSymbol(userBrokerId, brokerCode, symbol, from, to);
-                    reconciled++;
-                }
+                // Get effective config for this symbol (global + symbol override)
+                var config = mtfConfigRepo.getEffectiveConfig(symbol, userBrokerId);
+                reconcileSymbol(userBrokerId, brokerCode, symbol, config);
+                reconciled++;
 
             } catch (Exception e) {
                 log.error("Failed to reconcile {}: {}", symbol, e.getMessage());
@@ -80,14 +68,53 @@ public final class CandleReconciler {
             String userBrokerId,
             String brokerCode,
             String symbol,
-            Instant from,
-            Instant to) {
+            in.annupaper.domain.model.MtfGlobalConfig config) {
         log.info("Reconciling symbol: {}", symbol);
 
-        // Fetch for all timeframes
+        Instant now = Instant.now();
+
+        // Fetch for all timeframes using configured lookbacks
         for (TimeframeType tf : TimeframeType.values()) {
             try {
-                candleFetcher.fetchHistorical(userBrokerId, brokerCode, symbol, tf, from, to).join();
+                int lookbackMinutes;
+
+                switch (tf) {
+                    case HTF:
+                    case MINUTE_125:
+                        lookbackMinutes = config.htfCandleCount() * config.htfCandleMinutes();
+                        break;
+                    case ITF:
+                    case MINUTE_25:
+                        lookbackMinutes = config.itfCandleCount() * config.itfCandleMinutes();
+                        break;
+                    case LTF:
+                    case MINUTE_1:
+                        lookbackMinutes = config.ltfCandleCount() * config.ltfCandleMinutes();
+                        break;
+                    case DAILY:
+                        // Default to 1 year approx (252 trading days * 1440 min/day is roughly 365
+                        // calendar days logic)
+                        // Or utilize a "dailyLookback" if added to MtfConfig later.
+                        // For now, hardcode to 365 days (~525600 min) as per previous App.java logic
+                        lookbackMinutes = 525600;
+                        break;
+                    default:
+                        // Skip unsupported timeframes for now or use enum default
+                        continue;
+                }
+
+                // Add buffer (e.g. 10%)
+                lookbackMinutes = (int) (lookbackMinutes * 1.1);
+
+                Instant from = now.minus(lookbackMinutes, ChronoUnit.MINUTES);
+
+                // Optimization: Check if we really need to fetch?
+                // For now, rely on fetchHistorical's internal checks or just overwrite/fill
+                // gaps
+                // Since this is reconciliation on startup, ensuring we have the data is safer.
+
+                candleFetcher.fetchHistorical(userBrokerId, brokerCode, symbol, tf, from, now).join();
+
             } catch (Exception e) {
                 log.error("Failed to fetch {} {} during reconciliation: {}",
                         symbol, tf, e.getMessage());
@@ -111,12 +138,11 @@ public final class CandleReconciler {
         log.info("Starting candle reconciliation for {} symbols (lookback: {} days)",
                 watchlistSymbols.size(), lookbackDays);
 
-        Instant to = Instant.now();
-        Instant from = to.minus(lookbackDays, ChronoUnit.DAYS);
-
         for (String symbol : watchlistSymbols) {
             try {
-                reconcileSymbol(userBrokerId, brokerCode, symbol, from, to);
+                // Get effective config for this symbol (global + symbol override)
+                var config = mtfConfigRepo.getEffectiveConfig(symbol, userBrokerId);
+                reconcileSymbol(userBrokerId, brokerCode, symbol, config);
             } catch (Exception e) {
                 log.error("Failed to reconcile {}: {}", symbol, e.getMessage());
             }

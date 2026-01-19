@@ -373,14 +373,88 @@ public class ZerodhaAdapter implements BrokerAdapter {
     @Override
     public CompletableFuture<List<BrokerInstrument>> getInstruments() {
         return CompletableFuture.supplyAsync(() -> {
+            log.info("[ZERODHA] Downloading master instruments list...");
+
+            String INSTRUMENTS_URL = "https://api.kite.trade/instruments";
+            List<BrokerInstrument> instruments = new ArrayList<>();
+
             try {
-                // Zerodha provides instruments via CSV/JSON download
-                // URL: https://api.kite.trade/instruments
-                // Real implementation would download and parse this
-                log.warn("[ZERODHA] getInstruments() not yet implemented - returning empty list");
-                return List.of();
+                // 1. Download CSV
+                java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(INSTRUMENTS_URL))
+                        .GET()
+                        .build();
+
+                java.net.http.HttpResponse<java.io.InputStream> response = client.send(request,
+                        java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+
+                if (response.statusCode() != 200) {
+                    throw new RuntimeException("HTTP " + response.statusCode());
+                }
+
+                // 2. Parse CSV
+                // Format:
+                // instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(response.body(), java.nio.charset.StandardCharsets.UTF_8))) {
+
+                    String header = reader.readLine(); // Skip header
+                    String line;
+
+                    while ((line = reader.readLine()) != null) {
+                        try {
+                            // Simple CSV split (Zerodha CSV usually strictly formatted, no quotes escaping
+                            // needed typically)
+                            String[] parts = line.split(",");
+                            if (parts.length < 12)
+                                continue;
+
+                            // 0:instrument_token, 1:exchange_token, 2:tradingsymbol, 3:name, 4:last_price,
+                            // 5:expiry, 6:strike, 7:tick_size, 8:lot_size, 9:instrument_type, 10:segment,
+                            // 11:exchange
+
+                            String token = parts[0];
+                            String tradingSymbol = parts[2];
+                            String name = parts[3].replace("\"", ""); // Clean quotes if name has them
+                            String segment = parts[10];
+                            String exchange = parts[11];
+                            String type = parts[9];
+
+                            // Filter: Only NSE Equity and NFO Futures/Options for now to save memory?
+                            // Or take all. Let's take NSE and NFO.
+                            if (!exchange.equals("NSE") && !exchange.equals("NFO") && !exchange.equals("BSE")) {
+                                continue;
+                            }
+
+                            int lotSize = Integer.parseInt(parts[8]);
+                            BigDecimal tickSize = new BigDecimal(parts[7]);
+
+                            instruments.add(new BrokerInstrument(
+                                    exchange,
+                                    tradingSymbol,
+                                    name,
+                                    type,
+                                    segment,
+                                    token,
+                                    lotSize,
+                                    tickSize,
+                                    parts[5].isEmpty() ? null : parts[5], // Expiry
+                                    parts[6].isEmpty() || parts[6].equals("0") ? null : new BigDecimal(parts[6]), // Strike
+                                    null // Option type not explicit in CSV usually, derived from type or symbol
+                            ));
+
+                        } catch (Exception e) {
+                            // Skip malformed lines
+                        }
+                    }
+                }
+
+                log.info("[ZERODHA] Downloaded {} instruments", instruments.size());
+                return instruments;
+
             } catch (Exception e) {
-                log.error("[ZERODHA] Error fetching instruments: {}", e.getMessage(), e);
+                log.error("[ZERODHA] Failed to download instruments: {}", e.getMessage(), e);
                 return List.of();
             }
         });
