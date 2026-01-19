@@ -40,5 +40,6 @@ export const API_ENDPOINTS = {
         BROKERS: '/api/admin/brokers',
         PORTFOLIOS: '/api/admin/portfolios',
         WATCHLIST: '/api/admin/watchlist',
+        SYSTEM_STATUS: '/api/admin/system-status',
     }
 } as const;

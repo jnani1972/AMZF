@@ -88,7 +88,14 @@ class ApiClient {
   }
 
   /**
-   * Make HTTP request
+   * Generic GET request
+   */
+  public async get(endpoint: string): Promise<any> {
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  /**
+   * Generic request wrapper
    */
   private async request<T>(
     endpoint: string,

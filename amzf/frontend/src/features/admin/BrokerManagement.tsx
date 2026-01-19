@@ -12,8 +12,9 @@ import { Button } from '../../components/atoms/Button/Button';
 import { Alert } from '../../components/atoms/Alert/Alert';
 import { Spinner } from '../../components/atoms/Spinner/Spinner';
 import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
-import { RefreshCw, Activity, PlusCircle, Trash2, CheckCircle, Database, ArrowUp, ArrowDown, ArrowUpDown, Edit2, Eye } from 'lucide-react';
+import { RefreshCw, Activity, PlusCircle, Trash2, CheckCircle, Database, ArrowUp, ArrowDown, ArrowUpDown, Edit2, Eye, Link } from 'lucide-react';
 import { apiClient } from '../../lib/api';
+import { API_ENDPOINTS } from '../../constants/apiEndpoints';
 import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
 import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
 
@@ -402,6 +403,31 @@ export function BrokerManagement() {
                           >
                             <></>
                           </Button>
+                          {!broker.connected && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconLeft={<Link size={16} />}
+                              className="text-primary"
+                              onClick={async () => {
+                                try {
+                                  // For now assume all disconnected brokers can try OAuth if they have an ID
+                                  const res = await apiClient.get(`${API_ENDPOINTS.ADMIN.BROKERS}/${broker.userBrokerId}/oauth-url`);
+                                  if (res.success && res.oauthUrl) {
+                                    window.location.href = res.oauthUrl;
+                                  } else {
+                                    console.error("Failed to get OAuth URL", res);
+                                    alert(`Failed to initiate connection: ${res.error || 'Unknown error'}`);
+                                  }
+                                } catch (e: any) {
+                                  console.error("OAuth Error", e);
+                                  alert(`Connection error: ${e.message || 'Unknown error'}`);
+                                }
+                              }}
+                            >
+                              <></>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -438,379 +464,385 @@ export function BrokerManagement() {
             </table>
           </div>
         </Card>
-      </main>
+      </main >
 
       {/* Create Broker Modal */}
-      {showCreateModal && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
-            onClick={() => setShowCreateModal(false)}
-          />
-          <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
-            <Card className="shadow-2xl border-2 border-blue-500">
-              <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <Text variant="h3">Add Broker Connection</Text>
-                  <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
-                    Close
-                  </Button>
-                </div>
+      {
+        showCreateModal && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+              onClick={() => setShowCreateModal(false)}
+            />
+            <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
+              <Card className="shadow-2xl border-2 border-blue-500">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <Text variant="h3">Add Broker Connection</Text>
+                    <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
+                      Close
+                    </Button>
+                  </div>
 
-                {createError && (
-                  <Alert variant="error" onDismiss={() => setCreateError(null)}>
-                    {createError}
-                  </Alert>
-                )}
+                  {createError && (
+                    <Alert variant="error" onDismiss={() => setCreateError(null)}>
+                      {createError}
+                    </Alert>
+                  )}
 
-                <div className="form-spacing">
-                  <div>
-                    <Text variant="label" className="mb-2">
-                      User *
-                    </Text>
-                    <select
-                      className="input input--md w-full"
-                      value={selectedUserId}
-                      onChange={(e) => setSelectedUserId(e.target.value)}
-                    >
-                      <option key="placeholder" value="">
-                        Select user...
-                      </option>
-                      {users?.map((user) => (
-                        <option key={user.userId} value={user.userId}>
-                          {user.email} ({user.displayName})
+                  <div className="form-spacing">
+                    <div>
+                      <Text variant="label" className="mb-2">
+                        User *
+                      </Text>
+                      <select
+                        className="input input--md w-full"
+                        value={selectedUserId}
+                        onChange={(e) => setSelectedUserId(e.target.value)}
+                      >
+                        <option key="placeholder" value="">
+                          Select user...
                         </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Text variant="label" className="mb-2">
-                      Broker *
-                    </Text>
-                    <select
-                      className="input input--md w-full"
-                      value={selectedBrokerId}
-                      onChange={(e) => setSelectedBrokerId(e.target.value)}
-                    >
-                      <option key="placeholder" value="">
-                        Select broker...
-                      </option>
-                      <option key="FYERS" value="FYERS">FYERS</option>
-                      <option key="ZERODHA" value="ZERODHA">Zerodha</option>
-                      <option key="UPSTOX" value="UPSTOX">Upstox</option>
-                      <option key="ANGEL" value="ANGEL">Angel One</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <Text variant="label" className="mb-2">
-                      Broker Role *
-                    </Text>
-                    <div className="flex gap-3">
-                      <Button
-                        variant={selectedBrokerRole === 'DATA' ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={() => setSelectedBrokerRole('DATA')}
-                        className="flex-1"
-                      >
-                        DATA
-                      </Button>
-                      <Button
-                        variant={selectedBrokerRole === 'EXEC' ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={() => setSelectedBrokerRole('EXEC')}
-                        className="flex-1"
-                      >
-                        EXEC
-                      </Button>
+                        {users?.map((user) => (
+                          <option key={user.userId} value={user.userId}>
+                            {user.email} ({user.displayName})
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <Text variant="small" className="text-muted mt-2">
-                      DATA: Market data only • EXEC: Order execution
-                    </Text>
-                  </div>
-                </div>
 
-                <div className="form-actions form-actions--stack-mobile">
-                  <Button variant="secondary" fullWidth onClick={() => setShowCreateModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button variant="primary" fullWidth onClick={handleCreate}>
-                    Add Broker
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
-
-      {/* Edit Broker Modal */}
-      {showEditModal && editBroker && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
-            onClick={() => setShowEditModal(false)}
-          />
-          <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
-            <Card className="shadow-2xl border-2 border-primary">
-              <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <Text variant="h3">Edit Broker Connection</Text>
-                  <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)}>
-                    Close
-                  </Button>
-                </div>
-
-                {editError && (
-                  <Alert variant="error" onDismiss={() => setEditError(null)}>
-                    {editError}
-                  </Alert>
-                )}
-
-                <Alert variant="info">
-                  <Text variant="small">
-                    Broker: <strong>{editBroker.brokerName}</strong> • User: <strong>{editBroker.displayName || editBroker.userId}</strong>
-                  </Text>
-                </Alert>
-
-                <div className="form-spacing">
-                  <div>
-                    <Text variant="label" className="mb-2">
-                      Broker Role
-                    </Text>
-                    <div className="flex gap-3">
-                      <Button
-                        variant={editBroker.role === 'DATA' ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={() => setEditBroker({ ...editBroker, role: 'DATA' })}
-                        className="flex-1"
-                      >
-                        DATA
-                      </Button>
-                      <Button
-                        variant={editBroker.role === 'EXEC' ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={() => setEditBroker({ ...editBroker, role: 'EXEC' })}
-                        className="flex-1"
-                      >
-                        EXEC
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Text variant="label" className="mb-2">
-                      Status
-                    </Text>
-                    <div className="flex gap-3">
-                      <Button
-                        variant={editBroker.enabled ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={() => setEditBroker({ ...editBroker, enabled: true })}
-                        className="flex-1"
-                      >
-                        Enabled
-                      </Button>
-                      <Button
-                        variant={!editBroker.enabled ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={() => setEditBroker({ ...editBroker, enabled: false })}
-                        className="flex-1"
-                      >
-                        Disabled
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Text variant="label" className="mb-2">
-                      Credentials
-                    </Text>
-                    <div className="space-y-3 p-4 bg-muted/30 rounded-md border border-border">
-                      {/* API Key */}
-                      <div>
-                        <label className="text-xs font-medium text-muted mb-1 block">API Key</label>
-                        <input
-                          type="text"
-                          className="input input--sm w-full font-mono"
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="Enter API Key"
-                        />
-                      </div>
-
-                      {/* API Secret */}
-                      <div>
-                        <label className="text-xs font-medium text-muted mb-1 block">API Secret / Cloud Key</label>
-                        <input
-                          type="password"
-                          className="input input--sm w-full font-mono"
-                          value={apiSecret}
-                          onChange={(e) => setApiSecret(e.target.value)}
-                          placeholder="Enter API Secret"
-                        />
-                      </div>
-
-                      {/* Client ID / User ID */}
-                      <div>
-                        <label className="text-xs font-medium text-muted mb-1 block">Broker Client ID / User ID</label>
-                        <input
-                          type="text"
-                          className="input input--sm w-full font-mono"
-                          value={brokerUserId}
-                          onChange={(e) => setBrokerUserId(e.target.value)}
-                          placeholder="e.g. DA1234 (Zerodha)"
-                        />
-                      </div>
-
-                      {/* Postback URL */}
-                      <div>
-                        <div className="flex justify-between">
-                          <label className="text-xs font-medium text-muted mb-1 block">Postback / Redirect URL</label>
-                          <span className="text-[10px] text-muted-foreground">(Optional)</span>
-                        </div>
-                        <input
-                          type="text"
-                          className="input input--sm w-full font-mono"
-                          value={postbackUrl}
-                          onChange={(e) => setPostbackUrl(e.target.value)}
-                          placeholder="https://your-domain.com/api/callback"
-                        />
-                      </div>
-
-                      {/* Access Token (Optional) */}
-                      <div>
-                        <div className="flex justify-between">
-                          <label className="text-xs font-medium text-muted mb-1 block">Access Token</label>
-                          <span className="text-[10px] text-muted-foreground">(Optional if using OAuth)</span>
-                        </div>
-                        <input
-                          type="password"
-                          className="input input--sm w-full font-mono"
-                          value={accessToken}
-                          onChange={(e) => setAccessToken(e.target.value)}
-                          placeholder="Enter Access Token"
-                        />
-                      </div>
-
-                      {/* TOTP Secret (Optional) */}
-                      <div>
-                        <label className="text-xs font-medium text-muted mb-1 block">TOTP Secret</label>
-                        <input
-                          type="password"
-                          className="input input--sm w-full font-mono"
-                          value={totpSecret}
-                          onChange={(e) => setTotpSecret(e.target.value)}
-                          placeholder="Enter TOTP Secret"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="form-actions space-x-3">
-                    <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant="primary" onClick={handleEdit}>
-                      Save Changes
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
-
-      {/* View Broker Modal */}
-      {showViewModal && viewBroker && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
-            onClick={() => setShowViewModal(false)}
-          />
-          <div className="modal-slide-right modal-slide-right--lg animate-slide-in-right">
-            <Card className="shadow-2xl border-2 border-green-500">
-              <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <Text variant="h3">Broker Details</Text>
-                  <Button variant="ghost" size="sm" onClick={() => setShowViewModal(false)}>
-                    Close
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid-2 gap-4">
                     <div>
-                      <Text variant="small" className="text-muted">Broker Name</Text>
-                      <Text variant="h4" className="mt-1">{viewBroker.brokerName || 'Unknown'}</Text>
+                      <Text variant="label" className="mb-2">
+                        Broker *
+                      </Text>
+                      <select
+                        className="input input--md w-full"
+                        value={selectedBrokerId}
+                        onChange={(e) => setSelectedBrokerId(e.target.value)}
+                      >
+                        <option key="placeholder" value="">
+                          Select broker...
+                        </option>
+                        <option key="FYERS" value="FYERS">FYERS</option>
+                        <option key="ZERODHA" value="ZERODHA">Zerodha</option>
+                        <option key="UPSTOX" value="UPSTOX">Upstox</option>
+                        <option key="ANGEL" value="ANGEL">Angel One</option>
+                      </select>
                     </div>
-                    <div>
-                      <Text variant="small" className="text-muted">User</Text>
-                      <Text variant="body" className="mt-1">{viewBroker.displayName || viewBroker.userId}</Text>
-                    </div>
-                  </div>
 
-                  <div className="grid-2 gap-4">
                     <div>
-                      <Text variant="small" className="text-muted">Broker Role</Text>
-                      <div className="mt-1">
-                        <Badge variant={viewBroker.role === 'EXEC' ? 'primary' : 'info'}>
-                          {viewBroker.role}
-                        </Badge>
+                      <Text variant="label" className="mb-2">
+                        Broker Role *
+                      </Text>
+                      <div className="flex gap-3">
+                        <Button
+                          variant={selectedBrokerRole === 'DATA' ? 'primary' : 'secondary'}
+                          size="md"
+                          onClick={() => setSelectedBrokerRole('DATA')}
+                          className="flex-1"
+                        >
+                          DATA
+                        </Button>
+                        <Button
+                          variant={selectedBrokerRole === 'EXEC' ? 'primary' : 'secondary'}
+                          size="md"
+                          onClick={() => setSelectedBrokerRole('EXEC')}
+                          className="flex-1"
+                        >
+                          EXEC
+                        </Button>
                       </div>
-                    </div>
-                    <div>
-                      <Text variant="small" className="text-muted">Status</Text>
-                      <div className="mt-1">
-                        <Badge variant={viewBroker.enabled && viewBroker.status === 'ACTIVE' ? 'success' : 'default'}>
-                          {viewBroker.enabled && viewBroker.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid-2 gap-4">
-                    <div>
-                      <Text variant="small" className="text-muted">Connection Health</Text>
-                      <div className="mt-1">
-                        <Badge variant={viewBroker.connected ? 'success' : 'warning'}>
-                          {viewBroker.connected ? 'Connected' : 'Disconnected'}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <Text variant="small" className="text-muted">Last Connected</Text>
-                      <Text variant="body" className="mt-1">
-                        {viewBroker.lastConnected
-                          ? new Date(viewBroker.lastConnected).toLocaleString()
-                          : 'Never'}
+                      <Text variant="small" className="text-muted mt-2">
+                        DATA: Market data only • EXEC: Order execution
                       </Text>
                     </div>
                   </div>
 
-                  <div>
-                    <Text variant="small" className="text-muted">Broker ID</Text>
-                    <Text variant="small" className="mt-1 font-mono">{viewBroker.userBrokerId}</Text>
-                  </div>
-
-                  <div>
-                    <Text variant="small" className="text-muted">User ID</Text>
-                    <Text variant="small" className="mt-1 font-mono">{viewBroker.userId}</Text>
+                  <div className="form-actions form-actions--stack-mobile">
+                    <Button variant="secondary" fullWidth onClick={() => setShowCreateModal(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="primary" fullWidth onClick={handleCreate}>
+                      Add Broker
+                    </Button>
                   </div>
                 </div>
+              </Card>
+            </div>
+          </>
+        )
+      }
 
-                <div className="form-actions">
-                  <Button variant="secondary" fullWidth onClick={() => setShowViewModal(false)}>
-                    Close
-                  </Button>
+      {/* Edit Broker Modal */}
+      {
+        showEditModal && editBroker && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+              onClick={() => setShowEditModal(false)}
+            />
+            <div className="modal-slide-right modal-slide-right--md animate-slide-in-right">
+              <Card className="shadow-2xl border-2 border-primary">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <Text variant="h3">Edit Broker Connection</Text>
+                    <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)}>
+                      Close
+                    </Button>
+                  </div>
+
+                  {editError && (
+                    <Alert variant="error" onDismiss={() => setEditError(null)}>
+                      {editError}
+                    </Alert>
+                  )}
+
+                  <Alert variant="info">
+                    <Text variant="small">
+                      Broker: <strong>{editBroker.brokerName}</strong> • User: <strong>{editBroker.displayName || editBroker.userId}</strong>
+                    </Text>
+                  </Alert>
+
+                  <div className="form-spacing">
+                    <div>
+                      <Text variant="label" className="mb-2">
+                        Broker Role
+                      </Text>
+                      <div className="flex gap-3">
+                        <Button
+                          variant={editBroker.role === 'DATA' ? 'primary' : 'secondary'}
+                          size="md"
+                          onClick={() => setEditBroker({ ...editBroker, role: 'DATA' })}
+                          className="flex-1"
+                        >
+                          DATA
+                        </Button>
+                        <Button
+                          variant={editBroker.role === 'EXEC' ? 'primary' : 'secondary'}
+                          size="md"
+                          onClick={() => setEditBroker({ ...editBroker, role: 'EXEC' })}
+                          className="flex-1"
+                        >
+                          EXEC
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Text variant="label" className="mb-2">
+                        Status
+                      </Text>
+                      <div className="flex gap-3">
+                        <Button
+                          variant={editBroker.enabled ? 'primary' : 'secondary'}
+                          size="md"
+                          onClick={() => setEditBroker({ ...editBroker, enabled: true })}
+                          className="flex-1"
+                        >
+                          Enabled
+                        </Button>
+                        <Button
+                          variant={!editBroker.enabled ? 'primary' : 'secondary'}
+                          size="md"
+                          onClick={() => setEditBroker({ ...editBroker, enabled: false })}
+                          className="flex-1"
+                        >
+                          Disabled
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Text variant="label" className="mb-2">
+                        Credentials
+                      </Text>
+                      <div className="space-y-3 p-4 bg-muted/30 rounded-md border border-border">
+                        {/* API Key */}
+                        <div>
+                          <label className="text-xs font-medium text-muted mb-1 block">API Key</label>
+                          <input
+                            type="text"
+                            className="input input--sm w-full font-mono"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder="Enter API Key"
+                          />
+                        </div>
+
+                        {/* API Secret */}
+                        <div>
+                          <label className="text-xs font-medium text-muted mb-1 block">API Secret / Cloud Key</label>
+                          <input
+                            type="password"
+                            className="input input--sm w-full font-mono"
+                            value={apiSecret}
+                            onChange={(e) => setApiSecret(e.target.value)}
+                            placeholder="Enter API Secret"
+                          />
+                        </div>
+
+                        {/* Client ID / User ID */}
+                        <div>
+                          <label className="text-xs font-medium text-muted mb-1 block">Broker Client ID / User ID</label>
+                          <input
+                            type="text"
+                            className="input input--sm w-full font-mono"
+                            value={brokerUserId}
+                            onChange={(e) => setBrokerUserId(e.target.value)}
+                            placeholder="e.g. DA1234 (Zerodha)"
+                          />
+                        </div>
+
+                        {/* Postback URL */}
+                        <div>
+                          <div className="flex justify-between">
+                            <label className="text-xs font-medium text-muted mb-1 block">Postback / Redirect URL</label>
+                            <span className="text-[10px] text-muted-foreground">(Optional)</span>
+                          </div>
+                          <input
+                            type="text"
+                            className="input input--sm w-full font-mono"
+                            value={postbackUrl}
+                            onChange={(e) => setPostbackUrl(e.target.value)}
+                            placeholder="https://your-domain.com/api/callback"
+                          />
+                        </div>
+
+                        {/* Access Token (Optional) */}
+                        <div>
+                          <div className="flex justify-between">
+                            <label className="text-xs font-medium text-muted mb-1 block">Access Token</label>
+                            <span className="text-[10px] text-muted-foreground">(Optional if using OAuth)</span>
+                          </div>
+                          <input
+                            type="password"
+                            className="input input--sm w-full font-mono"
+                            value={accessToken}
+                            onChange={(e) => setAccessToken(e.target.value)}
+                            placeholder="Enter Access Token"
+                          />
+                        </div>
+
+                        {/* TOTP Secret (Optional) */}
+                        <div>
+                          <label className="text-xs font-medium text-muted mb-1 block">TOTP Secret</label>
+                          <input
+                            type="password"
+                            className="input input--sm w-full font-mono"
+                            value={totpSecret}
+                            onChange={(e) => setTotpSecret(e.target.value)}
+                            placeholder="Enter TOTP Secret"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="form-actions space-x-3">
+                      <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+                        Cancel
+                      </Button>
+                      <Button variant="primary" onClick={handleEdit}>
+                        Save Changes
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
+              </Card>
+            </div>
+          </>
+        )
+      }
+
+      {/* View Broker Modal */}
+      {
+        showViewModal && viewBroker && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/20 z-40 backdrop-blur-sm"
+              onClick={() => setShowViewModal(false)}
+            />
+            <div className="modal-slide-right modal-slide-right--lg animate-slide-in-right">
+              <Card className="shadow-2xl border-2 border-green-500">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <Text variant="h3">Broker Details</Text>
+                    <Button variant="ghost" size="sm" onClick={() => setShowViewModal(false)}>
+                      Close
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid-2 gap-4">
+                      <div>
+                        <Text variant="small" className="text-muted">Broker Name</Text>
+                        <Text variant="h4" className="mt-1">{viewBroker.brokerName || 'Unknown'}</Text>
+                      </div>
+                      <div>
+                        <Text variant="small" className="text-muted">User</Text>
+                        <Text variant="body" className="mt-1">{viewBroker.displayName || viewBroker.userId}</Text>
+                      </div>
+                    </div>
+
+                    <div className="grid-2 gap-4">
+                      <div>
+                        <Text variant="small" className="text-muted">Broker Role</Text>
+                        <div className="mt-1">
+                          <Badge variant={viewBroker.role === 'EXEC' ? 'primary' : 'info'}>
+                            {viewBroker.role}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Text variant="small" className="text-muted">Status</Text>
+                        <div className="mt-1">
+                          <Badge variant={viewBroker.enabled && viewBroker.status === 'ACTIVE' ? 'success' : 'default'}>
+                            {viewBroker.enabled && viewBroker.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid-2 gap-4">
+                      <div>
+                        <Text variant="small" className="text-muted">Connection Health</Text>
+                        <div className="mt-1">
+                          <Badge variant={viewBroker.connected ? 'success' : 'warning'}>
+                            {viewBroker.connected ? 'Connected' : 'Disconnected'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Text variant="small" className="text-muted">Last Connected</Text>
+                        <Text variant="body" className="mt-1">
+                          {viewBroker.lastConnected
+                            ? new Date(viewBroker.lastConnected).toLocaleString()
+                            : 'Never'}
+                        </Text>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Text variant="small" className="text-muted">Broker ID</Text>
+                      <Text variant="small" className="mt-1 font-mono">{viewBroker.userBrokerId}</Text>
+                    </div>
+
+                    <div>
+                      <Text variant="small" className="text-muted">User ID</Text>
+                      <Text variant="small" className="mt-1 font-mono">{viewBroker.userId}</Text>
+                    </div>
+                  </div>
+
+                  <div className="form-actions">
+                    <Button variant="secondary" fullWidth onClick={() => setShowViewModal(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </>
+        )
+      }
     </>
   );
 }
