@@ -22,12 +22,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder; // Added missing import
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional; // Added missing import
 import java.util.function.Function;
 
 /**
@@ -1671,6 +1673,62 @@ public final class ApiHandlers {
         } catch (Exception e) {
             log.error("Error handling OAuth callback: {}", e.getMessage(), e);
             serverError(exchange, "Failed to complete OAuth flow: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /zerodha/callback?request_token=...&action=...&status=...
+     * Handle Zerodha specific OAuth callback (redirected from browser).
+     */
+    public void adminZerodhaCallback(HttpServerExchange exchange) {
+        try {
+            Deque<String> requestTokenParam = exchange.getQueryParameters().get("request_token");
+            Deque<String> statusParam = exchange.getQueryParameters().get("status");
+
+            if (statusParam != null && !"success".equalsIgnoreCase(statusParam.peekFirst())) {
+                log.error("Zerodha callback returned status: {}", statusParam.peekFirst());
+                exchange.setStatusCode(302);
+                exchange.getResponseHeaders().put(Headers.LOCATION,
+                        "http://localhost:4000/admin/brokers?error=zerodha_failed");
+                exchange.endExchange();
+                return;
+            }
+
+            if (requestTokenParam == null || requestTokenParam.isEmpty()) {
+                log.error("Zerodha callback missing request_token");
+                exchange.setStatusCode(302);
+                exchange.getResponseHeaders().put(Headers.LOCATION,
+                        "http://localhost:4000/admin/brokers?error=missing_token");
+                exchange.endExchange();
+                return;
+            }
+
+            String requestToken = requestTokenParam.peekFirst();
+
+            // Find the Zerodha UserBroker to get credentials
+            Optional<UserBroker> zerodhaBroker = userBrokerRepo.findAll().stream()
+                    .filter(ub -> ub.brokerId().contains("ZERODHA") || ub.userBrokerId().contains("ZERO"))
+                    .findFirst();
+
+            String userBrokerId = zerodhaBroker.map(UserBroker::userBrokerId).orElse("UBZERO01");
+
+            UserBrokerSession session = oauthService.handleOAuthCallback(requestToken, userBrokerId);
+
+            // Reconnect
+            reconnectDataBrokerAndSetupTickStream(session.userBrokerId());
+
+            // Redirect to frontend
+            exchange.setStatusCode(302);
+            exchange.getResponseHeaders().put(Headers.LOCATION,
+                    "http://localhost:4000/admin/dashboard?status=connected");
+            exchange.endExchange();
+
+        } catch (Exception e) {
+            log.error("Zerodha callback error: {}", e.getMessage(), e);
+            exchange.setStatusCode(302);
+            exchange.getResponseHeaders().put(Headers.LOCATION, "http://localhost:4000/admin/brokers?error="
+                    + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8));
+            exchange.endExchange();
         }
     }
 
