@@ -147,12 +147,17 @@ public final class PostgresUserBrokerRepository implements UserBrokerRepository 
                 LIMIT 1
                 """;
 
+        log.debug("[findDataBroker] Executing query...");
         try (Connection conn = dataSource.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
 
             if (rs.next()) {
-                return Optional.of(mapRow(rs));
+                UserBroker ub = mapRow(rs);
+                log.info("[findDataBroker] Found: {} (connected={})", ub.userBrokerId(), ub.connected());
+                return Optional.of(ub);
+            } else {
+                log.warn("[findDataBroker] No DATA broker found matching criteria");
             }
 
         } catch (Exception e) {

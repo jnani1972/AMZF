@@ -87,7 +87,7 @@ public class BrokerOAuthService {
      * Generate OAuth URL for Fyers.
      */
     private String generateFyersOAuthUrl(UserBroker userBroker) {
-        String userBrokerId = userBroker.id();
+        String userBrokerId = userBroker.userBrokerId();
         JsonNode credentials = userBroker.credentials();
 
         // Support both apiKey/apiSecret and appId/secretId formats
@@ -115,7 +115,7 @@ public class BrokerOAuthService {
      * Generate OAuth URL for Zerodha Kite.
      */
     private String generateZerodhaOAuthUrl(UserBroker userBroker) {
-        String userBrokerId = userBroker.id();
+        String userBrokerId = userBroker.userBrokerId();
         JsonNode credentials = userBroker.credentials();
 
         if (!credentials.has("apiKey")) {
@@ -169,7 +169,7 @@ public class BrokerOAuthService {
      * Handle Fyers OAuth callback.
      */
     private UserBrokerSession handleFyersCallback(String authCode, UserBroker userBroker) {
-        String userBrokerId = userBroker.id();
+        String userBrokerId = userBroker.userBrokerId();
         UserBrokerSession session = null;
 
         JsonNode credentials = userBroker.credentials();
@@ -195,7 +195,7 @@ public class BrokerOAuthService {
      * Handle Zerodha OAuth callback.
      */
     private UserBrokerSession handleZerodhaCallback(String requestToken, UserBroker userBroker) {
-        String userBrokerId = userBroker.id();
+        String userBrokerId = userBroker.userBrokerId();
         JsonNode credentials = userBroker.credentials();
 
         if (!credentials.has("apiKey") || !credentials.has("apiSecret")) {
@@ -280,33 +280,6 @@ public class BrokerOAuthService {
 
     // Kept to avoid breaking references for now, effectively replaced by logic
     // above
-    private void unusedHelper() {
-
-        // Create session
-        Instant validTill = Instant.now().plus(24, ChronoUnit.HOURS); // Fyers tokens valid for 24 hours
-        String sessionId = "SESSION_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
-        UserBrokerSession session = UserBrokerSession.create(
-                sessionId,
-                userBrokerId,
-                accessToken,
-                validTill);
-
-        // Revoke any existing active sessions
-        Optional<UserBrokerSession> existingSession = sessionRepo.findActiveSession(userBrokerId);
-        if (existingSession.isPresent()) {
-            UserBrokerSession revoked = existingSession.get().withStatus(UserBrokerSession.SessionStatus.REVOKED);
-            sessionRepo.update(revoked);
-            log.info("Revoked existing session {} for user_broker={}", existingSession.get().sessionId(), userBrokerId);
-        }
-
-        // Save new session
-        sessionRepo.insert(session);
-
-        log.info("Created new session {} for user_broker={}, valid till {}", sessionId, userBrokerId, validTill);
-
-        return session;
-    }
 
     /**
      * Exchange Fyers auth code for access token.

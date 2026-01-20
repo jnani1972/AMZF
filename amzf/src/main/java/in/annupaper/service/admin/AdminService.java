@@ -1486,10 +1486,16 @@ public final class AdminService {
             } else if (connected) {
                 brokerMessage = "Ready to download instruments & stream ticks";
             }
+
+            log.info("[getSystemStatus] UserBroker: {} | connected={} | brokerName={}",
+                    ub.userBrokerId(), ub.connected(), brokerName);
         }
 
         SystemStatusDTO.BrokerStatus brokerStatus = new SystemStatusDTO.BrokerStatus(
                 brokerName, brokerUserId, userBrokerId, connected, brokerMessage);
+
+        log.info("[getSystemStatus] BrokerStatus created: name={}, connected={}, message={}",
+                brokerName, connected, brokerMessage);
 
         // 2. Readiness
         boolean historicalReady = true;

@@ -77,6 +77,7 @@ public final class ApiHandlers {
     private final MtfBackfillService mtfBackfillService;
     private final in.annupaper.application.port.output.SignalRepository signalRepo;
     private final in.annupaper.application.port.output.TradeRepository tradeRepo;
+    private final in.annupaper.application.port.output.CandleRepository candleRepo;
 
     // Old constructor
     // public ApiHandlers(TradeEventRepository eventRepo, Function<String, String>
@@ -97,7 +98,8 @@ public final class ApiHandlers {
             RecoveryManager recoveryManager,
             MtfBackfillService mtfBackfillService,
             in.annupaper.application.port.output.SignalRepository signalRepo,
-            in.annupaper.application.port.output.TradeRepository tradeRepo) {
+            in.annupaper.application.port.output.TradeRepository tradeRepo,
+            in.annupaper.application.port.output.CandleRepository candleRepo) {
         this.eventRepo = eventRepo;
         this.tokenValidator = tokenValidator;
         this.jwtService = jwtService;
@@ -115,6 +117,7 @@ public final class ApiHandlers {
         this.mtfBackfillService = mtfBackfillService;
         this.signalRepo = signalRepo;
         this.tradeRepo = tradeRepo;
+        this.candleRepo = candleRepo;
     }
 
     /**
@@ -151,10 +154,67 @@ public final class ApiHandlers {
             in.annupaper.domain.model.BrokerAdapter adapter = brokerFactory.getOrCreate(userBrokerId, brokerCode);
             if (adapter == null || !adapter.isConnected()) {
                 log.warn("[OAUTH] Failed to reconnect data broker: {}", brokerCode);
+
+                // Update UserBroker.connected = false with error
+                in.annupaper.domain.model.UserBroker failedBroker = new in.annupaper.domain.model.UserBroker(
+                        dataBroker.userBrokerId(),
+                        dataBroker.userId(),
+                        dataBroker.brokerId(),
+                        dataBroker.role(),
+                        dataBroker.credentials(),
+                        false, // connected = false
+                        dataBroker.lastConnected(),
+                        "Failed to connect after OAuth", // connectionError
+                        dataBroker.capitalAllocated(),
+                        dataBroker.maxExposure(),
+                        dataBroker.maxPerTrade(),
+                        dataBroker.maxOpenTrades(),
+                        dataBroker.allowedSymbols(),
+                        dataBroker.blockedSymbols(),
+                        dataBroker.allowedProducts(),
+                        dataBroker.maxDailyLoss(),
+                        dataBroker.maxWeeklyLoss(),
+                        dataBroker.cooldownMinutes(),
+                        dataBroker.status(),
+                        dataBroker.enabled(),
+                        dataBroker.createdAt(),
+                        dataBroker.updatedAt(),
+                        dataBroker.deletedAt(),
+                        dataBroker.version());
+                userBrokerRepo.save(failedBroker);
                 return;
             }
 
             log.info("[OAUTH] Data broker {} reconnected successfully", userBrokerId);
+
+            // Update UserBroker.connected = true
+            in.annupaper.domain.model.UserBroker updatedBroker = new in.annupaper.domain.model.UserBroker(
+                    dataBroker.userBrokerId(),
+                    dataBroker.userId(),
+                    dataBroker.brokerId(),
+                    dataBroker.role(),
+                    dataBroker.credentials(),
+                    true, // connected = true
+                    Instant.now(), // lastConnected
+                    null, // clear connectionError
+                    dataBroker.capitalAllocated(),
+                    dataBroker.maxExposure(),
+                    dataBroker.maxPerTrade(),
+                    dataBroker.maxOpenTrades(),
+                    dataBroker.allowedSymbols(),
+                    dataBroker.blockedSymbols(),
+                    dataBroker.allowedProducts(),
+                    dataBroker.maxDailyLoss(),
+                    dataBroker.maxWeeklyLoss(),
+                    dataBroker.cooldownMinutes(),
+                    dataBroker.status(),
+                    dataBroker.enabled(),
+                    dataBroker.createdAt(),
+                    dataBroker.updatedAt(),
+                    dataBroker.deletedAt(),
+                    dataBroker.version());
+            userBrokerRepo.save(updatedBroker);
+            log.info("[OAUTH] Updated UserBroker.connected = true for {}", userBrokerId);
 
             // Get all enabled watchlist symbols
             List<Watchlist> allWatchlists = watchlistRepo.findByUserBrokerId(dataBroker.userBrokerId());
@@ -1345,6 +1405,20 @@ public final class ApiHandlers {
                 wNode.put("tickSize", w.tickSize() != null ? w.tickSize().doubleValue() : 0.05);
                 wNode.put("isCustom", w.isCustom());
                 wNode.put("enabled", w.enabled());
+
+                // Fetch latest DAILY candle close price as LTP (last tick of the day)
+                try {
+                    HistoricalCandle latestDayCandle = candleRepo.findLatest(w.symbol(), TimeframeType.DAILY);
+                    if (latestDayCandle != null) {
+                        wNode.put("lastPrice", latestDayCandle.close().doubleValue());
+                    } else {
+                        wNode.putNull("lastPrice");
+                    }
+                } catch (Exception e) {
+                    log.warn("[WATCHLIST] Failed to fetch latest candle for {}: {}", w.symbol(), e.getMessage());
+                    wNode.putNull("lastPrice");
+                }
+
                 watchlistArray.add(wNode);
             }
 

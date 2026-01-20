@@ -412,9 +412,13 @@ export function BrokerManagement() {
                               onClick={async () => {
                                 try {
                                   // For now assume all disconnected brokers can try OAuth if they have an ID
-                                  const res = await apiClient.get(`${API_ENDPOINTS.ADMIN.BROKERS}/${broker.userBrokerId}/oauth-url`);
-                                  if (res.success && res.oauthUrl) {
-                                    window.location.href = res.oauthUrl;
+                                  // RESPONSE WRAPPER FIX: apiClient returns { success: true, data: { ... } }
+                                  // The backend returns { success: true, oauthUrl: "..." } inside data.
+                                  const res = await apiClient.get<any>(`${API_ENDPOINTS.ADMIN.BROKERS}/${broker.userBrokerId}/oauth-url`);
+
+                                  if (res.success && res.data && res.data.oauthUrl) {
+                                    console.log("Redirecting to OAuth URL:", res.data.oauthUrl);
+                                    window.location.href = res.data.oauthUrl;
                                   } else {
                                     console.error("Failed to get OAuth URL", res);
                                     alert(`Failed to initiate connection: ${res.error || 'Unknown error'}`);

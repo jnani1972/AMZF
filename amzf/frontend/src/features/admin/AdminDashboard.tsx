@@ -61,7 +61,10 @@ export function AdminDashboard() {
     apiClient.get(API_ENDPOINTS.ADMIN.SYSTEM_STATUS)
       .then(res => {
         if (res.success) {
-          setSystemStatus(res.data);
+          // Fix: The response is double-wrapped, access res.data.data instead of res.data
+          const actualData = res.data?.data || res.data;
+          console.log("[AdminDashboard] Broker connected:", actualData?.broker?.connected);
+          setSystemStatus(actualData);
         } else {
           console.error("System Status API Error:", res.error);
           setStatusError(res.error || "Failed to load status");

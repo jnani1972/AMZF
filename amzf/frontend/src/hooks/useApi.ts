@@ -141,6 +141,23 @@ export function useAdminWatchlist() {
 }
 
 /**
+ * Hook to get watchlist templates (admin only)
+ */
+export function useWatchlistTemplates() {
+  return useApi(() => apiClient.getWatchlistTemplates());
+}
+
+/**
+ * Hook to get template symbols (admin only)
+ */
+export function useTemplateSymbols(templateId: string | null) {
+  return useApi(
+    () => (templateId ? apiClient.getTemplateSymbols(templateId) : Promise.resolve({ success: true, data: [] })),
+    [templateId]
+  );
+}
+
+/**
  * Hook to get data broker configuration (admin only)
  */
 export function useDataBroker() {

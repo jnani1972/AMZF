@@ -685,6 +685,61 @@ class ApiClient {
   async getSystemHealth(): Promise<ApiResponse<any>> {
     return this.request<any>('/api/health');
   }
+  // ============================================================================
+  // Watchlist Templates (Admin)
+  // ============================================================================
+
+  /**
+   * Get all active watchlist templates
+   */
+  async getWatchlistTemplates(): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>(API_ENDPOINTS.ADMIN.WATCHLIST_TEMPLATES);
+  }
+
+  /**
+   * Create new watchlist template
+   */
+  async createWatchlistTemplate(data: { templateName: string; description?: string; displayOrder?: number }): Promise<ApiResponse<any>> {
+    return this.request<any>(API_ENDPOINTS.ADMIN.WATCHLIST_TEMPLATES, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete watchlist template
+   */
+  async deleteWatchlistTemplate(templateId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.WATCHLIST_TEMPLATES}/${templateId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get symbols for a template
+   */
+  async getTemplateSymbols(templateId: string): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>(`${API_ENDPOINTS.ADMIN.WATCHLIST_TEMPLATES}/${templateId}/symbols`);
+  }
+
+  /**
+   * Add symbol to template
+   */
+  async addSymbolToTemplate(templateId: string, symbol: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`${API_ENDPOINTS.ADMIN.WATCHLIST_TEMPLATES}/${templateId}/symbols`, {
+      method: 'POST',
+      body: JSON.stringify({ symbol }),
+    });
+  }
+
+  /**
+   * Remove symbol from template
+   */
+  async removeSymbolFromTemplate(symbolId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.WATCHLIST_TEMPLATES}/symbols/${symbolId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 /**

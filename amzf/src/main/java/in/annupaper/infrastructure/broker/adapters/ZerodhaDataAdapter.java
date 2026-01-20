@@ -185,8 +185,11 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                         this.connected = true;
                         log.info("[ZERODHA] Connected successfully - Profile: {}", responseJson.get("data"));
 
-                        // Load instrument master in background
-                        CompletableFuture.runAsync(this::loadInstrumentMaster);
+                        // Load instrument master SYNCHRONOUSLY before returning
+                        // This ensures instruments are available before subscription
+                        log.info("[ZERODHA] Loading instruments before completing connection...");
+                        loadInstrumentMaster();
+                        log.info("[ZERODHA] Instruments loaded, connection complete");
 
                         return ConnectionResult.ofSuccess(sessionToken);
                     } else {
@@ -210,6 +213,8 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     private void loadInstrumentMaster() {
         try {
             log.info("[ZERODHA] Loading instrument master...");
+            log.info("[ZERODHA] API URL: {}/instruments", BASE_URL);
+            log.info("[ZERODHA] Access token: {}", accessToken != null ? maskKey(accessToken) : "NULL");
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(BASE_URL + "/instruments"))
@@ -219,26 +224,44 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("[ZERODHA] Instrument API response code: {}", response.statusCode());
 
             if (response.statusCode() == 200) {
                 // Parse CSV response (instrument_token, exchange_token, tradingsymbol, ...)
                 String[] lines = response.body().split("\n");
                 int count = 0;
+                log.info("[ZERODHA] Parsing {} lines from instrument CSV", lines.length);
 
+                // Log first few lines to understand format
+                if (lines.length > 0) {
+                    log.info("[ZERODHA] CSV Header: {}", lines[0]);
+                }
+                if (lines.length > 1) {
+                    log.info("[ZERODHA] CSV Sample row: {}", lines[1]);
+                }
+
+                int nseCount = 0;
                 for (int i = 1; i < lines.length; i++) { // Skip header
                     String[] fields = lines[i].split(",");
-                    if (fields.length >= 3) {
+                    if (fields.length >= 12) { // Need at least 12 fields to get exchange
                         try {
                             long instrumentToken = Long.parseLong(fields[0].trim());
                             String tradingSymbol = fields[2].trim();
-                            String exchange = fields.length > 3 ? fields[3].trim() : "";
+                            String exchange = fields[11].trim(); // Exchange is at index 11
+
+                            // Log first NSE symbol found for debugging
+                            if ("NSE".equals(exchange) && nseCount == 0) {
+                                log.info("[ZERODHA] Found NSE symbol: {} (token: {})", tradingSymbol, instrumentToken);
+                                nseCount++;
+                            }
 
                             // Store NSE equity symbols only
                             if ("NSE".equals(exchange) && !tradingSymbol.isEmpty()) {
-                                // Remove -EQ suffix if present
+                                // Remove -EQ suffix and add NSE: prefix to match watchlist format
                                 String cleanSymbol = tradingSymbol.replace("-EQ", "");
-                                symbolToToken.put(cleanSymbol, instrumentToken);
-                                tokenToSymbol.put(instrumentToken, cleanSymbol);
+                                String symbolWithPrefix = "NSE:" + cleanSymbol;
+                                symbolToToken.put(symbolWithPrefix, instrumentToken);
+                                tokenToSymbol.put(instrumentToken, symbolWithPrefix);
                                 count++;
                             }
                         } catch (Exception e) {
@@ -249,10 +272,11 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
 
                 log.info("[ZERODHA] ✅ Loaded {} NSE instruments into mapping cache", count);
             } else {
-                log.error("[ZERODHA] Failed to load instruments: HTTP {}", response.statusCode());
+                log.error("[ZERODHA] Failed to load instruments: HTTP {} - {}",
+                    response.statusCode(), response.body().substring(0, Math.min(200, response.body().length())));
             }
         } catch (Exception e) {
-            log.error("[ZERODHA] Error loading instrument master: {}", e.getMessage());
+            log.error("[ZERODHA] Error loading instrument master", e);
         }
     }
 
@@ -617,18 +641,32 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
     /**
      * Process binary tick data from Kite Ticker.
      *
-     * Binary packet format (QUOTE mode):
-     * - 4 bytes: number of packets
+     * Binary packet format (per Kite Connect v3 docs):
+     * - 2 bytes: number of packets
      * - For each packet:
-     * - 2 bytes: packet length
-     * - 4 bytes: instrument_token
-     * - Rest: tick data fields
+     *   - 2 bytes: packet length
+     *   - 4 bytes: instrument token
+     *   - 4 bytes: last traded price (int32, divide by 100 for rupees)
+     *
+     * Mode determined by packet length:
+     * - 8 bytes = LTP mode (token + price only)
+     * - 44 bytes = QUOTE mode (LTP + OHLC + volume)
+     * - 184 bytes = FULL mode (QUOTE + timestamps + market depth)
      */
     private void processBinaryTickData(ByteBuffer buffer) {
         try {
             buffer.order(ByteOrder.BIG_ENDIAN);
 
+            int bufferSize = buffer.remaining();
+            if (bufferSize < 2) {
+                log.warn("[ZERODHA] Buffer too small for tick data: {} bytes", bufferSize);
+                return;
+            }
+
             int numPackets = buffer.getShort() & 0xFFFF;
+            if (numPackets > 0 && numPackets < 100) {
+                log.info("[ZERODHA] Processing {} tick packets ({} bytes)", numPackets, bufferSize);
+            }
 
             for (int i = 0; i < numPackets; i++) {
                 if (buffer.remaining() < 2)
@@ -638,13 +676,16 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                 if (buffer.remaining() < packetLength)
                     break;
 
+                // Instrument token (4 bytes)
                 long instrumentToken = buffer.getInt() & 0xFFFFFFFFL;
 
-                // Tradable flag (1 byte)
-                boolean tradable = (buffer.get() & 0xFF) == 1;
-
-                // Mode (1 byte) - determines which fields are present
-                int mode = buffer.get() & 0xFF;
+                // Determine mode by packet length (8=LTP, 44=QUOTE, 184=FULL)
+                int mode = MODE_LTP;
+                if (packetLength == 44) {
+                    mode = MODE_QUOTE;
+                } else if (packetLength == 184) {
+                    mode = MODE_FULL;
+                }
 
                 // Parse fields based on mode
                 BigDecimal lastPrice = null;
@@ -655,22 +696,20 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                 long volume = 0;
                 long timestamp = System.currentTimeMillis();
 
-                if (mode == MODE_LTP || mode == MODE_QUOTE || mode == MODE_FULL) {
-                    // Last price (4 bytes)
-                    lastPrice = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
-                            RoundingMode.HALF_UP);
-                }
+                // Last price (4 bytes) - present in all modes
+                lastPrice = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
                 if (mode == MODE_QUOTE || mode == MODE_FULL) {
-                    // OHLC + volume
+                    // QUOTE mode additional fields
                     long lastQty = buffer.getInt() & 0xFFFFFFFFL;
                     long avgPrice = buffer.getInt() & 0xFFFFFFFFL;
                     volume = buffer.getInt() & 0xFFFFFFFFL;
                     long buyQty = buffer.getInt() & 0xFFFFFFFFL;
                     long sellQty = buffer.getInt() & 0xFFFFFFFFL;
 
-                    open = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
-                            RoundingMode.HALF_UP);
+                    open = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL)
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     high = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
                             RoundingMode.HALF_UP);
                     low = BigDecimal.valueOf(buffer.getInt() & 0xFFFFFFFFL).divide(BigDecimal.valueOf(100), 2,
@@ -679,10 +718,12 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                             RoundingMode.HALF_UP);
                 }
 
-                // Skip remaining fields for MODE_FULL
-                if (mode == MODE_FULL) {
-                    int remainingBytes = packetLength - 44; // 44 bytes already read
-                    buffer.position(buffer.position() + remainingBytes);
+                // Skip remaining fields for MODE_FULL (timestamps + market depth)
+                if (mode == MODE_FULL && buffer.remaining() > 0) {
+                    int remainingBytes = packetLength - 44; // 44 bytes read (token + LTP + QUOTE fields)
+                    if (remainingBytes > 0 && buffer.remaining() >= remainingBytes) {
+                        buffer.position(buffer.position() + remainingBytes);
+                    }
                 }
 
                 // Find symbol and notify listeners
@@ -691,6 +732,12 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                     List<TickListener> listeners = tickListeners.get(symbol);
                     if (listeners != null && !listeners.isEmpty()) {
                         lastSuccessfulTick.set(System.currentTimeMillis());
+
+                        // Log first tick received to confirm it's working
+                        long currentSuccessTime = lastSuccessfulTick.get();
+                        if (currentSuccessTime - lastSuccessfulTick.get() < 1000) {
+                            log.info("[ZERODHA] ✅ First tick received: {} = {}", symbol, lastPrice);
+                        }
 
                         Tick tick = new Tick(
                                 symbol,
@@ -715,7 +762,7 @@ public class ZerodhaDataAdapter implements BrokerAdapter {
                 }
             }
         } catch (Exception e) {
-            log.warn("[ZERODHA] Failed to process binary tick data: {}", e.getMessage());
+            log.error("[ZERODHA] Failed to process binary tick data", e);
         }
     }
 

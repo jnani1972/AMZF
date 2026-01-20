@@ -531,6 +531,7 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // Tick Stream Subscription & Recovery
         // ═══════════════════════════════════════════════════════════════
+        log.info("[STARTUP] About to call setupTickStreamAndRecovery...");
         setupTickStreamAndRecovery(
                 collectorMode,
                 userBrokerRepo,
@@ -542,6 +543,7 @@ public final class App {
                 recoveryManager,
                 mtfBackfillService,
                 mtfSignalGenerator);
+        log.info("[STARTUP] setupTickStreamAndRecovery completed");
 
         // ═══════════════════════════════════════════════════════════════
         // Scheduler: Time-based candle finalizer
@@ -592,7 +594,7 @@ public final class App {
                     fyersLoginOrchestrator, legacyBrokerFactory, instrumentService,
                     userBrokerRepo, brokerRepo, watchlistRepo, tickCandleBuilder, exitSignalService, recoveryManager,
                     mtfBackfillService,
-                    signalRepo, tradeRepo);
+                    signalRepo, tradeRepo, candleRepo);
             MtfConfigHandler mtfConfigHandler = new MtfConfigHandler(
                     mtfConfigService, tokenValidator);
             AdminConfigHandler adminConfigHandler = new AdminConfigHandler(
@@ -681,6 +683,7 @@ public final class App {
                     .get("/api/monitoring/alerts", monitoringHandler::getAlerts)
                     // Market Watch - accessible to all users
                     .get("/api/market-watch", api::marketWatch)
+                    .get("/zerodha/callback", api::adminZerodhaCallback) // Capture Zerodha redirect
                     .get("/ws", wsHub.websocketHandler())
                     .setFallbackHandler(exchange -> {
                         exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain; charset=utf-8");
@@ -740,11 +743,9 @@ public final class App {
         // ═══════════════════════════════════════════════════════════════
         // IMPORTANT: Runs AFTER server started (so callback endpoint works)
         // In collector mode: OAuth still needed for FYERS connection
-        if (!collectorMode) {
-            checkTokensAndAutoLogin(userBrokerRepo, sessionRepo, legacyBrokerFactory, fyersLoginOrchestrator);
-        } else {
-            log.info("[RELAY] Skipping auto-login check (not needed in collector mode)");
-        }
+        // In collector mode: OAuth still needed for FYERS connection
+        // DISABLED AUTO-LOGIN ON STARTUP PER USER REQUEST (Manual Connect Only)
+        log.info("[STARTUP] Auto-login check disabled. Manual broker connection required.");
     }
 
     private static void handleLogin(io.undertow.server.HttpServerExchange exchange, AuthService authService) {
@@ -1019,6 +1020,13 @@ public final class App {
                 log.info("[RELAY] ✓ Relay tick listener subscribed for {} symbols", symbols.size());
             } else {
                 // FULL MODE: Normal operation with all services
+
+                // Start TickRelayServer for frontend WebSocket connections
+                int relayPort = Integer.parseInt(System.getenv().getOrDefault("RELAY_PORT", "7071"));
+                in.annupaper.feedrelay.TickRelayServer relayServer = new in.annupaper.feedrelay.TickRelayServer();
+                relayServer.start(relayPort);
+                log.info("[RELAY] Broadcasting ticks to frontend on ws://0.0.0.0:{}/ticks", relayPort);
+
                 log.info("[TICK STREAM] Subscribing TickCandleBuilder to tick stream...");
                 adapter.subscribeTicks(symbols, tickCandleBuilder);
                 log.info("[TICK STREAM] ✓ TickCandleBuilder subscribed");
@@ -1030,6 +1038,11 @@ public final class App {
                 log.info("[TICK STREAM] Subscribing MtfSignalGenerator to tick stream...");
                 adapter.subscribeTicks(symbols, mtfSignalGenerator);
                 log.info("[TICK STREAM] ✓ MtfSignalGenerator subscribed for near real-time signal analysis");
+
+                // Subscribe RelayBroadcastTickListener for frontend WebSocket streaming
+                log.info("[TICK STREAM] Subscribing RelayBroadcastTickListener for frontend updates...");
+                adapter.subscribeTicks(symbols, new in.annupaper.feedrelay.RelayBroadcastTickListener(relayServer));
+                log.info("[TICK STREAM] ✓ RelayBroadcastTickListener subscribed");
             }
 
             log.info("[TICK STREAM] ════════════════════════════════════════════════════════");
