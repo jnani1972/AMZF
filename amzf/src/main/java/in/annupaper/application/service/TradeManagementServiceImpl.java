@@ -1,11 +1,11 @@
 package in.annupaper.application.service;
 
 import in.annupaper.application.port.input.TradeManagementService;
+import in.annupaper.application.port.output.BrokerProvider;
 import in.annupaper.application.port.output.SignalRepository;
 import in.annupaper.application.port.output.TradeRepository;
 import in.annupaper.application.port.output.UserBrokerRepository;
 import in.annupaper.domain.model.*;
-import in.annupaper.infrastructure.broker.BrokerAdapterFactory;
 import in.annupaper.service.core.EventService;
 import in.annupaper.application.service.BrickMovementTracker;
 import in.annupaper.service.trade.TradeClassifier;
@@ -55,7 +55,7 @@ public final class TradeManagementServiceImpl implements TradeManagementService 
     private final UserBrokerRepository userBrokerRepo;
 
     // Providers (read-only services)
-    private final BrokerAdapterFactory brokerFactory;
+    private final BrokerProvider brokerProvider;
     private final EventService eventService;
     private final BrickMovementTracker brickTracker;
 
@@ -66,7 +66,7 @@ public final class TradeManagementServiceImpl implements TradeManagementService 
             TradeRepository tradeRepo,
             SignalRepository signalRepo,
             UserBrokerRepository userBrokerRepo,
-            BrokerAdapterFactory brokerFactory,
+            BrokerProvider brokerProvider,
             EventService eventService,
             BrickMovementTracker brickTracker) {
         this.coordinator = new TradeCoordinator();
@@ -75,7 +75,7 @@ public final class TradeManagementServiceImpl implements TradeManagementService 
         this.tradeRepo = tradeRepo;
         this.signalRepo = signalRepo;
         this.userBrokerRepo = userBrokerRepo;
-        this.brokerFactory = brokerFactory;
+        this.brokerProvider = brokerProvider;
         this.eventService = eventService;
         this.brickTracker = brickTracker;
 
@@ -281,8 +281,8 @@ public final class TradeManagementServiceImpl implements TradeManagementService 
             return;
         }
 
-        // Get broker adapter
-        BrokerAdapter broker = brokerFactory.getOrCreate(
+        // Get broker adapter using BrokerProvider interface
+        BrokerAdapter broker = brokerProvider.getAdapter(
                 intent.userBrokerId(),
                 userBroker.brokerId());
 

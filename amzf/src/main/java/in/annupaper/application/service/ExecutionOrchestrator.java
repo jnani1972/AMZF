@@ -30,6 +30,7 @@ public final class ExecutionOrchestrator {
     private final Function<String, ValidationService.UserContext> userContextProvider;
     private final SignalDeliveryRepository signalDeliveryRepo;
     private final SignalRepository signalRepo;
+    private final in.annupaper.application.port.input.TradeManagementService tradeManagementService;
 
     // Executor for parallel validation
     private final ExecutorService executor = Executors.newFixedThreadPool(
@@ -47,7 +48,8 @@ public final class ExecutionOrchestrator {
             EventService eventService,
             Function<String, ValidationService.UserContext> userContextProvider,
             SignalDeliveryRepository signalDeliveryRepo,
-            SignalRepository signalRepo) {
+            SignalRepository signalRepo,
+            in.annupaper.application.port.input.TradeManagementService tradeManagementService) {
         this.tradeIntentRepo = tradeIntentRepo;
         this.userBrokerRepo = userBrokerRepo;
         this.validationService = validationService;
@@ -55,6 +57,7 @@ public final class ExecutionOrchestrator {
         this.userContextProvider = userContextProvider;
         this.signalDeliveryRepo = signalDeliveryRepo;
         this.signalRepo = signalRepo;
+        this.tradeManagementService = tradeManagementService;
     }
 
     /**
@@ -186,6 +189,11 @@ public final class ExecutionOrchestrator {
 
             log.debug("Processed delivery {}: intent {} ({})",
                     delivery.deliveryId(), intentId, result.passed() ? "APPROVED" : "REJECTED");
+
+            // ✅ P0-E: Forward APPROVED intent to TradeManagementService
+            if (intent.validationPassed()) {
+                tradeManagementService.onIntentApproved(intent);
+            }
 
             return intent;
 

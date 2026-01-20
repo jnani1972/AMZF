@@ -710,9 +710,7 @@ public final class SignalManagementServiceImpl implements SignalManagementServic
         payload.put("symbol", signal.symbol());
         payload.put("direction", signal.direction().name());
 
-        // TODO: Use eventService.emitToUser() when available
-        // For now, use global with userId filter
-        eventService.emitGlobal(EventType.SIGNAL_GENERATED, payload, "SMS");
+        eventService.emitUser(EventType.SIGNAL_GENERATED, userId, payload, "SMS");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

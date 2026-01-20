@@ -468,12 +468,12 @@ public final class SignalService {
                                         analysis.confluenceScore(), analysis.confluenceStrength(), adjustedKelly);
 
                         // Generate and process the signal
-                        Signal signal = generateAndProcess(input);
-                        log.info("AUTO-SIGNAL GENERATED: {} {} @ {} (score={}, strength={}, kelly={})",
-                                        signal.signalId(), symbol, currentPrice, analysis.confluenceScore(),
+                        generateAndProcess(input);
+                        log.info("AUTO-SIGNAL GENERATED request sent: {} @ {} (score={}, strength={}, kelly={})",
+                                        symbol, currentPrice, analysis.confluenceScore(),
                                         analysis.confluenceStrength(), adjustedKelly);
 
-                        return signal;
+                        return null; // Signals are processed asynchronously
 
                 } catch (Exception e) {
                         log.error("Failed to analyze and generate signal for {}: {}", symbol, e.getMessage());

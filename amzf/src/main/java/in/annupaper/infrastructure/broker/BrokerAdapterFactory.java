@@ -11,10 +11,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import in.annupaper.application.port.output.BrokerProvider;
+
 /**
  * Factory for creating and managing broker adapters.
+ * Implements BrokerProvider to serve the Application Layer (Ports & Adapters).
  */
-public final class BrokerAdapterFactory {
+public final class BrokerAdapterFactory implements BrokerProvider {
     private static final Logger log = LoggerFactory.getLogger(BrokerAdapterFactory.class);
 
     // Cached adapter instances per user-broker
@@ -161,6 +164,11 @@ public final class BrokerAdapterFactory {
      */
     public BrokerAdapter get(String userBrokerId) {
         return adapterCache.get(userBrokerId);
+    }
+
+    @Override
+    public BrokerAdapter getAdapter(String userBrokerId, String brokerCode) {
+        return getOrCreate(userBrokerId, brokerCode);
     }
 
     /**

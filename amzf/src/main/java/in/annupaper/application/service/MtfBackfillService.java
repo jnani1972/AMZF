@@ -4,6 +4,7 @@ import in.annupaper.service.candle.HistoryBackfiller;
 import in.annupaper.service.candle.CandleAggregator;
 import in.annupaper.domain.model.TimeframeType;
 import in.annupaper.application.port.output.WatchlistRepository;
+import in.annupaper.application.port.output.MtfConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +29,7 @@ public final class MtfBackfillService {
     private final HistoryBackfiller historyBackfiller;
     private final CandleAggregator candleAggregator;
     private final WatchlistRepository watchlistRepo;
+    private final MtfConfigRepository mtfConfigRepo;
 
     // Trading hours per day (9:15 AM to 3:30 PM = 6.25 hours)
     private static final double TRADING_HOURS_PER_DAY = 6.25;
@@ -35,10 +37,12 @@ public final class MtfBackfillService {
     public MtfBackfillService(
             HistoryBackfiller historyBackfiller,
             CandleAggregator candleAggregator,
-            WatchlistRepository watchlistRepo) {
+            WatchlistRepository watchlistRepo,
+            MtfConfigRepository mtfConfigRepo) {
         this.historyBackfiller = historyBackfiller;
         this.candleAggregator = candleAggregator;
         this.watchlistRepo = watchlistRepo;
+        this.mtfConfigRepo = mtfConfigRepo;
     }
 
     /**
@@ -53,10 +57,31 @@ public final class MtfBackfillService {
 
         Instant now = Instant.now();
 
-        // Calculate backfill start time for HTF (175 candles of 125-min)
-        // 175 candles × 125 min = 21,875 minutes = ~364 hours
-        // At 6.25 hours/day = 58 trading days (use 60 to be safe)
-        Instant htfStart = now.minus(60, ChronoUnit.DAYS);
+        // Fetch global config
+        in.annupaper.domain.model.MtfGlobalConfig config = mtfConfigRepo.getGlobalConfig().orElse(null);
+
+        // Calculate backfill start time for HTF
+        // neededMinutes = htfCandleCount * htfCandleMinutes
+        int reqCandles = config != null ? config.htfCandleCount() : 175; // Default safe fallback
+        int candleMins = config != null ? config.htfCandleMinutes() : 125;
+
+        long totalMinutesNeeded = (long) reqCandles * candleMins;
+
+        // Convert to trading days: minutes / (6.25 * 60)
+        double minutesPerDay = TRADING_HOURS_PER_DAY * 60;
+        double tradingDaysNeeded = totalMinutesNeeded / minutesPerDay;
+
+        // Convert to calendar days (approx ~1.45 factor for weekends + buffer)
+        // Using 2.0 safety factor to ensure we have enough data
+        long lookbackDays = (long) Math.ceil(tradingDaysNeeded * 2.0);
+
+        if (lookbackDays < 7)
+            lookbackDays = 7; // Minimum 1 week
+
+        log.info("[MTF BACKFILL] Calc lookback: {} candles * {}m = {}m = {:.1f} trading days -> {} calendar days",
+                reqCandles, candleMins, totalMinutesNeeded, tradingDaysNeeded, lookbackDays);
+
+        Instant htfStart = now.minus(lookbackDays, ChronoUnit.DAYS);
 
         try {
             // Step 1: Backfill 1-min candles (used as base for aggregation) - use LTF
