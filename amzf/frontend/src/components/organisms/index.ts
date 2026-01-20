@@ -10,3 +10,4 @@ export * from './OrderPanel';
 export * from './PortfolioSummary';
 export * from './TradeTable';
 export * from './Watchlist';
+export * from './WatchlistHierarchyDiagram';

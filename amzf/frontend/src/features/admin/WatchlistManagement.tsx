@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useAdminWatchlist, useAllUsers, useWatchlistTemplates, useTemplateSymbols } from '../../hooks/useApi';
+import { useAdminWatchlist, useAllUsers, useWatchlistTemplates, useTemplateSymbols, useSelectedWatchlists } from '../../hooks/useApi';
 import { apiClient } from '../../lib/api';
 import { Text } from '../../components/atoms/Text/Text';
 import { Card } from '../../components/atoms/Card/Card';
@@ -18,10 +18,11 @@ import { RefreshCw, PlusCircle, Eye, Trash2, List, Users as UsersIcon, BarChart,
 import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
 import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
 import { SelectedWatchlistsTab } from './SelectedWatchlistsTab';
+import { WatchlistHierarchyDiagram, WatchlistHierarchyData } from '../../components/organisms/WatchlistHierarchyDiagram';
 
 type SortKey = 'symbol' | 'userId' | 'lotSize' | 'tickSize' | 'lastPrice' | 'enabled';
 type SortDirection = 'asc' | 'desc' | null;
-type Tab = 'active' | 'selected' | 'templates';
+type Tab = 'active' | 'selected' | 'templates' | 'hierarchy';
 
 /**
  * Extract sortable value from watchlist item
@@ -346,6 +347,15 @@ export function WatchlistManagement() {
           >
             Templates
           </button>
+          <button
+            className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'hierarchy'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-foreground'
+              }`}
+            onClick={() => setActiveTab('hierarchy')}
+          >
+            Hierarchy
+          </button>
         </div>
 
         {activeTab === 'active' && (
@@ -553,6 +563,8 @@ export function WatchlistManagement() {
             )}
           </div>
         )}
+
+        {activeTab === 'hierarchy' && <HierarchyTab templates={templates || []} />}
       </main>
 
       {/* --- MODALS --- */}
@@ -685,5 +697,79 @@ function TemplateDetailsModal({ templateId, onClose }: { templateId: string; onC
         </Card>
       </div>
     </div>
+  );
+}
+
+/**
+ * Hierarchy Tab - Shows all 4 levels of watchlist hierarchy
+ */
+function HierarchyTab({ templates }: { templates: any[] }) {
+  const { data: selectedWatchlists } = useSelectedWatchlists();
+  const [templateSymbolsData, setTemplateSymbolsData] = useState<Record<string, any[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  // Fetch symbols for all templates
+  useEffect(() => {
+    const fetchAllTemplateSymbols = async () => {
+      setLoading(true);
+      const symbolsMap: Record<string, any[]> = {};
+
+      for (const template of templates) {
+        const response = await apiClient.getTemplateSymbols(template.templateId);
+        if (response.success && response.data) {
+          symbolsMap[template.templateId] = response.data;
+        }
+      }
+
+      setTemplateSymbolsData(symbolsMap);
+      setLoading(false);
+    };
+
+    if (templates.length > 0) {
+      fetchAllTemplateSymbols();
+    } else {
+      setLoading(false);
+    }
+  }, [templates]);
+
+  // Prepare hierarchy data
+  const hierarchyData: WatchlistHierarchyData = {
+    templates: templates.map((t) => ({
+      templateId: t.templateId,
+      templateName: t.templateName,
+      description: t.description,
+      enabled: t.enabled,
+      symbolCount: templateSymbolsData[t.templateId]?.length || 0,
+    })),
+    templateSymbols: templateSymbolsData,
+    selectedWatchlists:
+      selectedWatchlists?.map((s) => ({
+        selectedId: s.selectedId,
+        name: s.name,
+        sourceTemplateId: s.sourceTemplateId,
+        symbolCount: s.symbolCount,
+        enabled: s.enabled,
+      })) || [],
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Spinner size="lg" variant="primary" />
+      </div>
+    );
+  }
+
+  return (
+    <WatchlistHierarchyDiagram
+      data={hierarchyData}
+      mode="admin"
+      onTemplateClick={(templateId) => {
+        console.log('Navigate to template:', templateId);
+      }}
+      onSelectedClick={(selectedId) => {
+        console.log('Navigate to selected:', selectedId);
+      }}
+    />
   );
 }

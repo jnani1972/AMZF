@@ -12,3 +12,4 @@ export * from './PriceCard';
 export * from './SearchBar';
 export * from './SelectedWatchlistCard';
 export * from './StatCard';
+export * from './WatchlistSourceInfo';
