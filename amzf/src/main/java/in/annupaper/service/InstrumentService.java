@@ -126,4 +126,23 @@ public class InstrumentService { // Removed 'final'
     public List<InstrumentSearchResult> search(String query) {
         return instrumentRepo.search(query, 20);
     }
+
+    /**
+     * Check if a symbol exists in the instruments database.
+     *
+     * @param symbol Symbol to check (e.g., "NSE:RELIANCE", "NSE:ICICIBANK")
+     * @return true if symbol exists, false otherwise
+     */
+    public boolean symbolExists(String symbol) {
+        if (symbol == null || symbol.isBlank()) {
+            return false;
+        }
+
+        // Search for exact symbol match
+        List<InstrumentSearchResult> results = instrumentRepo.search(symbol, 10);
+
+        // Check if any result matches the symbol exactly (case-insensitive)
+        return results.stream()
+                .anyMatch(result -> result.symbol().equalsIgnoreCase(symbol));
+    }
 }

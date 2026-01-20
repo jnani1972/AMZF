@@ -740,6 +740,105 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // ============================================================================
+  // Selected Watchlists (Admin)
+  // ============================================================================
+
+  /**
+   * Get all selected watchlists
+   */
+  async getSelectedWatchlists(): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>(API_ENDPOINTS.ADMIN.WATCHLIST_SELECTED);
+  }
+
+  /**
+   * Get symbols for a selected watchlist
+   */
+  async getSelectedWatchlistSymbols(selectedId: string): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>(`${API_ENDPOINTS.ADMIN.WATCHLIST_SELECTED}/${selectedId}/symbols`);
+  }
+
+  /**
+   * Create selected watchlist from template
+   */
+  async createSelectedWatchlist(data: {
+    sourceTemplateId: string;
+    symbols: string[];
+  }): Promise<ApiResponse<{ selectedId: string }>> {
+    return this.request<{ selectedId: string }>(API_ENDPOINTS.ADMIN.WATCHLIST_SELECTED, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update symbols in selected watchlist
+   */
+  async updateSelectedWatchlistSymbols(
+    selectedId: string,
+    symbols: string[]
+  ): Promise<ApiResponse<void>> {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.WATCHLIST_SELECTED}/${selectedId}/symbols`, {
+      method: 'PUT',
+      body: JSON.stringify({ symbols }),
+    });
+  }
+
+  /**
+   * Delete selected watchlist
+   */
+  async deleteSelectedWatchlist(selectedId: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`${API_ENDPOINTS.ADMIN.WATCHLIST_SELECTED}/${selectedId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get merged default watchlist (Level 3)
+   */
+  async getDefaultWatchlist(): Promise<ApiResponse<string[]>> {
+    return this.request<string[]>(API_ENDPOINTS.ADMIN.WATCHLIST_DEFAULT);
+  }
+
+  /**
+   * Batch add symbols to user's watchlist
+   */
+  async batchAddWatchlistSymbols(data: {
+    userBrokerId: string;
+    symbols: string[];
+  }): Promise<ApiResponse<{ added: number; skipped: number; skippedSymbols?: string[] }>> {
+    return this.request<{ added: number; skipped: number; skippedSymbols?: string[] }>(
+      `${API_ENDPOINTS.ADMIN.WATCHLIST}/batch-add`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  /**
+   * Batch delete watchlist items
+   */
+  async batchDeleteWatchlistItems(ids: number[]): Promise<ApiResponse<{ deleted: number }>> {
+    return this.request<{ deleted: number }>(`${API_ENDPOINTS.ADMIN.WATCHLIST}/batch-delete`, {
+      method: 'DELETE',
+      body: JSON.stringify({ ids }),
+    });
+  }
+
+  /**
+   * Batch toggle watchlist items
+   */
+  async batchToggleWatchlistItems(
+    ids: number[],
+    enabled: boolean
+  ): Promise<ApiResponse<{ toggled: number }>> {
+    return this.request<{ toggled: number }>(`${API_ENDPOINTS.ADMIN.WATCHLIST}/batch-toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ ids, enabled }),
+    });
+  }
 }
 
 /**

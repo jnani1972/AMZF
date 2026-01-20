@@ -17,10 +17,11 @@ import { EmptyState } from '../../components/molecules/EmptyState/EmptyState';
 import { RefreshCw, PlusCircle, Eye, Trash2, List, Users as UsersIcon, BarChart, ArrowUp, ArrowDown, ArrowUpDown, Edit2, Layers, FolderPlus, X } from 'lucide-react';
 import { PageHeader } from '../../components/organisms/PageHeader/PageHeader';
 import { SummaryCards } from '../../components/organisms/SummaryCards/SummaryCards';
+import { SelectedWatchlistsTab } from './SelectedWatchlistsTab';
 
 type SortKey = 'symbol' | 'userId' | 'lotSize' | 'tickSize' | 'lastPrice' | 'enabled';
 type SortDirection = 'asc' | 'desc' | null;
-type Tab = 'active' | 'templates';
+type Tab = 'active' | 'selected' | 'templates';
 
 /**
  * Extract sortable value from watchlist item
@@ -295,22 +296,24 @@ export function WatchlistManagement() {
       <main className="container mx-auto p-6 space-y-6">
         <PageHeader
           title="Watchlist Management"
-          description="Manage active watchlists and system templates"
+          description="Manage active watchlists, selected watchlists, and system templates"
           actions={
-            <>
-              <Button variant="secondary" iconLeft={<RefreshCw size={20} />} onClick={refetch}>
-                Refresh
-              </Button>
-              {activeTab === 'active' ? (
-                <Button variant="primary" iconLeft={<PlusCircle size={20} />} onClick={() => setShowAddModal(true)}>
-                  Add Symbol
+            activeTab !== 'selected' ? (
+              <>
+                <Button variant="secondary" iconLeft={<RefreshCw size={20} />} onClick={refetch}>
+                  Refresh
                 </Button>
-              ) : (
-                <Button variant="primary" iconLeft={<FolderPlus size={20} />} onClick={() => setShowAddTemplateModal(true)}>
-                  New Template
-                </Button>
-              )}
-            </>
+                {activeTab === 'active' ? (
+                  <Button variant="primary" iconLeft={<PlusCircle size={20} />} onClick={() => setShowAddModal(true)}>
+                    Add Symbol
+                  </Button>
+                ) : (
+                  <Button variant="primary" iconLeft={<FolderPlus size={20} />} onClick={() => setShowAddTemplateModal(true)}>
+                    New Template
+                  </Button>
+                )}
+              </>
+            ) : undefined
           }
         />
 
@@ -324,6 +327,15 @@ export function WatchlistManagement() {
             onClick={() => setActiveTab('active')}
           >
             Active Watchlists
+          </button>
+          <button
+            className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'selected'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-foreground'
+              }`}
+            onClick={() => setActiveTab('selected')}
+          >
+            Selected Watchlists
           </button>
           <button
             className={`px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'templates'
@@ -498,6 +510,8 @@ export function WatchlistManagement() {
             </Card>
           </>
         )}
+
+        {activeTab === 'selected' && <SelectedWatchlistsTab />}
 
         {activeTab === 'templates' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

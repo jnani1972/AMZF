@@ -301,6 +301,16 @@ public final class AdminService {
         // Strip -EQ suffix if present
         String cleanSymbol = symbol.replace("-EQ", "");
 
+        // Check if symbol already exists for this user-broker (including soft-deleted entries)
+        List<Watchlist> existing = watchlistRepo.findByUserBrokerId(userBrokerId);
+        boolean alreadyExists = existing.stream()
+                .anyMatch(w -> w.symbol().equalsIgnoreCase(cleanSymbol) && w.deletedAt() == null);
+
+        if (alreadyExists) {
+            throw new IllegalArgumentException(
+                    "Symbol already exists in watchlist for user-broker " + userBrokerId + ": " + cleanSymbol);
+        }
+
         // Fetch lot_size and tick_size from instruments table
         Integer lotSize = getLotSizeFromInstruments(BrokerIds.FYERS, cleanSymbol);
         java.math.BigDecimal tickSize = getTickSizeFromInstruments(BrokerIds.FYERS, cleanSymbol);

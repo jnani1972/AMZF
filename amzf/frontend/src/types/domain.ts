@@ -171,6 +171,34 @@ export interface Watchlist {
   updatedAt?: Date;
 }
 
+export interface WatchlistTemplate {
+  templateId: string;
+  templateName: string;
+  description?: string;
+  displayOrder?: number;
+  enabled?: boolean;
+  createdAt?: Date;
+}
+
+export interface WatchlistSelected {
+  selectedId: string;
+  name: string;
+  sourceTemplateId: string;
+  description?: string;
+  enabled?: boolean;
+  createdAt?: Date;
+  symbolCount?: number;
+}
+
+export interface WatchlistTemplateSymbol {
+  id: string;
+  templateId: string;
+  symbol: string;
+  lotSize?: number;
+  tickSize?: number;
+  createdAt?: Date;
+}
+
 export interface MarketData {
   symbol: string;
   ltp: number;

@@ -1586,6 +1586,188 @@ public final class ApiHandlers {
     }
 
     /**
+     * POST /api/admin/watchlist/batch-add - Add multiple symbols to user's watchlist
+     * (admin only).
+     *
+     * Body: { userBrokerId: string, symbols: string[] }
+     */
+    public void adminBatchAddWatchlistSymbols(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth))
+            return;
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+                String userBrokerId = json.get("userBrokerId").asText();
+                ArrayNode symbolsArray = (ArrayNode) json.get("symbols");
+
+                if (symbolsArray == null || symbolsArray.isEmpty()) {
+                    badRequest(ex, "Symbols array is required and cannot be empty");
+                    return;
+                }
+
+                int addedCount = 0;
+                List<String> skipped = new java.util.ArrayList<>();
+
+                for (JsonNode symbolNode : symbolsArray) {
+                    String symbol = symbolNode.asText();
+
+                    try {
+                        // Validate symbol exists
+                        if (!instrumentService.symbolExists(symbol)) {
+                            skipped.add(symbol + " (not found in instruments)");
+                            continue;
+                        }
+
+                        adminService.addWatchlistSymbol(userBrokerId, symbol);
+                        addedCount++;
+                    } catch (IllegalArgumentException e) {
+                        // Duplicate symbol - skip
+                        skipped.add(symbol + " (already exists)");
+                    } catch (Exception e) {
+                        skipped.add(symbol + " (error: " + e.getMessage() + ")");
+                    }
+                }
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put(JSON_SUCCESS, true);
+                response.put(JSON_MESSAGE, String.format("Added %d symbols, skipped %d", addedCount, skipped.size()));
+                response.put("added", addedCount);
+                response.put("skipped", skipped.size());
+
+                if (!skipped.isEmpty()) {
+                    ArrayNode skippedArray = MAPPER.createArrayNode();
+                    skipped.forEach(skippedArray::add);
+                    response.set("skippedSymbols", skippedArray);
+                }
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (Exception e) {
+                log.error("Error batch adding watchlist symbols: {}", e.getMessage(), e);
+                serverError(ex, "Failed to batch add watchlist symbols");
+            }
+        }, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * DELETE /api/admin/watchlist/batch-delete - Delete multiple watchlist items
+     * (admin only).
+     *
+     * Body: { ids: number[] }
+     */
+    public void adminBatchDeleteWatchlistItems(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth))
+            return;
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+                ArrayNode idsArray = (ArrayNode) json.get("ids");
+
+                if (idsArray == null || idsArray.isEmpty()) {
+                    badRequest(ex, "IDs array is required and cannot be empty");
+                    return;
+                }
+
+                int deletedCount = 0;
+                List<String> errors = new java.util.ArrayList<>();
+
+                for (JsonNode idNode : idsArray) {
+                    Long id = idNode.asLong();
+
+                    try {
+                        adminService.deleteWatchlistItem(id);
+                        deletedCount++;
+                    } catch (Exception e) {
+                        errors.add("ID " + id + ": " + e.getMessage());
+                    }
+                }
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put(JSON_SUCCESS, true);
+                response.put(JSON_MESSAGE, String.format("Deleted %d items", deletedCount));
+                response.put("deleted", deletedCount);
+
+                if (!errors.isEmpty()) {
+                    ArrayNode errorsArray = MAPPER.createArrayNode();
+                    errors.forEach(errorsArray::add);
+                    response.set("errors", errorsArray);
+                }
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (Exception e) {
+                log.error("Error batch deleting watchlist items: {}", e.getMessage(), e);
+                serverError(ex, "Failed to batch delete watchlist items");
+            }
+        }, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * POST /api/admin/watchlist/batch-toggle - Toggle enabled status for multiple
+     * items (admin only).
+     *
+     * Body: { ids: number[], enabled: boolean }
+     */
+    public void adminBatchToggleWatchlistItems(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth))
+            return;
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+                ArrayNode idsArray = (ArrayNode) json.get("ids");
+                boolean enabled = json.get("enabled").asBoolean();
+
+                if (idsArray == null || idsArray.isEmpty()) {
+                    badRequest(ex, "IDs array is required and cannot be empty");
+                    return;
+                }
+
+                int toggledCount = 0;
+                List<String> errors = new java.util.ArrayList<>();
+
+                for (JsonNode idNode : idsArray) {
+                    Long id = idNode.asLong();
+
+                    try {
+                        adminService.toggleWatchlistItem(id, enabled);
+                        toggledCount++;
+                    } catch (Exception e) {
+                        errors.add("ID " + id + ": " + e.getMessage());
+                    }
+                }
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put(JSON_SUCCESS, true);
+                response.put(JSON_MESSAGE,
+                        String.format("Toggled %d items to %s", toggledCount, enabled ? "enabled" : "disabled"));
+                response.put("toggled", toggledCount);
+                response.put("enabled", enabled);
+
+                if (!errors.isEmpty()) {
+                    ArrayNode errorsArray = MAPPER.createArrayNode();
+                    errors.forEach(errorsArray::add);
+                    response.set("errors", errorsArray);
+                }
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (Exception e) {
+                log.error("Error batch toggling watchlist items: {}", e.getMessage(), e);
+                serverError(ex, "Failed to batch toggle watchlist items");
+            }
+        }, StandardCharsets.UTF_8);
+    }
+
+    /**
      * GET /api/admin/data-broker - Get system-wide data broker configuration (admin
      * only).
      */
@@ -2456,6 +2638,69 @@ public final class ApiHandlers {
             log.error("Error deleting selected watchlist: {}", e.getMessage(), e);
             serverError(exchange, "Failed to delete selected watchlist");
         }
+    }
+
+    /**
+     * PUT /api/admin/watchlist-selected/{selectedId}/symbols - Update symbols in
+     * selected watchlist (admin only).
+     *
+     * Body: { symbols: string[] }
+     *
+     * Replaces all symbols in the selected watchlist with the provided list.
+     * Auto-syncs to all user-brokers after update.
+     */
+    public void adminUpdateSelectedWatchlistSymbols(HttpServerExchange exchange) {
+        AuthContext auth = authenticateWithRole(exchange);
+        if (!requireAdmin(exchange, auth))
+            return;
+
+        String selectedId = exchange.getAttachment(io.undertow.util.PathTemplateMatch.ATTACHMENT_KEY)
+                .getParameters().get("selectedId");
+
+        exchange.getRequestReceiver().receiveFullString((ex, body) -> {
+            try {
+                JsonNode json = MAPPER.readTree(body);
+                ArrayNode symbolsArray = (ArrayNode) json.get("symbols");
+
+                if (symbolsArray == null || symbolsArray.isEmpty()) {
+                    badRequest(ex, "Symbols array is required and cannot be empty");
+                    return;
+                }
+
+                List<String> symbols = new java.util.ArrayList<>();
+                for (JsonNode symbolNode : symbolsArray) {
+                    String symbol = symbolNode.asText();
+                    symbols.add(symbol);
+
+                    // Validate symbol exists in instruments table
+                    if (!instrumentService.symbolExists(symbol)) {
+                        badRequest(ex, "Symbol not found in instruments: " + symbol);
+                        return;
+                    }
+                }
+
+                // Update selected watchlist symbols
+                adminService.updateSelectedWatchlistSymbols(selectedId, symbols);
+
+                // Auto-sync to all user-brokers after update
+                adminService.syncDefaultToAllUserBrokers();
+
+                ObjectNode response = MAPPER.createObjectNode();
+                response.put(JSON_SUCCESS, true);
+                response.put(JSON_MESSAGE, "Selected watchlist updated successfully and synced to all user-brokers");
+                response.put("symbolsUpdated", symbols.size());
+
+                ex.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json; charset=utf-8");
+                ex.getResponseSender().send(response.toString(), StandardCharsets.UTF_8);
+
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid request to update selected watchlist: {}", e.getMessage());
+                badRequest(ex, e.getMessage());
+            } catch (Exception e) {
+                log.error("Error updating selected watchlist symbols: {}", e.getMessage(), e);
+                serverError(ex, "Failed to update selected watchlist");
+            }
+        }, StandardCharsets.UTF_8);
     }
 
     /**

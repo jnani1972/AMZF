@@ -10,4 +10,5 @@ export * from './FormField';
 export * from './OrderButton';
 export * from './PriceCard';
 export * from './SearchBar';
+export * from './SelectedWatchlistCard';
 export * from './StatCard';

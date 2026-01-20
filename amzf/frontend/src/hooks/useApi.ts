@@ -158,6 +158,30 @@ export function useTemplateSymbols(templateId: string | null) {
 }
 
 /**
+ * Hook to get selected watchlists (admin only)
+ */
+export function useSelectedWatchlists() {
+  return useApi(() => apiClient.getSelectedWatchlists());
+}
+
+/**
+ * Hook to get symbols for a selected watchlist (admin only)
+ */
+export function useSelectedWatchlistSymbols(selectedId: string | null) {
+  return useApi(
+    () => (selectedId ? apiClient.getSelectedWatchlistSymbols(selectedId) : Promise.resolve({ success: true, data: [] })),
+    [selectedId]
+  );
+}
+
+/**
+ * Hook to get default watchlist (admin only)
+ */
+export function useDefaultWatchlist() {
+  return useApi(() => apiClient.getDefaultWatchlist());
+}
+
+/**
  * Hook to get data broker configuration (admin only)
  */
 export function useDataBroker() {
